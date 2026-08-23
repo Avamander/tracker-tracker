@@ -153,6 +153,11 @@ describe("sanitizeNetworkError", () => {
     expect(
       sanitizeNetworkError("Authentication failed. qBittorrent rejected the username and password")
     ).toBe("Credentials rejected by qBittorrent. Check the username and password")
+    expect(
+      sanitizeNetworkError(
+        "Authentication failed — Transmission rejected the username and password"
+      )
+    ).toBe("Credentials rejected by Transmission. Check the username and password")
   })
 
   it("maps a qBittorrent IP ban to a self-clearing ban message, not the tracker one", () => {
