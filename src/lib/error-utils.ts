@@ -31,8 +31,9 @@ export function sanitizeNetworkError(raw: string, fallback = "Connection failed"
   if (/rejected the blank credentials/i.test(raw)) {
     return 'Blank credentials rejected. Enable "Bypass authentication for clients on localhost" in qBittorrent'
   }
-  if (/rejected the username and password/i.test(raw)) {
-    return "Credentials rejected by qBittorrent. Check the username and password"
+  const rejectedBy = raw.match(/(qBittorrent|Transmission) rejected the username and password/i)
+  if (rejectedBy) {
+    return `Credentials rejected by ${rejectedBy[1]}. Check the username and password`
   }
   if (/rejected the API key/i.test(raw)) {
     return "API key rejected by qBittorrent. Check it has not been rotated, and that the server is 5.2.0 or newer"
