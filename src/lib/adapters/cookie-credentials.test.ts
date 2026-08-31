@@ -160,3 +160,37 @@ describe("validateCookieHeader", () => {
     expect(validateCookieHeader(blob, opts)).toBe(blob)
   })
 })
+
+describe("validateCookieHeader control characters", () => {
+  // Regression: CR/LF passed the byte-range guard, fetch() then threw a
+  // TypeError quoting the whole header, and classifyFetchError copied that
+  // message into the log file and the debug endpoint. Verified before the fix:
+  // "Failed to connect to <host>: Headers.append: "PHPSESSID=<secret>\r\nHost:
+  // ..." is an invalid header value."
+  it("rejects a pasted raw request-header block containing CRLF", () => {
+    expect(() =>
+      validateCookieHeader("PHPSESSID=secret\r\nHost: retrotoon.world", { example: "a=b" })
+    ).toThrow(/control character \(U\+000D\) at position 16/)
+  })
+
+  it("rejects a bare newline and a tab", () => {
+    expect(() => validateCookieHeader("a=b\nc=d", { example: "a=b" })).toThrow(/U\+000A/)
+    expect(() => validateCookieHeader("a=b\tc=d", { example: "a=b" })).toThrow(/U\+0009/)
+  })
+
+  it("never echoes the cookie value in the error", () => {
+    let message = ""
+    try {
+      validateCookieHeader("PHPSESSID=SUPERSECRETVALUE\r\nHost: x", { example: "a=b" })
+    } catch (err) {
+      message = (err as Error).message
+    }
+    expect(message).not.toContain("SUPERSECRETVALUE")
+  })
+
+  it("still accepts an ordinary multi-cookie header", () => {
+    expect(
+      validateCookieHeader("cf_clearance=abc; PHPSESSID=def; other=ghi", { example: "a=b" })
+    ).toBe("cf_clearance=abc; PHPSESSID=def; other=ghi")
+  })
+})

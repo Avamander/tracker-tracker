@@ -109,6 +109,25 @@ export function validateCookieHeader(
     )
   }
 
+  // Control characters, CR and LF above all, are never valid in a header value.
+  // They arrive when someone copies a whole raw request-headers block instead of
+  // the one value ("Cookie: a=b\r\nHost: example.com"). This has to be caught
+  // HERE rather than left to fetch(): undici's rejection is a TypeError whose
+  // message quotes the entire offending header, and classifyFetchError copies
+  // that message verbatim, so the user's session cookie would land in the log
+  // file and in the debug endpoint's error field. The error below names the
+  // character by code point and never echoes the value.
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional control-char check
+  const control = trimmed.match(/[\x00-\x1F\x7F]/)
+  if (control) {
+    const code = control[0].codePointAt(0)?.toString(16).toUpperCase().padStart(4, "0")
+    throw new Error(
+      `Cookie string contains a control character (U+${code}) at position ${control.index}. ` +
+        "This usually means a whole block of request headers was copied instead of just the " +
+        'Cookie value. Copy only the value after "Cookie:".'
+    )
+  }
+
   // HTTP headers only allow byte-safe characters (0-255). Non-ASCII chars like
   // ellipsis (U+2026) appear when DevTools truncates long values during copy.
   // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional byte-range check
