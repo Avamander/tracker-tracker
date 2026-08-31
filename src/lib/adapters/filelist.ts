@@ -1,14 +1,14 @@
 // src/lib/adapters/filelist.ts
 //
-// Functions: parseFilelistCredentials, normalizeWhitespace, datePrefix,
-//            tryParseFilelistBytes, parseFilelistProfile, extractUidFromCookies,
-//            extractOwnUserId, fetchHtml, FilelistAdapter
+// Functions: parseFilelistCredentials, parseFilelistProfile,
+//            extractUidFromCookies, extractOwnUserId, fetchHtml,
+//            FilelistAdapter
 
 import { parse as parseHtml } from "node-html-parser"
 import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
-import { parseBytes } from "@/lib/parser"
 import { parseCredentialJson, validateCookieHeader } from "./cookie-credentials"
 import { fetchTrackerHtml } from "./html-fetch"
+import { datePrefix, normalizeWhitespace, tryParseSiteBytes } from "./html-parse"
 import type {
   DebugApiCall,
   FetchOptions,
@@ -58,40 +58,6 @@ export function parseFilelistCredentials(apiToken: string): FilelistCredentials 
 // the owner's account uses English (single-user app).
 // ---------------------------------------------------------------------------
 
-/**
- * Collapses runs of whitespace to single spaces. JS \s matches U+00A0, so the
- * &nbsp; inside labels ("Join&nbsp;date") normalizes to a plain space here.
- */
-function normalizeWhitespace(value: string): string {
-  return value.replace(/\s+/g, " ").trim()
-}
-
-/** `2026-08-20 19:05:17 (1 week ago)` → `2026-08-20`. */
-function datePrefix(value: string): string | undefined {
-  return value.match(/^(\d{4}-\d{2}-\d{2})/)?.[1]
-}
-
-/**
- * parseBytes adapted to FileList's formatting, returning undefined instead of
- * throwing so one odd cell cannot abort the whole profile parse. The site
- * prints "kB" while parseBytes' decimal unit table is case-sensitive
- * (KB/MB/GB/TB), so the unit token is uppercased; grouping commas are
- * stripped from the number. Site figures are 2-decimal approximations, and
- * whether FileList's own math is 1000- or 1024-based is unverifiable on a
- * zero account, so repo precedent (TorrentLeech/IPTorrents feed site strings
- * to parseBytes' decimal units) wins; validate against live figures as the
- * account accrues.
- */
-function tryParseFilelistBytes(value: string): bigint | undefined {
-  const match = value.trim().match(/^([\d,.]+)\s*([A-Za-z]+)$/)
-  if (!match) return undefined
-  try {
-    return parseBytes(`${match[1].replace(/,/g, "")} ${match[2].toUpperCase()}`)
-  } catch {
-    return undefined
-  }
-}
-
 export function parseFilelistProfile(html: string): TrackerStats {
   // Cloudflare first: a challenge body also lacks the logout link, and the
   // specific challenge message must win over the generic session-expired one.
@@ -133,9 +99,9 @@ export function parseFilelistProfile(html: string): TrackerStats {
     const value = normalizeWhitespace(valueCell.textContent ?? "")
 
     if (label === "Uploaded") {
-      uploadedBytes = tryParseFilelistBytes(value) ?? uploadedBytes
+      uploadedBytes = tryParseSiteBytes(value) ?? uploadedBytes
     } else if (label === "Downloaded") {
-      downloadedBytes = tryParseFilelistBytes(value) ?? downloadedBytes
+      downloadedBytes = tryParseSiteBytes(value) ?? downloadedBytes
     } else if (label === "Class") {
       group = value
     } else if (label === "Join date") {
@@ -159,7 +125,7 @@ export function parseFilelistProfile(html: string): TrackerStats {
       )
       if (match) {
         seedingCount = Number.parseInt(match[1].replace(/,/g, ""), 10)
-        const size = tryParseFilelistBytes(match[2])
+        const size = tryParseSiteBytes(match[2])
         // platformMeta is JSON-serialized; bigint does not survive JSON.
         if (size !== undefined) totalSeedSizeBytes = Number(size)
       }
