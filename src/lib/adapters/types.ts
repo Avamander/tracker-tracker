@@ -34,6 +34,7 @@ export interface TrackerStats {
     | HawkePlatformMeta
     | FileListPlatformMeta
     | Unit3dPlatformMeta
+    | RetrotoonPlatformMeta
 }
 
 export interface GGnPlatformMeta {
@@ -216,6 +217,26 @@ export interface Unit3dPlatformMeta {
   apiKeyExpiresAt?: string
 }
 
+/**
+ * RetroToon counts that fit no TrackerStats field. Plain numbers only:
+ * platformMeta is JSON-serialized, and bigint does not survive JSON.
+ */
+export interface RetrotoonPlatformMeta {
+  /** Torrents snatched, from the profile's "Snatchlist (N)" row label. */
+  snatched?: number
+  /** Torrents uploaded, from the profile's "Uploaded (N)" row label. */
+  uploadedTorrents?: number
+  torrentComments?: number
+  forumPosts?: number
+  /** Bonus points earned per hour, from the bonus shop's "Earning Rate" card. */
+  bonusPerHour?: number
+  /**
+   * H&R removal tokens held. A separate currency from `freeleechTokens`: these
+   * clear a hit and run, they do not make a download free.
+   */
+  hnrCleanupTokens?: number
+}
+
 /** Union of all platform-specific metadata types */
 export type PlatformMeta =
   | GGnPlatformMeta
@@ -227,6 +248,7 @@ export type PlatformMeta =
   | HawkePlatformMeta
   | FileListPlatformMeta
   | Unit3dPlatformMeta
+  | RetrotoonPlatformMeta
 
 /** Maps platformType string → the corresponding PlatformMeta variant */
 export interface PlatformMetaMap {
@@ -239,6 +261,7 @@ export interface PlatformMetaMap {
   hawke: HawkePlatformMeta
   filelist: FileListPlatformMeta
   unit3d: Unit3dPlatformMeta
+  retrotoon: RetrotoonPlatformMeta
 }
 
 /**

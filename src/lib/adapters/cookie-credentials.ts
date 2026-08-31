@@ -111,11 +111,10 @@ export function validateCookieHeader(
 
   // Control characters, CR and LF above all, are never valid in a header value.
   // They arrive when someone copies a whole raw request-headers block instead of
-  // the one value ("Cookie: a=b\r\nHost: example.com"). This has to be caught
-  // HERE rather than left to fetch(): undici's rejection is a TypeError whose
-  // message quotes the entire offending header, and classifyFetchError copies
-  // that message verbatim, so the user's session cookie would land in the log
-  // file and in the debug endpoint's error field. The error below names the
+  // the one value. This has to be caught here rather than left to fetch():
+  // undici rejects with a TypeError quoting the entire offending header, and
+  // classifyFetchError copies that message verbatim, so the session cookie would
+  // land in the log file and the debug endpoint. The error below names the
   // character by code point and never echoes the value.
   // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional control-char check
   const control = trimmed.match(/[\x00-\x1F\x7F]/)

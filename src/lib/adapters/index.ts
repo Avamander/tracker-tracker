@@ -12,6 +12,7 @@ import { HawkeAdapter } from "./hawke"
 import { IptorrentsAdapter } from "./iptorrents"
 import { MamAdapter } from "./mam"
 import { NebulanceAdapter } from "./nebulance"
+import { RetrotoonAdapter } from "./retrotoon"
 import { TorrentleechAdapter } from "./torrentleech"
 import type { FetchOptions, TrackerAdapter } from "./types"
 import { Unit3dAdapter } from "./unit3d"
@@ -30,6 +31,7 @@ const adapters: Record<string, TrackerAdapter> = {
   iptorrents: new IptorrentsAdapter(),
   mam: new MamAdapter(),
   nebulance: new NebulanceAdapter(),
+  retrotoon: new RetrotoonAdapter(),
   torrentleech: new TorrentleechAdapter(),
   unit3d: new Unit3dAdapter(),
 }

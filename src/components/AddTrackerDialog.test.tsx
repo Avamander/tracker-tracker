@@ -133,3 +133,52 @@ describe("AddTrackerDialog torrentleech credentials", () => {
     expect(screen.getByLabelText("Alt 2FA Token (optional)")).toHaveValue("")
   })
 })
+
+async function pickRetroToon(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(screen.getByPlaceholderText("Search trackers..."), "RetroToon")
+  await user.keyboard("{Enter}")
+}
+
+describe("AddTrackerDialog retrotoon credentials", () => {
+  it("stores the browser User-Agent alongside the session cookies", async () => {
+    // RetroToon fingerprints the session against the UA that minted the
+    // cookies, so the blob must carry this browser's UA, not a server default.
+    const user = userEvent.setup()
+    render(<AddTrackerDialog open onClose={vi.fn()} onAdded={vi.fn()} />)
+
+    await pickRetroToon(user)
+    await user.type(screen.getByLabelText("Browser Cookies"), "PHPSESSID=abc123")
+    await user.click(screen.getByRole("button", { name: "Add Tracker" }))
+
+    const blob = JSON.parse(JSON.parse(String(createRequest()?.[1]?.body)).apiToken)
+    expect(blob).toEqual({ cookies: "PHPSESSID=abc123", userAgent: navigator.userAgent })
+  })
+
+  it("strips a copied 'Cookie: ' prefix before storing", async () => {
+    const user = userEvent.setup()
+    render(<AddTrackerDialog open onClose={vi.fn()} onAdded={vi.fn()} />)
+
+    await pickRetroToon(user)
+    await user.type(screen.getByLabelText("Browser Cookies"), "Cookie: PHPSESSID=abc123")
+    await user.click(screen.getByRole("button", { name: "Add Tracker" }))
+
+    const blob = JSON.parse(JSON.parse(String(createRequest()?.[1]?.body)).apiToken)
+    expect(blob.cookies).toBe("PHPSESSID=abc123")
+  })
+
+  it("clears the pasted cookies when the dialog is cancelled", async () => {
+    // Regression: the retrotoon field was added without being added to
+    // resetForm, so a closed dialog kept the session cookie in component state
+    // and re-showed it on reopen. Every other cookie platform was cleared.
+    const user = userEvent.setup()
+    const { rerender } = render(<AddTrackerDialog open onClose={vi.fn()} onAdded={vi.fn()} />)
+
+    await pickRetroToon(user)
+    await user.type(screen.getByLabelText("Browser Cookies"), "PHPSESSID=abc123")
+    await user.click(screen.getByRole("button", { name: "Cancel" }))
+
+    rerender(<AddTrackerDialog open onClose={vi.fn()} onAdded={vi.fn()} />)
+    await pickRetroToon(user)
+    expect(screen.getByLabelText("Browser Cookies")).toHaveValue("")
+  })
+})

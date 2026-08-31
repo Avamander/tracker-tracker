@@ -77,6 +77,18 @@ export const PLATFORM_CREDENTIAL_FIELDS: Partial<
     { id: "rss_feed_url", label: "RSS feed URL", secret: false },
   ],
   torrentleech: [{ id: "session_cookie", label: "Session cookie" }, PASSKEY_FIELD],
+  // RetroToon issues three distinct secrets, and the API key is not the one
+  // that polls: it uploads torrents, stats come from the session cookie, and
+  // the passkey signs announce and the Torznab feed.
+  retrotoon: [
+    { id: "session_cookie", label: "Session cookie" },
+    PASSKEY_FIELD,
+    {
+      id: "api_key",
+      label: "Upload API key",
+      hint: "my.php -> API Keys. Uploads only, it cannot read stats",
+    },
+  ],
   // `custom` is deliberately absent. It falls through to the universal fallback,
   // which is the only honest default for a tracker we know nothing about.
 }

@@ -238,6 +238,7 @@ function AddTrackerDialog({
   const [dcCookies, setDcCookies] = useState("")
   const [iptCookies, setIptCookies] = useState("")
   const [flCookies, setFlCookies] = useState("")
+  const [rtCookies, setRtCookies] = useState("")
   const [tlUsername, setTlUsername] = useState("")
   const [tlPassword, setTlPassword] = useState("")
   const [tlAlt2FAToken, setTlAlt2FAToken] = useState("")
@@ -259,6 +260,7 @@ function AddTrackerDialog({
     setDcCookies("")
     setIptCookies("")
     setFlCookies("")
+    setRtCookies("")
     // Drive-by: the TorrentLeech fields were never cleared here, so a closed
     // dialog kept the password in memory and re-showed it on reopen. Adding a
     // third secret without fixing that would have made it worse.
@@ -296,6 +298,7 @@ function AddTrackerDialog({
     setDcCookies("")
     setIptCookies("")
     setFlCookies("")
+    setRtCookies("")
   }
 
   const availablePresets = useMemo(() => {
@@ -366,6 +369,17 @@ function AddTrackerDialog({
         next.apiToken =
           'You pasted a cookie name, not the value. Copy the entire string after "Cookie:" in the request headers.'
       }
+    } else if (selectedEntry?.platform === "retrotoon") {
+      const trimmed = rtCookies.trim().replace(/^Cookie:\s*/i, "")
+      if (!trimmed) {
+        next.apiToken = "Browser cookies are required"
+      } else if (!trimmed.includes("=")) {
+        next.apiToken =
+          "This doesn't look like a cookie string. It should contain key=value pairs (i.e. PHPSESSID=abc123)"
+      } else if (/^(cf_clearance|PHPSESSID|uid|pass|remember_web_\w+|XSRF-TOKEN)$/i.test(trimmed)) {
+        next.apiToken =
+          'You pasted a cookie name, not the value. Copy the entire string after "Cookie:" in the request headers.'
+      }
     } else if (selectedEntry?.platform === "torrentleech") {
       if (!tlUsername.trim()) {
         next.apiToken = "Username is required"
@@ -394,6 +408,7 @@ function AddTrackerDialog({
     const isDigitalCore = selectedEntry?.platform === "digitalcore"
     const isIptorrents = selectedEntry?.platform === "iptorrents"
     const isFilelist = selectedEntry?.platform === "filelist"
+    const isRetrotoon = selectedEntry?.platform === "retrotoon"
     const isTorrentleech = selectedEntry?.platform === "torrentleech"
     let effectiveApiToken = apiToken
 
@@ -427,6 +442,13 @@ function AddTrackerDialog({
       // that minted the cookies, so send this browser's own UA.
       effectiveApiToken = JSON.stringify({
         cookies: flCookies.trim().replace(/^Cookie:\s*/i, ""),
+        userAgent: navigator.userAgent,
+      })
+    } else if (isRetrotoon) {
+      // Same rule as FileList: the session is fingerprinted against the UA that
+      // minted the cookies, so send this browser's own UA.
+      effectiveApiToken = JSON.stringify({
+        cookies: rtCookies.trim().replace(/^Cookie:\s*/i, ""),
         userAgent: navigator.userAgent,
       })
     } else if (isTorrentleech) {
@@ -660,6 +682,29 @@ function AddTrackerDialog({
               </Notice>
             )}
           </div>
+        ) : selectedEntry?.platform === "retrotoon" ? (
+          <div className="flex flex-col gap-1">
+            <AreaInput
+              label="Browser Cookies"
+              tooltip="RetroToon's API key only uploads torrents, so stats are read from your logged-in session. Open DevTools (F12) → Network → any request to the site → copy the full Cookie header value."
+              docs={DOCS.ADDING_A_TRACKER}
+              id="tracker-rt-cookies"
+              name="tracker-rt-cookies"
+              autoComplete="off"
+              data-1p-ignore
+              value={rtCookies}
+              onChange={(e) => setRtCookies(e.target.value)}
+              placeholder="PHPSESSID=abc123def456..."
+              rows={3}
+            />
+            <Notice message={errors.apiToken} />
+            {testResult && (
+              <Notice variant="success">
+                Connected as <span className="font-semibold">{testResult.username}</span>
+                {testResult.group ? ` (${testResult.group})` : ""}
+              </Notice>
+            )}
+          </div>
         ) : selectedEntry?.platform === "torrentleech" ? (
           <div className="flex flex-col gap-3">
             <Input
@@ -783,7 +828,8 @@ function AddTrackerDialog({
           selectedEntry.platform !== "ggn" &&
           selectedEntry.platform !== "avistaz" &&
           selectedEntry.platform !== "digitalcore" &&
-          selectedEntry.platform !== "filelist" && (
+          selectedEntry.platform !== "filelist" &&
+          selectedEntry.platform !== "retrotoon" && (
             <Input
               label="Join Date (optional)"
               type="date"

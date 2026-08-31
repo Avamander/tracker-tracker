@@ -124,6 +124,7 @@ function TrackerSettingsSheet({ open, tracker, onClose, onUpdated }: TrackerSett
   const [editDcCookies, setEditDcCookies] = useState("")
   const [editIptCookies, setEditIptCookies] = useState("")
   const [editFlCookies, setEditFlCookies] = useState("")
+  const [editRtCookies, setEditRtCookies] = useState("")
   const [editTlUsername, setEditTlUsername] = useState("")
   const [editTlPassword, setEditTlPassword] = useState("")
   const [editTlAlt2FAToken, setEditTlAlt2FAToken] = useState("")
@@ -140,6 +141,7 @@ function TrackerSettingsSheet({ open, tracker, onClose, onUpdated }: TrackerSett
     setEditDcCookies("")
     setEditIptCookies("")
     setEditFlCookies("")
+    setEditRtCookies("")
     setEditTlUsername("")
     setEditTlPassword("")
     setEditTlAlt2FAToken("")
@@ -192,6 +194,13 @@ function TrackerSettingsSheet({ open, tracker, onClose, onUpdated }: TrackerSett
       } else if (!trimmed.includes("=")) {
         validationErrors.apiToken = "Cookie string must contain key=value pairs"
       }
+    } else if (changingKey && tracker.platformType === "retrotoon") {
+      const trimmed = editRtCookies.trim().replace(/^Cookie:\s*/i, "")
+      if (!trimmed) {
+        validationErrors.apiToken = "Browser cookies are required"
+      } else if (!trimmed.includes("=")) {
+        validationErrors.apiToken = "Cookie string must contain key=value pairs"
+      }
     } else if (changingKey && tracker.platformType === "torrentleech") {
       if (!editTlUsername.trim() || !editTlPassword) {
         validationErrors.apiToken = "Username and password are required"
@@ -229,6 +238,11 @@ function TrackerSettingsSheet({ open, tracker, onClose, onUpdated }: TrackerSett
     } else if (changingKey && tracker.platformType === "filelist") {
       trimmedToken = JSON.stringify({
         cookies: editFlCookies.trim().replace(/^Cookie:\s*/i, ""),
+        userAgent: navigator.userAgent,
+      })
+    } else if (changingKey && tracker.platformType === "retrotoon") {
+      trimmedToken = JSON.stringify({
+        cookies: editRtCookies.trim().replace(/^Cookie:\s*/i, ""),
         userAgent: navigator.userAgent,
       })
     } else if (changingKey && tracker.platformType === "torrentleech") {
@@ -566,6 +580,34 @@ function TrackerSettingsSheet({ open, tracker, onClose, onUpdated }: TrackerSett
                   }}
                 />
               </div>
+            ) : changingKey && tracker.platformType === "retrotoon" ? (
+              <div className="flex flex-col gap-2">
+                <AreaInput
+                  label="Browser Cookies"
+                  tooltip="Open DevTools (F12) → Network → any request to RetroToon → copy the full Cookie header value."
+                  docs={DOCS.ADDING_A_TRACKER}
+                  id="edit-rt-cookies"
+                  name="edit-rt-cookies"
+                  autoComplete="off"
+                  data-1p-ignore
+                  value={editRtCookies}
+                  onChange={(e) => setEditRtCookies(e.target.value)}
+                  placeholder="PHPSESSID=abc123def456..."
+                  rows={3}
+                />
+                <Notice message={errors.apiToken} />
+                <Button
+                  variant="minimal"
+                  size="sm"
+                  text="Cancel"
+                  className="self-start"
+                  onClick={() => {
+                    setChangingKey(false)
+                    setEditRtCookies("")
+                    setErrors({})
+                  }}
+                />
+              </div>
             ) : changingKey ? (
               <div className="flex flex-col gap-2">
                 <Input
@@ -634,7 +676,8 @@ function TrackerSettingsSheet({ open, tracker, onClose, onUpdated }: TrackerSett
             tracker.platformType === "digitalcore" ||
             tracker.platformType === "filelist" ||
             tracker.platformType === "iptorrents" ||
-            tracker.platformType === "torrentleech"
+            tracker.platformType === "torrentleech" ||
+            tracker.platformType === "retrotoon"
           ) && (
             <div>
               <label
