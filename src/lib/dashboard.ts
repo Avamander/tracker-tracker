@@ -12,6 +12,7 @@ import {
   checkZeroSeeding,
 } from "@/lib/tracker-events"
 import { resolveRequiredRatio } from "@/lib/tracker-status"
+import { compareVersions } from "@/lib/version"
 import type { Snapshot, TrackerSummary } from "@/types/api"
 
 // ---------------------------------------------------------------------------
@@ -326,8 +327,9 @@ export interface SystemAlertData {
 export function computeSystemAlerts(data: SystemAlertData): DashboardAlert[] {
   const alerts: DashboardAlert[] = []
 
-  // Update available
-  if (data.latestVersion && data.latestVersion !== data.currentVersion) {
+  // Update available. A semver compare rather than inequality, so a build
+  // running ahead of the latest GitHub Release is not offered the older one.
+  if (data.latestVersion && compareVersions(data.currentVersion, data.latestVersion) > 0) {
     alerts.push({
       key: `update-available-${data.latestVersion}`,
       type: "update-available",

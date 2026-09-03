@@ -969,6 +969,17 @@ describe("computeSystemAlerts", () => {
     expect(result.find((a) => a.type === "update-available")).toBeUndefined()
   })
 
+  it("does not generate update-available alert when the running build is ahead of the latest release", () => {
+    const result = computeSystemAlerts({
+      latestVersion: "2.10.0",
+      currentVersion: "2.11.0",
+      failedBackups: [],
+      clients: [],
+      snapshotRetentionDays: 365,
+    })
+    expect(result.find((a) => a.type === "update-available")).toBeUndefined()
+  })
+
   it("does not generate update-available alert when latestVersion is absent", () => {
     const result = computeSystemAlerts({
       currentVersion: "1.0.0",

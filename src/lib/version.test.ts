@@ -1,7 +1,7 @@
-// src/hooks/useUpdateCheck.test.ts
+// src/lib/version.test.ts
 
 import { describe, expect, it } from "vitest"
-import { compareVersions } from "./useUpdateCheck"
+import { compareVersions } from "./version"
 
 describe("compareVersions", () => {
   it("returns 0 for equal versions", () => {
