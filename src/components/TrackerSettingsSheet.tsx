@@ -416,9 +416,9 @@ function TrackerSettingsSheet({ open, tracker, onClose, onUpdated }: TrackerSett
             error={errors.baseUrl}
           />
 
-          {/* API Key. Show status or change input. */}
+          {/* Credentials. Show the masked status or the change input. */}
           <div className="flex flex-col gap-1">
-            <H2 className="uppercase tracking-wider">API Key</H2>
+            <H2 className="uppercase tracking-wider">Credentials</H2>
             {changingKey && tracker.platformType === "avistaz" ? (
               <div className="flex flex-col gap-2">
                 <Input

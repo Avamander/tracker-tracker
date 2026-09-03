@@ -257,6 +257,12 @@ describe("TrackerSettingsSheet digitalcore credentials", () => {
     baseUrl: "https://digitalcore.club",
   }
 
+  it("labels the credential section Credentials rather than API Key", () => {
+    renderSheet({ tracker: DC_TRACKER })
+    expect(screen.getByText("Credentials")).toBeInTheDocument()
+    expect(screen.queryByText("API Key")).not.toBeInTheDocument()
+  })
+
   it("persists the browser User-Agent when the cookies are changed", async () => {
     const user = userEvent.setup()
     patchResult = jsonResponse(DC_TRACKER)
