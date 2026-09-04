@@ -50,16 +50,20 @@ export function parseDigitalCoreCredentials(apiToken: string): DigitalCoreCreden
   if (!trimmedUid) throw new Error("DigitalCore credentials: uid cannot be empty")
   if (!trimmedPass) throw new Error("DigitalCore credentials: pass cannot be empty")
 
-  // Guard against header injection via cookie values
-  const unsafeChars = /[;\r\n]/
+  // Header injection guard. NUL, CR, and LF make undici throw a TypeError that
+  // quotes the whole Cookie header, which reaches the log and the debug
+  // endpoint; the rest of the control range is rejected without the value but
+  // is kept off the wire all the same.
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional control-char check
+  const unsafeChars = /[;\x00-\x1F\x7F]/
   if (unsafeChars.test(trimmedUid)) {
     throw new Error(
-      "DigitalCore credentials: uid contains invalid characters (semicolons or newlines)"
+      "DigitalCore credentials: uid contains invalid characters (a semicolon or a control character)"
     )
   }
   if (unsafeChars.test(trimmedPass)) {
     throw new Error(
-      "DigitalCore credentials: pass contains invalid characters (semicolons or newlines)"
+      "DigitalCore credentials: pass contains invalid characters (a semicolon or a control character)"
     )
   }
 

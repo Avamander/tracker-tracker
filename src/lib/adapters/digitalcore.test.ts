@@ -167,6 +167,23 @@ describe("parseDigitalCoreCredentials", () => {
     expect(() => parseDigitalCoreCredentials(json)).toThrow("invalid characters")
   })
 
+  it("throws when uid contains a NUL, without echoing the value", () => {
+    const json = JSON.stringify({ uid: "543\u000021", pass: "abc123xyz" })
+    expect(() => parseDigitalCoreCredentials(json)).toThrow("invalid characters")
+    expect(() => parseDigitalCoreCredentials(json)).not.toThrow("543")
+  })
+
+  it("throws when pass contains an escape character (injection guard)", () => {
+    const json = JSON.stringify({ uid: "54321", pass: "abc\u001bxyz" })
+    expect(() => parseDigitalCoreCredentials(json)).toThrow("invalid characters")
+    expect(() => parseDigitalCoreCredentials(json)).not.toThrow("xyz")
+  })
+
+  it("throws when pass contains DEL, the top of the control range", () => {
+    const json = JSON.stringify({ uid: "54321", pass: "abc\u007fxyz" })
+    expect(() => parseDigitalCoreCredentials(json)).toThrow("invalid characters")
+  })
+
   it("throws on a JSON array instead of object", () => {
     expect(() => parseDigitalCoreCredentials('["uid", "pass"]')).toThrow()
   })

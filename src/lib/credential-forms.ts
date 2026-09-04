@@ -323,6 +323,8 @@ export function credentialFormForPlatform(platform: string): CredentialForm {
 
 const UID_COOKIE = /(?:^|;\s*)uid=([^;]+)/
 const PASS_COOKIE = /(?:^|;\s*)pass=([^;]+)/
+// biome-ignore lint/suspicious/noControlCharactersInRegex: intentional control-char check
+const CONTROL_CHAR = /[\x00-\x1F\x7F]/
 
 /** Same normalization the adapters apply, so the stored value round-trips. */
 function cleanCookies(cookies: string): string {
@@ -366,6 +368,10 @@ export function validateCredentialValues(
       }
       if (!PASS_COOKIE.test(trimmed)) {
         return "Cookie string is missing pass value. Paste the full Cookie header from DevTools."
+      }
+      // Same guard the adapter applies before it builds the Cookie header.
+      if (CONTROL_CHAR.test(trimmed)) {
+        return "Cookie values contain a control character. Paste the full Cookie header from DevTools."
       }
       return null
     }

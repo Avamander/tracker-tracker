@@ -218,4 +218,13 @@ describe("validateCredentialValues cookie hygiene", () => {
       validateCredentialValues(CREDENTIAL_FORMS.filelist, values({ cookies: "uid=1; pass=abc…" }))
     ).toContain("non-ASCII")
   })
+
+  it("rejects a control character inside a digitalcore uid or pass before submit", () => {
+    expect(
+      validateCredentialValues(
+        CREDENTIAL_FORMS.digitalcore,
+        values({ cookies: "uid=54\u000021; pass=abc" })
+      )
+    ).toBe("Cookie values contain a control character. Paste the full Cookie header from DevTools.")
+  })
 })
