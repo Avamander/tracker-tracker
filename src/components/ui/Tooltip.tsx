@@ -11,9 +11,15 @@ interface TooltipProps {
   children: ReactNode
   className?: string
   docs?: DocsEntry
+  /**
+   * "bottom" (default) opens under the trigger. "right" opens beside it, for
+   * triggers stacked vertically: a popup under one would cover the ones
+   * below and, since the popup keeps itself open on hover, trap the cursor.
+   */
+  side?: "bottom" | "right"
 }
 
-function Tooltip({ content, children, className, docs }: TooltipProps) {
+function Tooltip({ content, children, className, docs, side = "bottom" }: TooltipProps) {
   const [visible, setVisible] = useState(false)
   const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
   const triggerRef = useRef<HTMLSpanElement>(null)
@@ -43,9 +49,13 @@ function Tooltip({ content, children, className, docs }: TooltipProps) {
   useLayoutEffect(() => {
     if (!visible || !triggerRef.current) return
     const rect = triggerRef.current.getBoundingClientRect()
-    setPos({ top: rect.bottom + 6, left: rect.left })
+    setPos(
+      side === "right"
+        ? { top: rect.top, left: rect.right + 6 }
+        : { top: rect.bottom + 6, left: rect.left }
+    )
     portalTarget.current = triggerRef.current.closest("dialog") ?? document.body
-  }, [visible])
+  }, [visible, side])
 
   const resolvedTarget =
     portalTarget.current ?? (typeof document !== "undefined" ? document.body : null)

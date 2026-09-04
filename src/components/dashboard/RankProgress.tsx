@@ -8,6 +8,7 @@ import { SectionToggle } from "@/components/ui/SectionToggle"
 import type { TrackerUserClass } from "@/data/tracker-registry"
 import { hexToRgba } from "@/lib/color-utils"
 import { isRedacted } from "@/lib/privacy"
+import { findClassIndex } from "@/lib/rank-ladder"
 import { checkAnniversaryMilestone } from "@/lib/tracker-events"
 import type { Snapshot } from "@/types/api"
 
@@ -73,8 +74,8 @@ function classifyDirection(
   userClasses: TrackerUserClass[]
 ): "promotion" | "demotion" | "unknown" {
   if (userClasses.length === 0) return "unknown"
-  const fromIdx = userClasses.findIndex((uc) => uc.name.toLowerCase() === from.toLowerCase())
-  const toIdx = userClasses.findIndex((uc) => uc.name.toLowerCase() === to.toLowerCase())
+  const fromIdx = findClassIndex(userClasses, from)
+  const toIdx = findClassIndex(userClasses, to)
   if (fromIdx === -1 || toIdx === -1) return "unknown"
   return toIdx > fromIdx ? "promotion" : "demotion"
 }
@@ -82,9 +83,7 @@ function classifyDirection(
 function RankProgressBar({ userClasses, currentRank, accentColor }: RankProgressBarProps) {
   if (userClasses.length === 0 || !currentRank || isRedacted(currentRank)) return null
 
-  const currentIndex = userClasses.findIndex(
-    (uc) => uc.name.toLowerCase() === currentRank.toLowerCase()
-  )
+  const currentIndex = findClassIndex(userClasses, currentRank)
 
   return (
     <div className="flex items-center gap-1 w-full overflow-x-auto p-3 -m-3 styled-scrollbar">

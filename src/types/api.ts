@@ -128,6 +128,7 @@ export interface QbitmanageTagConfig {
 export interface DashboardSettings {
   showHealthIndicators: boolean
   showLoginTimers: boolean
+  showRankStacks: boolean
   showTodayAtAGlance: boolean
   /** When false, WebGL charts are swapped for 2D substitutes. Defaults to true. */
   enable3DCharts: boolean
@@ -206,6 +207,7 @@ export type DayRange = 0 | 1 | 7 | 30 | 90 | 365
 export const DASHBOARD_SETTINGS_DEFAULTS: DashboardSettings = {
   showHealthIndicators: true,
   showLoginTimers: true,
+  showRankStacks: true,
   showTodayAtAGlance: true,
   enable3DCharts: true,
   showOutageBands: true,
