@@ -264,6 +264,15 @@ describe("classifyFetchError", () => {
     expect(result.message).toBe("Failed to connect to avistaz.to: fetch failed")
   })
 
+  it("never copies a bare TypeError message other than fetch failed, since undici quotes the header in it", () => {
+    const err = new TypeError(
+      'Headers.append: "uid=1; pass=SECRETHASH" is an invalid header value.'
+    )
+    const result = classifyFetchError(err, host)
+    expect(result.message).toBe("Failed to connect to avistaz.to: TypeError")
+    expect(result.message).not.toContain("SECRETHASH")
+  })
+
   it("unwraps string cause from TypeError", () => {
     const err = new TypeError("fetch failed", { cause: "connect ECONNREFUSED 10.0.0.1:443" })
     const result = classifyFetchError(err, host)

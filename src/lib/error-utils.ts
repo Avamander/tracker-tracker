@@ -124,11 +124,13 @@ export function classifyFetchError(err: unknown, hostname: string): Error {
   if (effective?.code) {
     return new Error(`Failed to connect to ${hostname}: ${effective.code}`)
   }
-  // Use inner cause message if available. For the outer error, only use
-  // message from TypeError (always "fetch failed", safe). Other error messages
-  // may contain URLs with embedded API tokens, so fall back to name only.
-  const detail =
-    inner?.message || (err instanceof TypeError ? effective?.message : null) || name || "Unknown"
+  // Use the inner cause message if there is one. A bare TypeError is trusted
+  // only when it says exactly "fetch failed": undici's header validation throws
+  // a TypeError with no cause that quotes the whole header value, so any other
+  // message falls back to the name.
+  const outerMessage =
+    err instanceof TypeError && effective?.message === "fetch failed" ? effective.message : null
+  const detail = inner?.message || outerMessage || name || "Unknown"
   return new Error(`Failed to connect to ${hostname}: ${detail}`)
 }
 
