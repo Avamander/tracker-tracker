@@ -26,6 +26,14 @@ export interface AggregateStats {
   avgRatio: number | null
   totalSeeding: number
   totalLeeching: number
+  // Hit & runs are summed only over trackers whose adapter reports the count.
+  // Seeding and leeching read a missing value as zero; this one must not, or a
+  // fleet where nothing reports the field shows "0" and reads as clean. The
+  // reporter count is what lets the card tell unknown from a measured zero.
+  totalHitAndRuns: number
+  hitAndRunReportingTrackers: number
+  /** Trackers with at least one hit & run, highest count first. */
+  trackersWithHitAndRuns: { name: string; count: number }[]
 }
 
 export const VALID_ALERT_TYPES = new Set([
@@ -65,16 +73,27 @@ export function computeAggregateStats(trackers: TrackerSummary[]): AggregateStat
   let totalDownloaded = BigInt(0)
   let totalSeeding = 0
   let totalLeeching = 0
+  let totalHitAndRuns = 0
+  let hitAndRunReportingTrackers = 0
+  const trackersWithHitAndRuns: AggregateStats["trackersWithHitAndRuns"] = []
 
   for (const tracker of trackers) {
     if (!tracker.latestStats) continue
-    const { uploadedBytes, downloadedBytes, seedingCount, leechingCount } = tracker.latestStats
+    const { uploadedBytes, downloadedBytes, seedingCount, leechingCount, hitAndRuns } =
+      tracker.latestStats
 
     totalUploaded += uploadedBytes ? BigInt(uploadedBytes) : BigInt(0)
     totalDownloaded += downloadedBytes ? BigInt(downloadedBytes) : BigInt(0)
     totalSeeding += seedingCount ?? 0
     totalLeeching += leechingCount ?? 0
+
+    if (hitAndRuns != null) {
+      hitAndRunReportingTrackers++
+      totalHitAndRuns += hitAndRuns
+      if (hitAndRuns > 0) trackersWithHitAndRuns.push({ name: tracker.name, count: hitAndRuns })
+    }
   }
+  trackersWithHitAndRuns.sort((a, b) => b.count - a.count)
 
   const totalBuffer = totalUploaded - totalDownloaded
   const avgRatio =
@@ -87,6 +106,9 @@ export function computeAggregateStats(trackers: TrackerSummary[]): AggregateStat
     avgRatio,
     totalSeeding,
     totalLeeching,
+    totalHitAndRuns,
+    hitAndRunReportingTrackers,
+    trackersWithHitAndRuns,
   }
 }
 

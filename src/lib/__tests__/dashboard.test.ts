@@ -372,6 +372,60 @@ describe("computeAggregateStats", () => {
 })
 
 // ---------------------------------------------------------------------------
+// computeAggregateStats: hit & runs
+// ---------------------------------------------------------------------------
+
+describe("computeAggregateStats hit & runs", () => {
+  function withHitAndRuns(id: number, name: string, hitAndRuns: number | null): TrackerSummary {
+    const base = makeTracker({ id, name })
+    if (!base.latestStats) throw new Error("makeTracker default carries latestStats")
+    return { ...base, latestStats: { ...base.latestStats, hitAndRuns } }
+  }
+
+  it("sums only the trackers that report the field and lists hits highest first", () => {
+    // Insertion order is deliberately not count order, so the sort is exercised.
+    const trackers = [
+      withHitAndRuns(1, "Blutopia", 1),
+      withHitAndRuns(2, "MyAnonamouse", 0),
+      withHitAndRuns(3, "BTN", null),
+      withHitAndRuns(4, "Aither", 2),
+      withHitAndRuns(5, "Nebulance", 3),
+    ]
+    const result = computeAggregateStats(trackers)
+    expect(result.totalHitAndRuns).toBe(6)
+    expect(result.hitAndRunReportingTrackers).toBe(4)
+    expect(result.trackersWithHitAndRuns).toEqual([
+      { name: "Nebulance", count: 3 },
+      { name: "Aither", count: 2 },
+      { name: "Blutopia", count: 1 },
+    ])
+  })
+
+  it("reports zero reporting trackers when no tracker carries the field", () => {
+    const trackers = [withHitAndRuns(1, "BTN", null), makeTracker({ id: 2, latestStats: null })]
+    const result = computeAggregateStats(trackers)
+    expect(result.totalHitAndRuns).toBe(0)
+    expect(result.hitAndRunReportingTrackers).toBe(0)
+    expect(result.trackersWithHitAndRuns).toEqual([])
+  })
+
+  it("distinguishes a measured zero from unknown", () => {
+    const trackers = [withHitAndRuns(1, "Aither", 0), withHitAndRuns(2, "Blutopia", 0)]
+    const result = computeAggregateStats(trackers)
+    expect(result.totalHitAndRuns).toBe(0)
+    expect(result.hitAndRunReportingTrackers).toBe(2)
+    expect(result.trackersWithHitAndRuns).toEqual([])
+  })
+
+  it("returns empty hit & run stats for an empty fleet", () => {
+    const result = computeAggregateStats([])
+    expect(result.totalHitAndRuns).toBe(0)
+    expect(result.hitAndRunReportingTrackers).toBe(0)
+    expect(result.trackersWithHitAndRuns).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------
 // computeAlerts
 // ---------------------------------------------------------------------------
 
