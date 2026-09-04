@@ -80,10 +80,23 @@ function validateMamId(token: string): string {
       throw new Error("MAM session cookie value is empty after stripping mam_id= prefix")
   }
 
-  // Block header injection characters
-  if (/[;\r\n]/.test(trimmed)) {
+  // Header injection guard. NUL, CR, and LF make undici throw a TypeError that
+  // quotes the whole Cookie header; the rest of the control range is rejected
+  // without the value but is kept off the wire all the same.
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional control-char check
+  if (/[;\x00-\x1F\x7F]/.test(trimmed)) {
     throw new Error(
-      "MAM session cookie (mam_id) contains invalid characters (semicolons or newlines)"
+      "MAM session cookie (mam_id) contains invalid characters (a semicolon or a control character)"
+    )
+  }
+  // A non-ASCII character is a DevTools truncation mark, never part of a mam_id.
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional byte-range check
+  const nonAscii = trimmed.match(/[^\x00-\xFF]/)
+  if (nonAscii) {
+    const code = nonAscii[0].codePointAt(0)?.toString(16).toUpperCase().padStart(4, "0")
+    throw new Error(
+      `MAM session cookie (mam_id) contains a non-ASCII character ("${nonAscii[0]}", U+${code}) at position ${nonAscii.index}. ` +
+        "This usually means the browser truncated the value when copying. Re-copy it from DevTools."
     )
   }
   return trimmed

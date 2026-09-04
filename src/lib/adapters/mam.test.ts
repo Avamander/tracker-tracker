@@ -283,6 +283,19 @@ describe("MamAdapter - mam_id validation", () => {
     ).rejects.toThrow("invalid characters")
   })
 
+  it("throws when token contains a NUL, without echoing the value", async () => {
+    const call = () =>
+      adapter.fetchStats("https://www.myanonamouse.net", "abc\u0000def", "/jsonLoad.php")
+    await expect(call()).rejects.toThrow("invalid characters")
+    await expect(call()).rejects.not.toThrow("abc")
+  })
+
+  it("names a non-ASCII character left by a truncated copy, never the value", async () => {
+    const call = () => adapter.fetchStats("https://www.myanonamouse.net", "abc…", "/jsonLoad.php")
+    await expect(call()).rejects.toThrow(/non-ASCII character \("…", U\+2026\) at position 3/)
+    await expect(call()).rejects.not.toThrow("abc")
+  })
+
   it("allows non-hex characters in session cookies", async () => {
     vi.spyOn(global, "fetch").mockResolvedValueOnce({
       ok: true,
