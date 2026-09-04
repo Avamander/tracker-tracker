@@ -46,7 +46,12 @@ function describeFetchError(err: unknown): string {
   if (err instanceof Error) {
     const code = "code" in err ? (err as NodeJS.ErrnoException).code : undefined
     if (code) return code
-    if (err.message && err.message !== "fetch failed") return err.message
+    // A bare TypeError from fetch is either the useless "fetch failed" or
+    // undici's header validation, which quotes the header and so the API key.
+    // Neither message is worth logging; the name is.
+    if (err instanceof TypeError)
+      return err.message === "fetch failed" ? "Unknown network error" : err.name
+    if (err.message) return err.message
   }
 
   return "Unknown network error"
