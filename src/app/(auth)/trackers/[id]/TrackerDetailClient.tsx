@@ -369,6 +369,9 @@ export function TrackerDetailClient({
       />
 
       <TrackerSettingsSheet
+        // Remount per tracker: the sheet holds one credential slot for every
+        // platform, so without this a paste typed for one tracker would still
+        // be in the textarea when the next tracker's sheet opens.
         key={tracker.id}
         open={showSettings}
         tracker={tracker}
