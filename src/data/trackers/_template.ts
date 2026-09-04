@@ -64,7 +64,9 @@ export const mytracker: TrackerRegistryEntry = {
   statusPageUrl: "", // external status page URL. "" if none
 
   // ── Community ───────────────────────────────────────────────────────
-  userClasses: [], // [{ name: "Power User", requirements: "Upload ≥ 100 GiB" }]
+  // Lowest to highest. Flag staff/donor classes outsideLadder: "above" and
+  // demotion/administrative states "below"; unset means earned by stats.
+  userClasses: [], // [{ name: "Power User", requirements: "Upload ≥ 100 GiB" }, { name: "Uploader", requirements: "Staff", outsideLadder: "above" }]
   releaseGroups: [], // [{ name: "GrpName", description: "Encodes" }] or ["GrpName"]
   bannedGroups: [], // ["GroupName"]. Groups explicitly banned by the tracker
   notableMembers: [], // ["handle"]. Notable community figures

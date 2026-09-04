@@ -225,6 +225,16 @@ describe("tracker registry", () => {
           ).toBe(false)
         })
 
+        it("lists each user class once, with a stack-safe ladder", () => {
+          const names = tracker.userClasses.map((c) => c.name.toLowerCase())
+          expect(new Set(names).size).toBe(names.length)
+          // A ladder whose every class is flagged drops the tracker from the
+          // Ranks section with no signal, which is always a flagging mistake.
+          if (tracker.userClasses.length > 0) {
+            expect(tracker.userClasses.some((c) => !c.outsideLadder)).toBe(true)
+          }
+        })
+
         it("has no duplicate content categories", () => {
           const seen = new Set<string>()
           const dupes = tracker.contentCategories.filter((c: string) => {
@@ -346,5 +356,22 @@ describe("tracker registry", () => {
       }
       console.warn("──────────────────────────────────────────────────────\n")
     }
+  })
+})
+
+describe("TorrentLeech ladder", () => {
+  it("carries the six wiki classes with VIP as the only one above the ladder", () => {
+    const tl = getTrackerBySlug("torrentleech")
+    expect(tl?.userClasses.map((c) => c.name)).toEqual([
+      "Registered",
+      "Power User",
+      "Super User",
+      "Extreme User",
+      "TL GOD",
+      "VIP",
+    ])
+    expect(tl?.userClasses.filter((c) => c.outsideLadder === "above").map((c) => c.name)).toEqual([
+      "VIP",
+    ])
   })
 })

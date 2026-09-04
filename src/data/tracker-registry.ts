@@ -32,6 +32,17 @@ export interface TrackerUserClass {
   requirements?: string
   perks?: RankPerk[]
   icon?: string
+  /**
+   * Set on classes that are not rungs of the earned progression; the
+   * dashboard rank stacks leave them out. "above": granted by staff, donation
+   * or invitation, so a member holding one shows a full stack under that
+   * name. "below": a ratio demotion or an administrative state such as Banned
+   * or Validating, so a member holding one shows an empty stack under that
+   * name. Unset means the class is reached by stats. LST's Leech is its entry
+   * class, not a demotion, which is why the field is set per entry rather
+   * than inferred from the name.
+   */
+  outsideLadder?: "above" | "below"
 }
 
 export interface TrackerRules {

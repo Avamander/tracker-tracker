@@ -472,15 +472,27 @@ interface TrackerUserClass {
   requirements?: string // what it takes to reach this class
   perks?: RankPerk[] // structured perks (optional, rarely populated)
   icon?: string // path to an icon (optional)
+  outsideLadder?: "above" | "below" // see below; leave unset for classes earned by stats
 }
 ```
 
 For most trackers, `name` and `requirements` are enough. Write `requirements` as a human-readable summary. Hit the key numeric thresholds (upload, ratio, account age, seed count) without being exhaustive.
 
+List classes lowest to highest. The dashboard's Ranks section draws the list as a stack, one rung per class earned by stats, lit up to the member's current class. Flag everything else with `outsideLadder` or it is drawn as a rung nobody can reach:
+
+- `"above"` for classes granted by staff, donation or invitation (Uploader, Trustee, VIP by donation, anything bought mid-ladder). A member holding one shows a full stack under that name.
+- `"below"` for ratio demotions and administrative states (Leech, Banned, Validating, Parked). A member holding one shows an empty stack under that name.
+
+Only flag a bottom class when it is a penalty. LST's "Leech" is its entry class and stays unflagged.
+
 ```typescript
 // From aither.ts, upload-based progression
 userClasses: [
-  { name: "Leech", requirements: "Ratio below 0.4 — download privileges revoked" },
+  {
+    name: "Leech",
+    requirements: "Ratio below 0.4 — download privileges revoked",
+    outsideLadder: "below",
+  },
   { name: "Phobos", requirements: "Ratio ≥ 0.4. 4 download slots" },
   {
     name: "Zeus",
@@ -489,7 +501,11 @@ userClasses: [
   },
   // ...
   // Staff-assigned ranks follow community ranks
-  { name: "Uploader", requirements: "Staff — role model uploader. Freeleech, H&R immune" },
+  {
+    name: "Uploader",
+    requirements: "Staff — role model uploader. Freeleech, H&R immune",
+    outsideLadder: "above",
+  },
 ]
 ```
 

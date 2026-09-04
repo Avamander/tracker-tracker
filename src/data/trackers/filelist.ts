@@ -54,7 +54,11 @@ export const filelist: TrackerRegistryEntry = {
       name: "Elite",
       requirements: "4 years registered, 4 TB upload, ratio > 5.00. Demoted below 4.00",
     },
-    { name: "VIP", requirements: "Awarded. Fixed minimum ratio 2, exempt from hit & run rules" },
+    {
+      name: "VIP",
+      requirements: "Awarded. Fixed minimum ratio 2, exempt from hit & run rules",
+      outsideLadder: "above",
+    },
   ],
   releaseGroups: [],
   bannedGroups: [],
