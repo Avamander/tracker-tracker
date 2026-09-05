@@ -1,6 +1,7 @@
 // src/components/dashboard/RankProgress.tsx
 "use client"
 
+import clsx from "clsx"
 import { useState } from "react"
 import { CHART_THEME } from "@/components/charts/lib/theme"
 import { RedactedText } from "@/components/ui/RedactedText"
@@ -104,7 +105,19 @@ function RankProgressBar({ userClasses, currentRank, accentColor }: RankProgress
               />
             )}
             <div
-              className="px-3 py-1.5 text-xs font-mono transition-all duration-150 shrink-0 rounded-nm-pill"
+              // The full list stays visible here, unlike the dashboard stacks,
+              // so a class that is not a rung has to look different from one that is.
+              className={clsx(
+                "px-3 py-1.5 text-xs font-mono transition-all duration-150 shrink-0 rounded-nm-pill",
+                uc.outsideLadder && "opacity-60"
+              )}
+              title={
+                uc.outsideLadder === "above"
+                  ? "Granted by staff, donation or invitation, not a rung of the ladder"
+                  : uc.outsideLadder === "below"
+                    ? "Demotion or administrative state, not a rung of the ladder"
+                    : undefined
+              }
               style={{
                 ...(isCurrent
                   ? {

@@ -110,11 +110,11 @@ export function buildCoreStatDescriptors(
       key: "hnr",
       label: "Hit & Runs",
       icon: <TriangleWarningIcon width="16" height="16" />,
-      // A count of nothing is zero, not unknown: once a snapshot exists, "no
-      // hit & runs recorded" is the good outcome and must read "0". Only the
-      // absence of any snapshot is genuinely unknown, hence the gate rather
-      // than a bare `?? 0` (which slot-registry.ts uses for the same field).
-      value: latestSnapshot ? formatCount(latestSnapshot.hitAndRuns ?? 0) : "—",
+      // Adapters that cannot read hit & runs store null, and null must not
+      // read as a clean "0". The dashboard's Ecosystem card applies the same
+      // rule. MAM's health slot keeps its `?? 0` because it sums the count
+      // into a torrent-health total, where a missing count must add nothing.
+      value: latestSnapshot?.hitAndRuns != null ? formatCount(latestSnapshot.hitAndRuns) : "—",
     },
     {
       key: "req-ratio",
