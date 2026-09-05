@@ -1,8 +1,9 @@
 // src/components/dashboard/RankStacks.tsx
 "use client"
 
+import clsx from "clsx"
 import { useRouter } from "next/navigation"
-import { RedactedText } from "@/components/ui/RedactedText"
+import { REDACTED_NOTE, RedactedText } from "@/components/ui/RedactedText"
 import { SectionToggle } from "@/components/ui/SectionToggle"
 import { Tooltip } from "@/components/ui/Tooltip"
 import { findRegistryEntry } from "@/data/tracker-registry"
@@ -10,6 +11,16 @@ import { hexToRgba } from "@/lib/color-utils"
 import { isRedacted } from "@/lib/privacy"
 import { buildRankLadder, type RankLadder } from "@/lib/rank-ladder"
 import type { TrackerSummary } from "@/types/api"
+
+// Every stack is the same height, so rung thickness is what varies with the
+// ladder. The longest earned ladder in the registry is 11 rungs; at this
+// height and gap each of those is still about 6px tall.
+const STACK_CLASS = "flex flex-col-reverse gap-[2px] h-24 w-9"
+const RUNG_CLASS = "flex-1 rounded-[2px] transition-colors duration-150"
+const LIT_ALPHA = 0.45
+const GHOST_ALPHA = 0.1
+const GLOW = "0 0 8px"
+const GLOW_ALPHA = 0.5
 
 interface StackEntry {
   tracker: TrackerSummary
@@ -24,70 +35,94 @@ interface RankStacksProps {
   onToggleExpanded: () => void
 }
 
+// One tooltip per stack rather than per rung: a popup under a rung covered
+// the rungs beneath it, and rung spans are not focusable, so this is also the
+// only way the requirements reach keyboard users.
+function RungList({ ladder, color }: { ladder: RankLadder; color: string }) {
+  const { rungs, currentIndex, appointedClass, unknownClass, shownClass, summary } = ladder
+  return (
+    <span className="block w-56 max-h-[70vh] overflow-y-auto">
+      {appointedClass && (
+        <span className="block mb-1 font-semibold" style={{ color }}>
+          {appointedClass}, above the ladder
+        </span>
+      )}
+      {unknownClass && <span className="block mb-1 text-warn">{summary}</span>}
+      {isRedacted(shownClass) && <span className="block mb-1 text-muted">{REDACTED_NOTE}</span>}
+      {/* Highest first, mirroring the stack. A class above the ladder lights
+          the top rung but is not that rung, so it gets no "(you)". */}
+      {[...rungs].reverse().map((rung, i) => {
+        const index = rungs.length - 1 - i
+        const isCurrent = !appointedClass && index === currentIndex
+        return (
+          <span key={rung.name} className="block py-0.5">
+            <span
+              className={isCurrent ? "font-semibold" : "text-secondary"}
+              style={isCurrent ? { color } : undefined}
+            >
+              {rung.name}
+              {isCurrent ? " (you)" : ""}
+            </span>
+            {rung.requirements && <span className="block text-muted">{rung.requirements}</span>}
+          </span>
+        )
+      })}
+    </span>
+  )
+}
+
 function RankStack({ tracker, ladder, onOpen }: StackEntry & { onOpen: () => void }) {
-  const { rungs, currentIndex, appointedClass } = ladder
+  const { rungs, currentIndex, unknownClass, shownClass, summary } = ladder
   const lit = currentIndex + 1
-  // An unknown class name still gets shown under the stack: the tracker said
-  // it, the registry just has no rung for it. Redacted names render as blocks.
-  const shownClass =
-    appointedClass ?? (currentIndex >= 0 ? rungs[currentIndex].name : tracker.latestStats?.group)
-  // aria-label replaces the button's content as its accessible name, so the
-  // class has to be repeated here or a screen reader never hears it.
-  const spokenClass =
-    shownClass == null ? "unknown class" : isRedacted(shownClass) ? "class redacted" : shownClass
-  const accessibleName = appointedClass
-    ? `${tracker.name}: ${appointedClass}, above the ${rungs.length}-rank ladder`
-    : `${tracker.name}: ${spokenClass}, rank ${lit} of ${rungs.length}`
 
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      aria-label={accessibleName}
-      className="flex flex-col items-center gap-2 w-28 px-3 py-3 nm-interactive-sm rounded-nm-md cursor-pointer bg-transparent border-none"
-    >
-      {/* Every stack is the same height; rung thickness is what varies. DOM
-          order is bottom-up so the lowest class is the first child. */}
-      <div className="flex flex-col-reverse gap-[2px] h-24 w-9">
-        {rungs.map((rung, i) => {
-          const isCurrent = i === currentIndex
-          const isLit = i < lit
-          return (
-            <Tooltip
-              key={rung.name}
-              side="right"
-              className="flex-1 min-h-0 flex"
-              content={
-                <span className="block w-48">
-                  <span className="font-semibold text-primary">{rung.name}</span>
-                  {rung.requirements && <span className="block mt-0.5">{rung.requirements}</span>}
-                </span>
-              }
-            >
+    <Tooltip className="inline-flex" content={<RungList ladder={ladder} color={tracker.color} />}>
+      <button
+        type="button"
+        onClick={onOpen}
+        // aria-label replaces the button's content as its accessible name, so
+        // the class has to be repeated here or a screen reader never hears it.
+        aria-label={`${tracker.name}: ${summary}`}
+        className="flex flex-col items-center gap-2 w-28 px-3 py-3 nm-interactive-sm rounded-nm-md cursor-pointer bg-transparent border-none"
+      >
+        {/* DOM order is bottom-up, so the lowest class is the first child. */}
+        <div className={STACK_CLASS}>
+          {rungs.map((rung, i) => {
+            const isCurrent = i === currentIndex
+            const isLit = i < lit
+            return (
               <span
+                key={rung.name}
                 data-rung={i}
                 data-lit={isLit ? "true" : "false"}
-                className="flex-1 rounded-[2px] transition-colors duration-150"
+                className={RUNG_CLASS}
                 style={{
-                  backgroundColor: isLit
-                    ? hexToRgba(tracker.color, isCurrent ? 1 : 0.45)
-                    : hexToRgba(tracker.color, 0.1),
-                  boxShadow: isCurrent ? `0 0 8px ${hexToRgba(tracker.color, 0.5)}` : undefined,
+                  backgroundColor: hexToRgba(
+                    tracker.color,
+                    isLit ? (isCurrent ? 1 : LIT_ALPHA) : GHOST_ALPHA
+                  ),
+                  boxShadow: isCurrent
+                    ? `${GLOW} ${hexToRgba(tracker.color, GLOW_ALPHA)}`
+                    : undefined,
                 }}
               />
-            </Tooltip>
-          )
-        })}
-      </div>
-      <span className="font-sans text-xs font-semibold text-primary truncate w-full text-center">
-        {tracker.name}
-      </span>
-      <RedactedText
-        value={shownClass}
-        color={tracker.color}
-        className="font-mono text-3xs text-tertiary truncate w-full text-center"
-      />
-    </button>
+            )
+          })}
+        </div>
+        <span className="font-sans text-xs font-semibold text-primary truncate w-full text-center">
+          {tracker.name}
+        </span>
+        <RedactedText
+          value={shownClass}
+          color={tracker.color}
+          tooltip={false}
+          className={clsx(
+            "font-mono text-3xs truncate w-full text-center",
+            unknownClass ? "text-warn" : "text-tertiary"
+          )}
+        />
+      </button>
+    </Tooltip>
   )
 }
 

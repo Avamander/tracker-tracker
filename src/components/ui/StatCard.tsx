@@ -509,9 +509,12 @@ function StatCard(props: StatCardProps) {
     )
   }
 
-  // Default: basic
+  // Default: basic. A named group gives assistive tech the tile's label and
+  // gives tests a stable anchor that is not a styling class.
   return (
     <Shell
+      role="group"
+      aria-label={props.label}
       accentColor={accentColor}
       alert={alert}
       className={className}

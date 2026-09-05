@@ -11,15 +11,9 @@ interface TooltipProps {
   children: ReactNode
   className?: string
   docs?: DocsEntry
-  /**
-   * "bottom" (default) opens under the trigger. "right" opens beside it, for
-   * triggers stacked vertically: a popup under one would cover the ones
-   * below and, since the popup keeps itself open on hover, trap the cursor.
-   */
-  side?: "bottom" | "right"
 }
 
-function Tooltip({ content, children, className, docs, side = "bottom" }: TooltipProps) {
+function Tooltip({ content, children, className, docs }: TooltipProps) {
   const [visible, setVisible] = useState(false)
   const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
   const triggerRef = useRef<HTMLSpanElement>(null)
@@ -49,13 +43,14 @@ function Tooltip({ content, children, className, docs, side = "bottom" }: Toolti
   useLayoutEffect(() => {
     if (!visible || !triggerRef.current) return
     const rect = triggerRef.current.getBoundingClientRect()
-    setPos(
-      side === "right"
-        ? { top: rect.top, left: rect.right + 6 }
-        : { top: rect.bottom + 6, left: rect.left }
-    )
+    // The popup keeps itself open while hovered, so one that runs past the
+    // bottom of the viewport (a rank stack's full rung list) could only be
+    // dismissed by leaving it. Slide it up as far as needed instead.
+    const height = tooltipRef.current?.offsetHeight ?? 0
+    const top = Math.max(8, Math.min(rect.bottom + 6, window.innerHeight - height - 8))
+    setPos({ top, left: rect.left })
     portalTarget.current = triggerRef.current.closest("dialog") ?? document.body
-  }, [visible, side])
+  }, [visible])
 
   const resolvedTarget =
     portalTarget.current ?? (typeof document !== "undefined" ? document.body : null)

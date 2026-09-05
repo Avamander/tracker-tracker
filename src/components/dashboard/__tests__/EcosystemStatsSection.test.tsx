@@ -59,12 +59,7 @@ function makeStats(overrides: Partial<AggregateStats> = {}): AggregateStats {
 const trackers = [makeTracker(1, "Aither"), makeTracker(2, "BTN"), makeTracker(3, "Blutopia")]
 
 function hitAndRunCard(): HTMLElement {
-  const label = screen.getByText("Hit & Runs")
-  // Header row -> card shell. The card's own root is the closest ancestor
-  // that carries the shell's padding class.
-  const card = label.closest(".p-5")
-  if (!card) throw new Error("Hit & Runs card shell not found")
-  return card as HTMLElement
+  return screen.getByRole("group", { name: "Hit & Runs" })
 }
 
 describe("EcosystemStatsSection hit & runs card", () => {
