@@ -513,8 +513,8 @@ userClasses: [
 // From redacted.ts, simpler progression
 userClasses: [
   { name: "User", requirements: "Default class on registration" },
-  { name: "Member", requirements: "1 week, 25 GB up, 0.65 ratio" },
-  { name: "Power User", requirements: "2 weeks, 25 GB up, 0.65 ratio, 5 torrents seeding" },
+  { name: "Member", requirements: "1 week, 10 GB up, ratio above 0.65" },
+  { name: "Power User", requirements: "2 weeks, 5 uploads, 25 GB up, ratio above 0.65" },
 ]
 ```
 
