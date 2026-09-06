@@ -147,8 +147,11 @@ export class GazelleAdapter implements TrackerAdapter {
       // Derived from byte totals. Gazelle reports -1 for infinite ratio.
       ratio: computeRatio(uploaded, downloaded),
       bufferBytes: computeBufferBytes(uploaded, downloaded),
-      seedingCount: userStats.seedingcount ?? 0,
-      leechingCount: userStats.leechingcount ?? 0,
+      // Redacted's index carries neither field. Coercing to 0 made a poll whose
+      // enrichment call fails look like an account that stopped seeding, which
+      // trips the zero-seeding alert and the no-seeds health badge.
+      seedingCount: userStats.seedingcount ?? null,
+      leechingCount: userStats.leechingcount ?? null,
       seedbonus: userStats.bonusPoints ?? userStats.bonuspoints ?? null,
       hitAndRuns: null,
       requiredRatio: typeof userStats.requiredratio === "number" ? userStats.requiredratio : null,

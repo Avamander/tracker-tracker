@@ -64,7 +64,7 @@ describe("NebulanceAdapter", () => {
     expect(stats.ratio).toBeCloseTo(2.0)
     expect(stats.bufferBytes).toBe(BigInt(1073741824000) - BigInt(536870912000))
     expect(stats.seedingCount).toBe(42)
-    expect(stats.leechingCount).toBe(0)
+    expect(stats.leechingCount).toBeNull()
     expect(stats.seedbonus).toBeNull()
     expect(stats.hitAndRuns).toBe(0)
     expect(stats.requiredRatio).toBeNull()

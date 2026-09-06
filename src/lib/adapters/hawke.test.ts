@@ -290,4 +290,28 @@ describe("HawkeAdapter - fetchRaw", () => {
     expect(calls[0].data).toBeNull()
     expect(calls[0].error).toContain("401")
   })
+
+  it("reports unknown rather than zero when the profile omits the counts", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(
+      okResponse({
+        ...LIVE_RESPONSE,
+        data: {
+          ...LIVE_RESPONSE.data,
+          active_seeds: undefined,
+          active_leeches: undefined,
+          hunos: undefined,
+          hit_and_runs: undefined,
+        },
+      })
+    )
+
+    const stats = await adapter.fetchStats("https://hawke.uno", "fake-token", "/api/profile")
+
+    // A measured 0 means the account really is seeding nothing, which drives a
+    // health downgrade and an alert. An absent field must not say the same.
+    expect(stats.seedingCount).toBeNull()
+    expect(stats.leechingCount).toBeNull()
+    expect(stats.seedbonus).toBeNull()
+    expect(stats.hitAndRuns).toBeNull()
+  })
 })

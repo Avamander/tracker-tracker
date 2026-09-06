@@ -47,8 +47,10 @@ describe("GazelleAdapter", () => {
     expect(stats.ratio).toBeCloseTo(4.0)
     expect(stats.bufferBytes).toBe(BigInt(536870912000) - BigInt(134217728000))
     expect(stats.seedbonus).toBe(12500)
-    expect(stats.seedingCount).toBe(0)
-    expect(stats.leechingCount).toBe(0)
+    // The index response carries neither count, so they are unknown here and
+    // only the enrichment call can fill them in.
+    expect(stats.seedingCount).toBeNull()
+    expect(stats.leechingCount).toBeNull()
     expect(stats.hitAndRuns).toBeNull()
     expect(stats.requiredRatio).toBeCloseTo(0.6)
     expect(stats.freeleechTokens).toBe(3)
@@ -432,5 +434,49 @@ describe("GazelleAdapter - security", () => {
     await expect(adapter.fetchStats("https://example.com", "token", "/ajax.php")).rejects.toThrow(
       "Request to example.com timed out"
     )
+  })
+
+  it("fills the counts from the profile call when enrichment succeeds", async () => {
+    // The normal Redacted poll: the index carries no counts, so a working
+    // enrichment call is the only thing standing between the user and a
+    // permanently unknown seeding figure.
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          status: "success",
+          response: {
+            username: "JohnDoe",
+            id: 64605,
+            userstats: {
+              uploaded: 100000000000,
+              downloaded: 50000000000,
+              ratio: 2.0,
+              requiredratio: 0.6,
+              class: "Power User",
+            },
+          },
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          status: "success",
+          response: {
+            username: "JohnDoe",
+            stats: { joinedDate: "2024-11-03 07:22:21", lastAccess: "2026-09-04 17:21:37" },
+            personal: { class: "Power User" },
+            community: { seeding: 31, leeching: 2 },
+          },
+        }),
+      } as Response)
+
+    const stats = await adapter.fetchStats("https://redacted.sh", "fake-token", "/ajax.php", {
+      enrich: true,
+      remoteUserId: 64605,
+    })
+
+    expect(stats.seedingCount).toBe(31)
+    expect(stats.leechingCount).toBe(2)
   })
 })

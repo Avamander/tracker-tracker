@@ -136,8 +136,8 @@ export class NebulanceAdapter implements TrackerAdapter {
       downloadedBytes: downloaded,
       ratio,
       bufferBytes: computeBufferBytes(uploaded, downloaded),
-      seedingCount: resp.SeedCount ?? 0,
-      leechingCount: 0, // Not available from Nebulance API
+      seedingCount: resp.SeedCount ?? null,
+      leechingCount: null, // Not available from Nebulance API
       seedbonus: null, // Not available from Nebulance API
       hitAndRuns: resp.HnR ?? null,
       requiredRatio: null, // Not available from Nebulance API

@@ -289,10 +289,12 @@ export class DigitalCoreAdapter implements TrackerAdapter {
       downloadedBytes: downloaded,
       ratio: computeRatio(uploaded, downloaded),
       bufferBytes: computeBufferBytes(uploaded, downloaded),
-      seedingCount: user.myseedstotal ?? 0,
-      leechingCount: 0,
-      seedbonus: user.bonuspoang ?? 0,
-      hitAndRuns: user.hit_and_run_total ?? 0,
+      seedingCount: user.myseedstotal ?? null,
+      // DigitalCore reports no leeching count at all, so this is unknown
+      // rather than a measured zero.
+      leechingCount: null,
+      seedbonus: user.bonuspoang ?? null,
+      hitAndRuns: user.hit_and_run_total ?? null,
       requiredRatio: null,
       warned: user.warned === "yes",
       freeleechTokens: null,

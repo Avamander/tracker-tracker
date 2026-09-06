@@ -364,6 +364,26 @@ describe("DigitalCoreAdapter.fetchStats — core stats", () => {
     expect(stats.hitAndRuns).toBe(3)
   })
 
+  it("reports unknown rather than zero when the status response omits the counts", async () => {
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(
+        mockResponse(
+          mockStatusResponse({
+            myseedstotal: undefined,
+            bonuspoang: undefined,
+            hit_and_run_total: undefined,
+          })
+        )
+      )
+      .mockResolvedValueOnce(mockResponse(mockUserProfileResponse()))
+
+    const stats = await adapter.fetchStats("https://digitalcore.club", validToken, "")
+
+    expect(stats.seedingCount).toBeNull()
+    expect(stats.seedbonus).toBeNull()
+    expect(stats.hitAndRuns).toBeNull()
+  })
+
   it("maps seedbonus from bonuspoang", async () => {
     vi.spyOn(global, "fetch")
       .mockResolvedValueOnce(mockResponse(mockStatusResponse({ bonuspoang: 9876 })))
@@ -756,7 +776,7 @@ describe("DigitalCoreAdapter.fetchStats — enrichment failure fallback", () => 
     const stats = await adapter.fetchStats("https://digitalcore.club", validToken, "")
 
     // leechingCount comes only from enrichment; falls back to initialised-to-0 value
-    expect(stats.leechingCount).toBe(0)
+    expect(stats.leechingCount).toBeNull()
   })
 
   it("logs a warning (does not throw) when enrichment fails", async () => {

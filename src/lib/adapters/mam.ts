@@ -126,11 +126,18 @@ export class MamAdapter implements TrackerAdapter {
     const uploaded = floatBytesToBigInt(data.uploaded_bytes)
     const downloaded = floatBytesToBigInt(data.downloaded_bytes)
 
-    const seedingCount =
-      (data.sSat?.count ?? 0) +
-      (data.seedHnr?.count ?? 0) +
-      (data.seedUnsat?.count ?? 0) +
-      (data.upAct?.count ?? 0)
+    // A missing category really is none in that category, but every category
+    // missing means the summary block never arrived, which is unknown rather
+    // than an account seeding nothing.
+    const seedingCategories = [
+      data.sSat?.count,
+      data.seedHnr?.count,
+      data.seedUnsat?.count,
+      data.upAct?.count,
+    ]
+    const seedingCount = seedingCategories.some((c) => typeof c === "number")
+      ? seedingCategories.reduce((sum: number, c) => sum + (c ?? 0), 0)
+      : null
 
     const platformMeta: MamPlatformMeta = {
       vipUntil: data.vip_until ?? undefined,
@@ -159,7 +166,7 @@ export class MamAdapter implements TrackerAdapter {
       ratio: computeRatio(uploaded, downloaded),
       bufferBytes: computeBufferBytes(uploaded, downloaded),
       seedingCount,
-      leechingCount: data.leeching?.count ?? 0,
+      leechingCount: data.leeching?.count ?? null,
       seedbonus: data.seedbonus ?? null,
       hitAndRuns: data.inactHnr?.count ?? null,
       requiredRatio: null,

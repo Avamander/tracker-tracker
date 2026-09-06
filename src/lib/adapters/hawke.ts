@@ -127,10 +127,10 @@ export class HawkeAdapter implements TrackerAdapter {
         typeof data.buffer === "number" && Number.isFinite(data.buffer)
           ? signedFloatBytesToBigInt(data.buffer)
           : computeBufferBytes(uploadedBytes, downloadedBytes),
-      seedingCount: data.active_seeds ?? 0,
-      leechingCount: data.active_leeches ?? 0,
-      seedbonus: data.hunos ?? 0,
-      hitAndRuns: data.hit_and_runs ?? 0,
+      seedingCount: data.active_seeds ?? null,
+      leechingCount: data.active_leeches ?? null,
+      seedbonus: data.hunos ?? null,
+      hitAndRuns: data.hit_and_runs ?? null,
       requiredRatio: null,
       // `warnings` is a count, not a boolean. Can't distinguish 0 warnings from
       // untracked. Keep the boolean unknown and report count in platformMeta.

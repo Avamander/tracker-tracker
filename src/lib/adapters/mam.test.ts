@@ -114,7 +114,7 @@ describe("MamAdapter - parsing", () => {
     expect(stats.bufferBytes).toBe(BigInt(-400_000_000))
   })
 
-  it("handles missing snatch_summary fields and returns seedingCount of 0", async () => {
+  it("reports unknown counts when the snatch summary fields are all absent", async () => {
     mockFetch({
       sSat: undefined,
       seedHnr: undefined,
@@ -130,8 +130,8 @@ describe("MamAdapter - parsing", () => {
       "/jsonLoad.php"
     )
 
-    expect(stats.seedingCount).toBe(0)
-    expect(stats.leechingCount).toBe(0)
+    expect(stats.seedingCount).toBeNull()
+    expect(stats.leechingCount).toBeNull()
     expect(stats.hitAndRuns).toBeNull()
   })
 
