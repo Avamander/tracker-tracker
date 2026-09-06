@@ -206,6 +206,28 @@ export function formatCount(n: number | null | undefined): string {
   return n.toLocaleString("en-US")
 }
 
+/**
+ * Formats an integer as an English ordinal. The teens take "th" whatever their
+ * last digit is, which is why the suffix cannot be read off that digit alone.
+ */
+export function formatOrdinal(n: number | null | undefined): string {
+  if (n === null || n === undefined || !Number.isFinite(n)) return "—"
+  const abs = Math.abs(n)
+  const lastTwo = abs % 100
+  const last = abs % 10
+  const suffix =
+    lastTwo >= 11 && lastTwo <= 13
+      ? "th"
+      : last === 1
+        ? "st"
+        : last === 2
+          ? "nd"
+          : last === 3
+            ? "rd"
+            : "th"
+  return `${n.toLocaleString("en-US")}${suffix}`
+}
+
 /** Formats a percentage value with configurable decimal places. */
 export function formatPercent(value: number, decimals = 1): string {
   if (!Number.isFinite(value)) return "—"
