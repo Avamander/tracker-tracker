@@ -264,9 +264,7 @@ describe("Unit3dAdapter - auth fallback", () => {
 
   beforeEach(() => {
     vi.restoreAllMocks()
-    ;(
-      globalThis as { __unit3dAuthStyleCache?: Map<string, string> }
-    ).__unit3dAuthStyleCache?.clear()
+    ;(globalThis as { __unit3dAuthStyle?: Map<string, unknown> }).__unit3dAuthStyle?.clear()
   })
 
   const okBody = () =>
@@ -333,6 +331,58 @@ describe("Unit3dAdapter - auth fallback", () => {
       })
     ).rejects.toThrow()
     expect(spy).toHaveBeenCalledTimes(1)
+  })
+
+  it("does not probe when a connection error merely mentions 403", async () => {
+    // The probe puts the token in the query string, so it has to key on a real
+    // status. A refused connection to a host named like this one used to match
+    // a regex over the error text and trigger the fallback.
+    const spy = vi
+      .spyOn(global, "fetch")
+      .mockRejectedValueOnce(
+        Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" })
+      )
+
+    await expect(adapter.fetchStats("https://us-403.example", "tok", "/api/user")).rejects.toThrow()
+
+    expect(spy).toHaveBeenCalledTimes(1)
+    expect(String(spy.mock.calls[0][0])).not.toContain("api_token")
+  })
+
+  it("does not probe on a 403, which is a block page rather than the wrong style", async () => {
+    const spy = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce({ ok: false, status: 403, statusText: "Forbidden" } as Response)
+
+    await expect(adapter.fetchStats("https://waf.example", "tok", "/api/user")).rejects.toThrow()
+
+    expect(spy).toHaveBeenCalledTimes(1)
+    expect(String(spy.mock.calls[0][0])).not.toContain("api_token")
+  })
+
+  it("stops trusting a remembered style once it goes stale", async () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(new Date("2026-01-01T00:00:00Z"))
+      const spy = vi
+        .spyOn(global, "fetch")
+        .mockResolvedValueOnce(unauthorized())
+        .mockResolvedValueOnce(okBody())
+        .mockResolvedValueOnce(okBody())
+
+      await adapter.fetchStats("https://old.example", "tok", "/api/user")
+      expect(String(spy.mock.calls[1][0])).toContain("api_token=tok")
+
+      // A day later the observation has expired, so the next poll starts from
+      // bearer again instead of keeping the token in the URL forever.
+      vi.setSystemTime(new Date("2026-01-02T00:00:01Z"))
+      await adapter.fetchStats("https://old.example", "tok", "/api/user")
+
+      expect(spy).toHaveBeenCalledTimes(3)
+      expect(String(spy.mock.calls[2][0])).not.toContain("api_token")
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 

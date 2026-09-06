@@ -306,3 +306,22 @@ describe("scrubObject — tracker secrets seen in real responses", () => {
     expect(scrubbed.passkey).not.toBe("38cca120bd9fda0955b9e9e4e784fa31")
   })
 })
+
+describe("scrubObject — both spellings of an API key", () => {
+  it("redacts api_key, which a UNIT3D fork returns at the top level", () => {
+    expect(scrubObject({ api_key: { expires_at: "2027-01-01" } })).toEqual({
+      api_key: "[redacted]",
+    })
+  })
+
+  it("redacts apikey, the spelling Anthelion uses", () => {
+    expect(scrubObject({ apikey: "secret" })).toEqual({ apikey: "[redacted]" })
+  })
+
+  it("redacts them however the tracker cases them", () => {
+    expect(scrubObject({ API_Key: "secret", ApiKey: "secret" })).toEqual({
+      API_Key: "[redacted]",
+      ApiKey: "[redacted]",
+    })
+  })
+})

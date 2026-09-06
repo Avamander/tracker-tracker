@@ -9,7 +9,7 @@ import {
   signedFloatBytesToBigInt,
 } from "@/lib/data-transforms"
 import { parseBytes, parseSignedBytes } from "@/lib/parser"
-import { adapterFetch } from "./adapter-fetch"
+import { adapterRequest } from "./adapter-fetch"
 import type {
   DebugApiCall,
   FetchOptions,
@@ -77,11 +77,36 @@ interface Unit3dApiResponse {
 // `unit3dAuthStyle` pins a style explicitly and skips the probing entirely.
 // ---------------------------------------------------------------------------
 
+// The remembered style is an observation about one tracker at one moment, not
+// a fact about it. Without an expiry a single wrong probe kept the token in
+// the query string for the life of the process, and a tracker that moved to
+// bearer could never be noticed.
+const AUTH_STYLE_TTL_MS = 24 * 60 * 60 * 1000
+
 const gU3d = globalThis as typeof globalThis & {
-  __unit3dAuthStyleCache?: Map<string, Unit3dAuthStyle>
+  __unit3dAuthStyle?: Map<string, { style: Unit3dAuthStyle; at: number }>
 }
-if (!gU3d.__unit3dAuthStyleCache) gU3d.__unit3dAuthStyleCache = new Map()
-const authStyleCache = gU3d.__unit3dAuthStyleCache
+if (!gU3d.__unit3dAuthStyle) gU3d.__unit3dAuthStyle = new Map()
+const authStyleCache = gU3d.__unit3dAuthStyle
+
+function rememberAuthStyle(baseUrl: string, style: Unit3dAuthStyle): void {
+  const entry = authStyleCache.get(baseUrl)
+  // The clock runs from when the style was learned, not from the last success.
+  // Refreshing it on every poll would pin a query entry forever on a tracker
+  // that accepts both styles, which is exactly the case worth re-testing.
+  if (entry?.style === style) return
+  authStyleCache.set(baseUrl, { style, at: Date.now() })
+}
+
+function readAuthStyle(baseUrl: string): Unit3dAuthStyle | undefined {
+  const entry = authStyleCache.get(baseUrl)
+  if (!entry) return undefined
+  if (Date.now() - entry.at >= AUTH_STYLE_TTL_MS) {
+    authStyleCache.delete(baseUrl)
+    return undefined
+  }
+  return entry.style
+}
 
 function buildRequest(
   apiPath: string,
@@ -97,20 +122,16 @@ function buildRequest(
   return { url: url.toString(), headers: { Authorization: `Bearer ${apiToken}` } }
 }
 
-function isAuthRejection(err: unknown): boolean {
-  // Deliberately not `err instanceof Error`, that check is unreliable across
-  // module realms (it returns false under vitest), which would make this
-  // fallback silently never fire.
-  const message =
-    typeof err === "object" && err !== null && "message" in err
-      ? String((err as { message: unknown }).message)
-      : String(err)
-  return /\b40[13]\b/.test(message)
-}
-
 /**
  * Fetch with the tracker's known-good auth style, probing bearer→query once if
  * we don't have one yet.
+ *
+ * The probe decides whether to put the token in the query string, so it reads
+ * the response status rather than the text of a thrown error. Matching digits
+ * in a message fired on failures that were never about auth: a connection
+ * refused by a host named like us-403.tracker.net said 403 to a regex.
+ * Only a 401 from the tracker itself probes; a 403 is a block page or a WAF,
+ * not the wrong auth style.
  */
 async function unit3dFetch<T>(
   baseUrl: string,
@@ -120,28 +141,29 @@ async function unit3dFetch<T>(
   options?: FetchOptions
 ): Promise<T> {
   const pinned = options?.unit3dAuthStyle
-  const remembered = authStyleCache.get(baseUrl)
+  const remembered = readAuthStyle(baseUrl)
   const first: Unit3dAuthStyle = pinned ?? remembered ?? "bearer"
 
-  const attempt = async (style: Unit3dAuthStyle): Promise<T> => {
+  const attempt = (style: Unit3dAuthStyle) => {
     const { url, headers } = buildRequest(apiPath, baseUrl, apiToken, style)
-    return adapterFetch<T>(url, hostname, options, headers)
+    return adapterRequest(url, hostname, options, headers)
   }
 
-  try {
-    const result = await attempt(first)
-    if (!pinned) authStyleCache.set(baseUrl, first)
-    return result
-  } catch (err) {
-    // Only probe the other style when the style wasn't pinned, we haven't
-    // already settled on one, and the failure actually looks like auth.
-    const shouldFallBack = !pinned && !remembered && first === "bearer" && isAuthRejection(err)
-    if (!shouldFallBack) throw err
+  // A connection failure throws out of here, so it can never reach the probe.
+  let response = await attempt(first)
 
-    const result = await attempt("query")
-    authStyleCache.set(baseUrl, "query")
-    return result
+  if (response.status === 401 && !pinned && !remembered && first === "bearer") {
+    response = await attempt("query")
+    if (response.ok) rememberAuthStyle(baseUrl, "query")
+  } else if (response.ok && !pinned) {
+    rememberAuthStyle(baseUrl, first)
   }
+
+  // Same wording adapterFetch throws, which sanitizeNetworkError matches on.
+  if (!response.ok) {
+    throw new Error(`Tracker API error: ${response.status} ${response.statusText}`)
+  }
+  return response.json<T>()
 }
 
 // ---------------------------------------------------------------------------
