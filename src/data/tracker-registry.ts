@@ -1,7 +1,7 @@
 // src/data/tracker-registry.ts
 
 import type { PlatformType } from "@/lib/adapters/constants"
-import type { GazelleAuthStyle, Unit3dAuthStyle } from "@/lib/adapters/types"
+import type { GazelleAuthStyle, NebulanceAuthParam, Unit3dAuthStyle } from "@/lib/adapters/types"
 import { normalizeUrl } from "@/lib/data-transforms"
 import type { SatisfactionMode } from "@/lib/satisfaction"
 import type { TrackerCredentialFieldDefinition } from "@/lib/tracker-credentials/types"
@@ -127,6 +127,8 @@ export interface TrackerRegistryEntry {
   gazelleAuthStyle?: GazelleAuthStyle
   gazelleEnrich?: boolean
   unit3dAuthStyle?: Unit3dAuthStyle
+  /** Anthelion spells the key parameter without an underscore. Defaults to api_key. */
+  nebulanceAuthParam?: NebulanceAuthParam
   /**
    * Which credential fields this tracker issues, overriding the platform defaults
    * in src/data/tracker-credential-defaults.ts. Resolve via

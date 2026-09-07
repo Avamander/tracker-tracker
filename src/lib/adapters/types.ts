@@ -278,12 +278,14 @@ export function metaFor<P extends keyof PlatformMetaMap>(
 
 export type GazelleAuthStyle = "token" | "raw"
 export type Unit3dAuthStyle = "bearer" | "query"
+export type NebulanceAuthParam = "api_key" | "apikey"
 
 export interface FetchOptions {
   proxyAgent?: HttpAgent
   remoteUserId?: number
   authStyle?: GazelleAuthStyle
   unit3dAuthStyle?: Unit3dAuthStyle
+  nebulanceAuthParam?: NebulanceAuthParam
   enrich?: boolean
 }
 

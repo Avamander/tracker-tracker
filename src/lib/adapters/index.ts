@@ -57,6 +57,7 @@ export function buildFetchOptions(
   if (entry?.gazelleAuthStyle) fetchOptions.authStyle = entry.gazelleAuthStyle
   if (entry?.gazelleEnrich) fetchOptions.enrich = true
   if (entry?.unit3dAuthStyle) fetchOptions.unit3dAuthStyle = entry.unit3dAuthStyle
+  if (entry?.nebulanceAuthParam) fetchOptions.nebulanceAuthParam = entry.nebulanceAuthParam
 
   return fetchOptions
 }
@@ -64,6 +65,7 @@ export function buildFetchOptions(
 export type {
   FetchOptions,
   GazelleAuthStyle,
+  NebulanceAuthParam,
   TrackerAdapter,
   TrackerStats,
   Unit3dAuthStyle,

@@ -62,6 +62,26 @@ interface GGnUserResponse {
   }
 }
 
+/**
+ * GGn authenticates with a key query parameter rather than a header, so the
+ * URL is the auth. Both methods issue the same two requests, and building them
+ * separately is what let the copies drift apart.
+ */
+function ggnQuickUserUrl(apiPath: string, baseUrl: string, apiToken: string): URL {
+  const url = new URL(apiPath, baseUrl)
+  url.searchParams.set("request", "quick_user")
+  url.searchParams.set("key", apiToken)
+  return url
+}
+
+function ggnUserUrl(apiPath: string, baseUrl: string, apiToken: string, userId: number): URL {
+  const url = new URL(apiPath, baseUrl)
+  url.searchParams.set("request", "user")
+  url.searchParams.set("id", String(userId))
+  url.searchParams.set("key", apiToken)
+  return url
+}
+
 export class GGnAdapter implements TrackerAdapter {
   async fetchStats(
     baseUrl: string,
@@ -80,9 +100,7 @@ export class GGnAdapter implements TrackerAdapter {
       username = "" // Will be overwritten from the full user response
     } else {
       // Step 1: quick_user to get the user ID (first poll only)
-      const quickUrl = new URL(apiPath, baseUrl)
-      quickUrl.searchParams.set("request", "quick_user")
-      quickUrl.searchParams.set("key", apiToken)
+      const quickUrl = ggnQuickUserUrl(apiPath, baseUrl, apiToken)
 
       const quickData = await adapterFetch<GGnQuickUserResponse>(
         quickUrl.toString(),
@@ -102,10 +120,7 @@ export class GGnAdapter implements TrackerAdapter {
     }
 
     // Step 2: full user profile for detailed stats
-    const userUrl = new URL(apiPath, baseUrl)
-    userUrl.searchParams.set("request", "user")
-    userUrl.searchParams.set("id", String(userId))
-    userUrl.searchParams.set("key", apiToken)
+    const userUrl = ggnUserUrl(apiPath, baseUrl, apiToken, userId)
 
     const userData = await adapterFetch<GGnUserResponse>(userUrl.toString(), hostname, options)
 
@@ -171,9 +186,7 @@ export class GGnAdapter implements TrackerAdapter {
 
     // Call 1: Quick User (skip if we already have a cached user ID)
     if (!userId) {
-      const quickUrl = new URL(apiPath, baseUrl)
-      quickUrl.searchParams.set("request", "quick_user")
-      quickUrl.searchParams.set("key", apiToken)
+      const quickUrl = ggnQuickUserUrl(apiPath, baseUrl, apiToken)
 
       try {
         const quickData = await adapterFetch<GGnQuickUserResponse>(
@@ -201,10 +214,7 @@ export class GGnAdapter implements TrackerAdapter {
 
     // Call 2: Full User Profile
     if (userId) {
-      const userUrl = new URL(apiPath, baseUrl)
-      userUrl.searchParams.set("request", "user")
-      userUrl.searchParams.set("id", String(userId))
-      userUrl.searchParams.set("key", apiToken)
+      const userUrl = ggnUserUrl(apiPath, baseUrl, apiToken, userId)
       const endpoint = `${apiPath}?request=user&id=${userId}`
 
       try {

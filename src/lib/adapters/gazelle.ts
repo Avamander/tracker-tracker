@@ -105,6 +105,15 @@ interface GazelleUserResponse {
   }
 }
 
+/**
+ * Most forks want the "token " prefix; a few reject it and take the key raw,
+ * which is what the registry's auth style pins. Both methods need the same
+ * answer, and a conditional copied into each is how they come to disagree.
+ */
+function gazelleAuthHeader(apiToken: string, options?: FetchOptions): string {
+  return options?.authStyle === "raw" ? apiToken : `token ${apiToken}`
+}
+
 export class GazelleAdapter implements TrackerAdapter {
   async fetchStats(
     baseUrl: string,
@@ -116,7 +125,7 @@ export class GazelleAdapter implements TrackerAdapter {
     url.searchParams.set("action", "index")
 
     const hostname = new URL(baseUrl).hostname
-    const authHeader = options?.authStyle === "raw" ? apiToken : `token ${apiToken}`
+    const authHeader = gazelleAuthHeader(apiToken, options)
 
     const data = await adapterFetch<GazelleIndexResponse>(url.toString(), hostname, options, {
       Authorization: authHeader,
@@ -225,7 +234,7 @@ export class GazelleAdapter implements TrackerAdapter {
     options?: FetchOptions
   ): Promise<DebugApiCall[]> {
     const hostname = new URL(baseUrl).hostname
-    const authHeader = options?.authStyle === "raw" ? apiToken : `token ${apiToken}`
+    const authHeader = gazelleAuthHeader(apiToken, options)
     const calls: DebugApiCall[] = []
 
     // Call 1: Index

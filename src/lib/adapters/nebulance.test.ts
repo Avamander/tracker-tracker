@@ -324,13 +324,43 @@ describe("NebulanceAdapter - Anthelion compatibility", () => {
     }
   }
 
-  it("uses 'apikey' param for anthelion.me", async () => {
+  it("spells the parameter the way the registry says, not the way the hostname reads", async () => {
     const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValueOnce({
       ok: true,
       json: async () => mockAnthelionResponse(),
     } as Response)
 
-    await adapter.fetchStats("https://anthelion.me", "my-key", "/api.php")
+    await adapter.fetchStats("https://anthelion.me", "my-key", "/api.php", {
+      nebulanceAuthParam: "apikey",
+    })
+
+    const calledUrl = fetchSpy.mock.calls[0][0] as string
+    expect(calledUrl).toContain("apikey=my-key")
+    expect(calledUrl).not.toContain("api_key=")
+  })
+
+  it("defaults to api_key when the registry says nothing", async () => {
+    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockAnthelionResponse(),
+    } as Response)
+
+    await adapter.fetchStats("https://nebulance.io", "my-key", "/api.php")
+
+    expect(fetchSpy.mock.calls[0][0] as string).toContain("api_key=my-key")
+  })
+
+  it("spells it the same way in the debug call, which used to build its own URL", async () => {
+    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      json: async () => mockAnthelionResponse(),
+    } as Response)
+
+    await adapter.fetchRaw("https://anthelion.me", "my-key", "/api.php", {
+      nebulanceAuthParam: "apikey",
+    })
 
     const calledUrl = fetchSpy.mock.calls[0][0] as string
     expect(calledUrl).toContain("apikey=my-key")
@@ -471,5 +501,44 @@ describe("NebulanceAdapter - proxy routing", () => {
     // A direct fetch here would leak the user's real IP past their tunnel.
     expect(fetchSpy).not.toHaveBeenCalled()
     vi.doUnmock("@/lib/tunnel")
+  })
+})
+
+describe("NebulanceAdapter.fetchRaw", () => {
+  const adapter = new NebulanceAdapter()
+
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it("records a failed call as an error rather than a successful one", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      statusText: "Unauthorized",
+      json: async () => ({ error: "bad key" }),
+    } as Response)
+
+    const calls = await adapter.fetchRaw("https://nebulance.io", "bad-key", "/api.php")
+
+    // A null error is what marks a call healthy in the debug view, so an error
+    // body rendered as a success was the whole defect.
+    expect(calls).toHaveLength(1)
+    expect(calls[0].data).toBeNull()
+    expect(calls[0].error).toContain("401")
+  })
+
+  it("returns the body on a successful call", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      json: async () => ({ response: { Username: "seedqueen" } }),
+    } as Response)
+
+    const calls = await adapter.fetchRaw("https://nebulance.io", "good-key", "/api.php")
+
+    expect(calls[0].error).toBeNull()
+    expect(calls[0].data).not.toBeNull()
   })
 })

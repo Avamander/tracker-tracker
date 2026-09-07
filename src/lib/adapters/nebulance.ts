@@ -47,6 +47,35 @@ interface NebulanceErrorResponse {
 
 type NebulanceResponse = NebulanceWrappedResponse | NebulanceErrorResponse | NebulanceUserData
 
+/**
+ * Both methods hit the same endpoint, and when each built it separately the
+ * copies drifted: only one carried the comments explaining the user-id default
+ * and the parameter spelling. The spelling comes from the registry rather than
+ * from a hostname test, which was the only such test in the adapter layer.
+ */
+function buildUserInfoRequest(
+  baseUrl: string,
+  apiToken: string,
+  apiPath: string,
+  options?: FetchOptions
+): { url: URL; endpoint: string } {
+  // These APIs return the key owner's data regardless of the user queried, but
+  // the lookup target must be a valid user. On first poll (no cached
+  // remoteUserId), user ID 1 is the system account, which always exists.
+  const userId = options?.remoteUserId ?? 1
+  const authParam = options?.nebulanceAuthParam ?? "api_key"
+
+  const url = new URL(apiPath, baseUrl)
+  url.searchParams.set("action", "user")
+  url.searchParams.set(authParam, apiToken)
+  url.searchParams.set("method", "getuserinfo")
+  url.searchParams.set("type", "id")
+  url.searchParams.set("user", String(userId))
+
+  // The key is deliberately absent from the label shown in the debug view.
+  return { url, endpoint: `${apiPath}?action=user&method=getuserinfo&user=${userId}` }
+}
+
 export class NebulanceAdapter implements TrackerAdapter {
   async fetchStats(
     baseUrl: string,
@@ -55,22 +84,7 @@ export class NebulanceAdapter implements TrackerAdapter {
     options?: FetchOptions
   ): Promise<TrackerStats> {
     const hostname = new URL(baseUrl).hostname
-
-    // These APIs return the key owner's data regardless of the user queried, but
-    // the lookup target must be a valid user. On first poll (no cached remoteUserId),
-    // use user ID 1 (system/admin account: always exists on Gazelle-derived sites).
-    const userId = options?.remoteUserId ?? 1
-
-    // Anthelion uses "apikey" (no underscore), Nebulance uses "api_key"
-    const isAnthelion = hostname.includes("anthelion")
-    const authParam = isAnthelion ? "apikey" : "api_key"
-
-    const url = new URL(apiPath, baseUrl)
-    url.searchParams.set("action", "user")
-    url.searchParams.set(authParam, apiToken)
-    url.searchParams.set("method", "getuserinfo")
-    url.searchParams.set("type", "id")
-    url.searchParams.set("user", String(userId))
+    const { url } = buildUserInfoRequest(baseUrl, apiToken, apiPath, options)
 
     // Nebulance returns HTTP error codes (400/401/404) with {"error": {"code": N, "message": "..."}}
     // and user data directly on success (no {"status": "success", "response": {...}} wrapper).
@@ -156,22 +170,23 @@ export class NebulanceAdapter implements TrackerAdapter {
     options?: FetchOptions
   ): Promise<DebugApiCall[]> {
     const hostname = new URL(baseUrl).hostname
-    const userId = options?.remoteUserId ?? 1
-
-    const isAnthelion = hostname.includes("anthelion")
-    const authParam = isAnthelion ? "apikey" : "api_key"
-
-    const url = new URL(apiPath, baseUrl)
-    url.searchParams.set("action", "user")
-    url.searchParams.set(authParam, apiToken)
-    url.searchParams.set("method", "getuserinfo")
-    url.searchParams.set("type", "id")
-    url.searchParams.set("user", String(userId))
-
-    const endpoint = `${apiPath}?action=user&method=getuserinfo&user=${userId}`
+    const { url, endpoint } = buildUserInfoRequest(baseUrl, apiToken, apiPath, options)
 
     try {
       const result = await adapterRequest(url.toString(), hostname, options)
+      // fetchStats checks this too. Without it an error body renders in the
+      // debug view as a successful call, since a null error is what marks a
+      // call as healthy there.
+      if (!result.ok) {
+        return [
+          {
+            label: "User Info",
+            endpoint,
+            data: null,
+            error: `Tracker API error: ${result.status} ${result.statusText}`,
+          },
+        ]
+      }
       const data = await result.json()
 
       return [{ label: "User Info", endpoint, data, error: null }]
