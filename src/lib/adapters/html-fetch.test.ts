@@ -238,3 +238,84 @@ describe("fetchTrackerHtml - errors", () => {
     await expect(fetchTrackerHtml(BASE)).rejects.toThrow("tracker.example")
   })
 })
+
+// ---------------------------------------------------------------------------
+// The proxy branch used to return before any redirect handling, so the
+// followRedirects option three adapters opted into was dead for a proxied
+// user, and a bounce to the login page surfaced as a raw status string that
+// no sanitizer rule matched.
+// ---------------------------------------------------------------------------
+
+describe("fetchTrackerHtml - through a proxy", () => {
+  const proxyAgent = { proxy: "http://127.0.0.1:8080" } as never
+
+  function proxyResponse(
+    status: number,
+    body: string,
+    headers: Record<string, string | string[]> = {}
+  ) {
+    return {
+      ok: status >= 200 && status < 300,
+      status,
+      statusText: status === 302 ? "Found" : "OK",
+      headers,
+      buffer: async () => Buffer.from(body, "utf8"),
+    }
+  }
+
+  let proxyFetch: ReturnType<typeof vi.fn>
+
+  beforeEach(() => {
+    vi.resetModules()
+    proxyFetch = vi.fn()
+    vi.doMock("@/lib/tunnel", () => ({ proxyFetch }))
+  })
+
+  async function run(request: Record<string, unknown>) {
+    const { fetchTrackerHtml: fresh } = await import("./html-fetch")
+    return fresh({ ...BASE, proxyAgent, ...request } as Parameters<typeof fetchTrackerHtml>[0])
+  }
+
+  it("follows a same-origin redirect instead of failing on the 302", async () => {
+    proxyFetch
+      .mockResolvedValueOnce(proxyResponse(302, "", { location: "/t" }))
+      .mockResolvedValueOnce(proxyResponse(200, "<html>stats</html>"))
+
+    const html = await run({ followRedirects: { loginPattern: /login/ } })
+
+    expect(html).toContain("stats")
+    expect(proxyFetch).toHaveBeenCalledTimes(2)
+    expect(String(proxyFetch.mock.calls[1][0])).toBe("https://tracker.example/t")
+  })
+
+  it("reports an expired session when a proxied redirect points at login", async () => {
+    proxyFetch.mockResolvedValueOnce(proxyResponse(302, "", { location: "/auth/login" }))
+
+    await expect(run({ followRedirects: { loginPattern: /login/ } })).rejects.toThrow(
+      "Session expired"
+    )
+  })
+
+  it("treats a proxied 302 as an expired session when redirects are not followed", async () => {
+    proxyFetch.mockResolvedValueOnce(proxyResponse(302, "", { location: "/auth/login" }))
+
+    await expect(run({})).rejects.toThrow("Session expired")
+  })
+
+  it("refuses to follow a proxied redirect off-origin, and sends nothing there", async () => {
+    proxyFetch.mockResolvedValueOnce(
+      proxyResponse(302, "", { location: "https://evil.example/harvest" })
+    )
+
+    await expect(run({ followRedirects: { loginPattern: /login/ } })).rejects.toThrow(
+      /refusing to send credentials/
+    )
+    expect(proxyFetch).toHaveBeenCalledTimes(1)
+  })
+
+  it("still returns the body on an ordinary proxied response", async () => {
+    proxyFetch.mockResolvedValueOnce(proxyResponse(200, "<html>ok</html>"))
+
+    expect(await run({})).toContain("ok")
+  })
+})

@@ -127,6 +127,26 @@ describe("parseDigitalCoreCredentials", () => {
     expect(() => parseDigitalCoreCredentials(json)).toThrow("uid")
   })
 
+  it("rejects a uid carrying a DevTools truncation mark", () => {
+    // A non-ASCII character is never part of a cookie value. Without this it
+    // reaches undici, which throws a TypeError naming the whole Cookie header.
+    expect(() =>
+      parseDigitalCoreCredentials(JSON.stringify({ uid: "12345\u2026", pass: "abcdef" }))
+    ).toThrow(/non-ASCII/)
+  })
+
+  it("rejects a pass carrying a DevTools truncation mark, naming the field", () => {
+    expect(() =>
+      parseDigitalCoreCredentials(JSON.stringify({ uid: "12345", pass: "abc\u2026def" }))
+    ).toThrow(/pass contains a non-ASCII/)
+  })
+
+  it("still accepts an ordinary ASCII credential", () => {
+    const creds = parseDigitalCoreCredentials(JSON.stringify({ uid: "12345", pass: "abcdef" }))
+    expect(creds.uid).toBe("12345")
+    expect(creds.pass).toBe("abcdef")
+  })
+
   it("throws on missing pass field", () => {
     const json = JSON.stringify({ uid: "54321" })
     expect(() => parseDigitalCoreCredentials(json)).toThrow("pass")

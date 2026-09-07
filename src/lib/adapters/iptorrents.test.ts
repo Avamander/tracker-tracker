@@ -27,6 +27,15 @@ describe("parseIptProfile", () => {
     expect(stats.seedbonus).toBeCloseTo(55.4)
   })
 
+  it("throws on a page it cannot read rather than reporting a set of zeros", () => {
+    // Every accumulator starts at zero and the byte parser swallows failures,
+    // so without the guard a third DOM variant is stored as a real snapshot of
+    // nothing and the connection test goes green beside it.
+    const unknownShape = `<!doctype html><html><body><div class="stats"><span class="uname">testuser</span><div class="tTipWrap">nothing recognisable here</div></div></body></html>`
+
+    expect(() => parseIptProfile(unknownShape)).toThrow(/upload\/download bytes/i)
+  })
+
   it("computes bufferBytes as upload minus download", () => {
     const stats = parseIptProfile(FULL_PAGE)
     // This fixture is a deficit account (14.5 GB up, 19.6 GB down), the

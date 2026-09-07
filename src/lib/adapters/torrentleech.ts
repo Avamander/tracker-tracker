@@ -390,13 +390,41 @@ function fetchHtml(
     cookies,
     proxyAgent,
     label: "TorrentLeech",
-    sessionExpiredMessage: "Session expired. TorrentLeech cookies need to be refreshed",
+    // The "Session expired" prefix is load-bearing: withTlSession keys its
+    // retry on it. The tail used to tell the user to refresh cookies, but the
+    // stored credentials are a username, a password and a 2FA token.
+    sessionExpiredMessage:
+      "Session expired. Check the stored TorrentLeech username, password and 2FA token if this persists",
   })
 }
 
 // ---------------------------------------------------------------------------
 // Adapter class
 // ---------------------------------------------------------------------------
+
+/**
+ * Runs the work with a session cookie, and once more with a fresh one when the
+ * cached session turns out to be dead. The parse belongs inside because
+ * parseTlProfile raises its own session-expired error for a login page, which
+ * the fetch itself reports as an ordinary success.
+ *
+ * This cannot live in getTlSession, which returns a cookie and never sees how
+ * the request went.
+ */
+async function withTlSession<T>(
+  baseUrl: string,
+  creds: ReturnType<typeof parseTlCredentials>,
+  proxyAgent: FetchOptions["proxyAgent"],
+  work: (cookies: string) => Promise<T>
+): Promise<T> {
+  try {
+    return await work(await getTlSession(baseUrl, creds, proxyAgent))
+  } catch (err) {
+    if (!(err instanceof Error) || !err.message.startsWith("Session expired")) throw err
+    invalidateTlSession(baseUrl, creds.username)
+    return work(await getTlSession(baseUrl, creds, proxyAgent))
+  }
+}
 
 export class TorrentleechAdapter implements TrackerAdapter {
   async fetchStats(
@@ -408,19 +436,9 @@ export class TorrentleechAdapter implements TrackerAdapter {
     const creds = parseTlCredentials(apiToken)
     const profileUrl = `${baseUrl}/profile/${encodeURIComponent(creds.username)}`
 
-    let cookies = await getTlSession(baseUrl, creds, options?.proxyAgent)
-    let html: string
-    try {
-      html = await fetchHtml(profileUrl, cookies, options?.proxyAgent)
-    } catch (err) {
-      // A cached session that has expired server-side surfaces as a redirect to
-      // the login page. Drop it and authenticate once more before giving up.
-      if (!(err instanceof Error) || !err.message.startsWith("Session expired")) throw err
-      invalidateTlSession(baseUrl, creds.username)
-      cookies = await getTlSession(baseUrl, creds, options?.proxyAgent)
-      html = await fetchHtml(profileUrl, cookies, options?.proxyAgent)
-    }
-    return parseTlProfile(html, creds.username)
+    return withTlSession(baseUrl, creds, options?.proxyAgent, async (cookies) =>
+      parseTlProfile(await fetchHtml(profileUrl, cookies, options?.proxyAgent), creds.username)
+    )
   }
 
   async fetchRaw(
@@ -431,13 +449,15 @@ export class TorrentleechAdapter implements TrackerAdapter {
   ): Promise<DebugApiCall[]> {
     const calls: DebugApiCall[] = []
     const creds = parseTlCredentials(apiToken)
-    const endpoint = `/profile/${creds.username}`
+    // Encoded like fetchStats builds it. Unencoded, a username with a space or
+    // a slash produced a different URL here than the one the poll actually uses.
+    const endpoint = `/profile/${encodeURIComponent(creds.username)}`
 
     try {
-      const cookies = await getTlSession(baseUrl, creds, options?.proxyAgent)
       const profileUrl = `${baseUrl}${endpoint}`
-      const html = await fetchHtml(profileUrl, cookies, options?.proxyAgent)
-      const stats = parseTlProfile(html, creds.username)
+      const stats = await withTlSession(baseUrl, creds, options?.proxyAgent, async (cookies) =>
+        parseTlProfile(await fetchHtml(profileUrl, cookies, options?.proxyAgent), creds.username)
+      )
       calls.push({ label: "Profile Page", endpoint, data: stats, error: null })
     } catch (err) {
       calls.push({

@@ -63,26 +63,59 @@ function fetchFailure(label: string, status: number, statusText: string): Error 
   )
 }
 
-async function fetchViaProxy(
-  url: string,
-  headers: Record<string, string>,
-  proxyAgent: NonNullable<FetchOptions["proxyAgent"]>,
-  label: string
-): Promise<string> {
-  const { proxyFetch } = await import("@/lib/tunnel")
-  const result = await proxyFetch(url, proxyAgent, { headers })
-  if (!result.ok) throw fetchFailure(label, result.status, result.statusText)
-  return (await result.buffer()).toString("utf8")
+/**
+ * The proxied and direct transports narrowed to what the redirect handling
+ * below needs. Keeping the two on one shape is what stops the proxy path from
+ * skipping that handling, which is how the followRedirects option three
+ * adapters opted into came to be dead for every proxied user.
+ */
+interface HtmlResponse {
+  ok: boolean
+  status: number
+  statusText: string
+  /** Lazy: only the redirect chain needs it, and only a 3xx carries one. */
+  location: () => string
+  text: () => Promise<string>
 }
 
-function getHtml(url: string, headers: Record<string, string>): Promise<Response> {
-  return fetch(url, {
+type HtmlFetcher = (url: string) => Promise<HtmlResponse>
+
+async function getHtmlViaProxy(
+  url: string,
+  headers: Record<string, string>,
+  proxyAgent: NonNullable<FetchOptions["proxyAgent"]>
+): Promise<HtmlResponse> {
+  const { proxyFetch } = await import("@/lib/tunnel")
+  const result = await proxyFetch(url, proxyAgent, { headers })
+  return {
+    ok: result.ok,
+    status: result.status,
+    statusText: result.statusText,
+    location: () => {
+      // Node lowercases incoming header names, and a repeated header arrives
+      // as an array.
+      const raw = result.headers.location
+      return Array.isArray(raw) ? (raw[0] ?? "") : (raw ?? "")
+    },
+    text: async () => (await result.buffer()).toString("utf8"),
+  }
+}
+
+async function getHtml(url: string, headers: Record<string, string>): Promise<HtmlResponse> {
+  const response = await fetch(url, {
     headers,
     signal: AbortSignal.timeout(ADAPTER_FETCH_TIMEOUT_MS),
     redirect: "manual",
   }).catch((err) => {
     throw classifyFetchError(err, new URL(url).hostname)
   })
+  return {
+    ok: response.ok,
+    status: response.status,
+    statusText: response.statusText,
+    location: () => response.headers.get("location") ?? "",
+    text: () => response.text(),
+  }
 }
 
 /**
@@ -102,13 +135,13 @@ function isRedirect(status: number): boolean {
  * page can be distinguished from an ordinary relocation such as / -> /t.
  */
 async function followRedirectChain(
-  response: Response,
+  response: HtmlResponse,
   fromUrl: string,
-  headers: Record<string, string>,
+  fetcher: HtmlFetcher,
   { loginPattern, maxHops = 3 }: NonNullable<TrackerHtmlRequest["followRedirects"]>,
   sessionExpiredMessage: string,
   label: string
-): Promise<Response> {
+): Promise<HtmlResponse> {
   let current = response
   let currentUrl = fromUrl
   const origin = new URL(fromUrl).origin
@@ -116,7 +149,7 @@ async function followRedirectChain(
   for (let hop = 0; hop <= maxHops; hop++) {
     if (!isRedirect(current.status)) return current
 
-    const location = current.headers.get("location") ?? ""
+    const location = current.location()
     if (loginPattern.test(location)) throw new Error(sessionExpiredMessage)
     // A redirect with no Location is malformed and cannot be followed.
     if (!location || hop === maxHops) break
@@ -135,7 +168,7 @@ async function followRedirectChain(
     }
 
     currentUrl = nextUrl.href
-    current = await getHtml(currentUrl, headers)
+    current = await fetcher(currentUrl)
   }
 
   throw new Error(`Too many redirects from ${label}`)
@@ -151,15 +184,17 @@ export async function fetchTrackerHtml(request: TrackerHtmlRequest): Promise<str
     request
   const headers = buildHtmlHeaders(cookies, userAgent)
 
-  if (proxyAgent) return fetchViaProxy(url, headers, proxyAgent, label)
+  const fetcher: HtmlFetcher = proxyAgent
+    ? (target) => getHtmlViaProxy(target, headers, proxyAgent)
+    : (target) => getHtml(target, headers)
 
-  let response = await getHtml(url, headers)
+  let response = await fetcher(url)
 
   if (followRedirects) {
     response = await followRedirectChain(
       response,
       url,
-      headers,
+      fetcher,
       followRedirects,
       sessionExpiredMessage,
       label

@@ -153,6 +153,16 @@ export function parseIptProfile(html: string): TrackerStats {
     if (fallback.seedbonus !== undefined) seedbonus = fallback.seedbonus
   }
 
+  // Every accumulator starts at zero and tryParseBytes swallows parse failures
+  // by design, so a third DOM variant would return a complete set of zeros:
+  // a stored snapshot of nothing and a connection test that goes green. Same
+  // guard, and the same trade against a brand new account, as avistaz.ts.
+  if (uploadedBytes === 0n && downloadedBytes === 0n) {
+    throw new Error(
+      "Could not extract upload/download bytes from the IPTorrents stats bar. The page structure may have changed."
+    )
+  }
+
   let group = "User"
   const vipEl = doc.querySelector(".hdr-vip")
   if (vipEl && /VIP/i.test(vipEl.getAttribute("title") ?? "")) {

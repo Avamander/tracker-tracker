@@ -67,6 +67,25 @@ export function parseDigitalCoreCredentials(apiToken: string): DigitalCoreCreden
     )
   }
 
+  // A non-ASCII character is a DevTools truncation mark, never part of a cookie
+  // value. Without this it reaches undici, which throws a TypeError naming the
+  // whole header, and classifyFetchError flattens that to a bare name the user
+  // cannot act on. cookie-credentials.ts and mam.ts carry the same guard.
+  for (const [field, value] of [
+    ["uid", trimmedUid],
+    ["pass", trimmedPass],
+  ] as const) {
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional byte-range check
+    const nonAscii = value.match(/[^\x00-\xFF]/)
+    if (nonAscii) {
+      const code = nonAscii[0].codePointAt(0)?.toString(16).toUpperCase().padStart(4, "0")
+      throw new Error(
+        `DigitalCore credentials: ${field} contains a non-ASCII character ("${nonAscii[0]}", U+${code}) at position ${nonAscii.index}. ` +
+          "This usually means the browser truncated the value when copying. Re-copy it from DevTools."
+      )
+    }
+  }
+
   const rawUserAgent = (parsed as Record<string, unknown>).userAgent
   if (rawUserAgent !== undefined && typeof rawUserAgent !== "string") {
     throw new Error("DigitalCore credentials: userAgent must be a string")

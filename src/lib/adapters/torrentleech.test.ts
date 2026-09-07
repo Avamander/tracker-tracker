@@ -144,7 +144,10 @@ describe("parseTlProfile", () => {
   })
 
   it("reports zero hit and runs as 0, not null", () => {
-    const clean = FULL_PROFILE_PAGE.replace('<i class="fa fa-ban"></i>  2', '<i class="fa fa-ban"></i>  0')
+    const clean = FULL_PROFILE_PAGE.replace(
+      '<i class="fa fa-ban"></i>  2',
+      '<i class="fa fa-ban"></i>  0'
+    )
     expect(parseTlProfile(clean, "testuser").hitAndRuns).toBe(0)
   })
 
@@ -301,6 +304,48 @@ describe("TorrentleechAdapter.fetchStats", () => {
     expect(profileHeaders.Cookie).toContain("tluid=abc123")
   })
 
+  it("recovers a dead session in the debug call, not only in the poll", async () => {
+    // fetchRaw used to have a bare catch, so the debug view could show a failed
+    // call beside a fully populated response from the very next poll.
+    const fetchSpy = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce(setCookieResponse(["tluid=stale; Path=/"]))
+      .mockResolvedValueOnce({ ok: false, status: 302, statusText: "Found" } as Response)
+      .mockResolvedValueOnce(setCookieResponse(["tluid=fresh; Path=/"]))
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () => FULL_PROFILE_PAGE,
+      } as Response)
+
+    const calls = await adapter.fetchRaw("https://www.torrentleech.org", validToken, "")
+
+    expect(calls).toHaveLength(1)
+    expect(calls[0].error).toBeNull()
+    expect(calls[0].data).not.toBeNull()
+    // login, dead profile, login again, profile
+    expect(fetchSpy).toHaveBeenCalledTimes(4)
+  })
+
+  it("escapes the username in the debug endpoint the way the poll does", async () => {
+    const spacedToken = JSON.stringify({ username: "test user", password: "pw" })
+    const fetchSpy = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce(setCookieResponse(["tluid=abc123; Path=/"]))
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () => FULL_PROFILE_PAGE,
+      } as Response)
+
+    const calls = await adapter.fetchRaw("https://www.torrentleech.org", spacedToken, "")
+
+    expect(calls[0].endpoint).toBe("/profile/test%20user")
+    expect(String(fetchSpy.mock.calls[1][0])).toBe(
+      "https://www.torrentleech.org/profile/test%20user"
+    )
+  })
+
   it("throws 'Invalid TorrentLeech credentials' when login response has no tluid cookie", async () => {
     vi.spyOn(global, "fetch").mockResolvedValueOnce(
       setCookieResponse([], { ok: true, status: 200, statusText: "OK" })
@@ -359,8 +404,7 @@ describe("TorrentleechAdapter.fetchStats", () => {
         ok: true,
         status: 200,
         statusText: "OK",
-        text: async () =>
-          `<div class="login-container"><h2>One Time Password</h2></div>`,
+        text: async () => `<div class="login-container"><h2>One Time Password</h2></div>`,
       } as Partial<Response>)
     )
 
