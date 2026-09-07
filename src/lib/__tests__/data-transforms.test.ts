@@ -7,6 +7,7 @@ import {
   isUnixTimestampOnDate,
   normalizeUrl,
   sanitizeHost,
+  stripTrailingSlash,
 } from "@/lib/data-transforms"
 import { localDateStr } from "@/lib/formatters"
 
@@ -55,6 +56,22 @@ describe("normalizeUrl", () => {
 
   it("returns the URL unchanged when already normalized", () => {
     expect(normalizeUrl("https://example.com")).toBe("https://example.com")
+  })
+})
+
+describe("stripTrailingSlash", () => {
+  it("strips one slash and several", () => {
+    expect(stripTrailingSlash("https://example.com/")).toBe("https://example.com")
+    expect(stripTrailingSlash("https://example.com///")).toBe("https://example.com")
+  })
+
+  it("leaves a URL that already ends cleanly", () => {
+    expect(stripTrailingSlash("https://example.com")).toBe("https://example.com")
+    expect(stripTrailingSlash("https://example.com/tracker")).toBe("https://example.com/tracker")
+  })
+
+  it("keeps case, unlike normalizeUrl, because base URLs are joined with case-sensitive paths", () => {
+    expect(stripTrailingSlash("https://Example.com/Tracker/")).toBe("https://Example.com/Tracker")
   })
 })
 

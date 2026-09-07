@@ -160,6 +160,10 @@ describe("tracker registry", () => {
           expect(() => new URL(tracker.url)).not.toThrow()
         })
 
+        it("has no trailing slash, which adapters would double when they concatenate", () => {
+          expect(tracker.url).not.toMatch(/\/$/)
+        })
+
         it("has at least one content category", () => {
           expect(tracker.contentCategories.length).toBeGreaterThan(0)
         })

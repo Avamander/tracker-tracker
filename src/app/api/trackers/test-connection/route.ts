@@ -89,16 +89,6 @@ export async function POST(request: Request) {
       group: stats.group,
     }
 
-    if (platform === "avistaz") {
-      log.debug(
-        {
-          route: "POST /api/trackers/test-connection",
-          userAgent: request.headers.get("user-agent") ?? "",
-        },
-        "tracker test user agent captured"
-      )
-    }
-
     return NextResponse.json(result)
   } catch (error) {
     const raw = error instanceof Error ? error.message : String(error)

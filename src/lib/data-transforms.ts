@@ -155,3 +155,13 @@ export function sanitizeHost(host: string): string {
 export function normalizeUrl(url: string): string {
   return url.replace(/\/+$/, "").toLowerCase()
 }
+
+/**
+ * For a base URL on its way into storage. Adapters both concatenate onto it and
+ * feed it to `new URL`, and a stored trailing slash gives the first form a
+ * doubled separator. Deliberately not normalizeUrl, which also lowercases: a
+ * base URL is later joined with encoded usernames and case-sensitive paths.
+ */
+export function stripTrailingSlash(url: string): string {
+  return url.replace(/\/+$/, "")
+}

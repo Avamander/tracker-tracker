@@ -15,6 +15,7 @@ import {
   validateMaxLength,
 } from "@/lib/api-helpers"
 import { encrypt } from "@/lib/crypto"
+import { stripTrailingSlash } from "@/lib/data-transforms"
 import { db } from "@/lib/db"
 import { trackers } from "@/lib/db/schema"
 import { errMsg } from "@/lib/error-utils"
@@ -74,7 +75,9 @@ export async function POST(request: Request) {
   }
 
   const trimmedName = name.trim()
-  const trimmedBaseUrl = baseUrl.trim()
+  // Stored without a trailing slash. Adapters concatenate onto this as well as
+  // passing it to `new URL`, and the first form doubles the separator.
+  const trimmedBaseUrl = stripTrailingSlash(baseUrl.trim())
   const trimmedApiToken = apiToken.trim()
   const platform = typeof platformType === "string" ? platformType : "unit3d"
 

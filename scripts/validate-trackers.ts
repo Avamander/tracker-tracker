@@ -83,6 +83,11 @@ function validate(slugFilter?: string[]): TrackerResult[] {
       } catch {
         errors.push("Invalid URL format")
       }
+      // Adapters both concatenate onto this and pass it to `new URL`; a stored
+      // trailing slash doubles the separator in the first form.
+      if (/\/$/.test(tracker.url)) {
+        errors.push("URL must not end with a trailing slash")
+      }
     }
     if (isEmpty(tracker.contentCategories)) {
       errors.push("Missing contentCategories")

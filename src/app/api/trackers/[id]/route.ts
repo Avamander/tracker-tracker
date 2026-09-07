@@ -17,6 +17,7 @@ import {
   validateMaxLength,
 } from "@/lib/api-helpers"
 import { encrypt } from "@/lib/crypto"
+import { stripTrailingSlash } from "@/lib/data-transforms"
 import { db } from "@/lib/db"
 import { trackers } from "@/lib/db/schema"
 import { errMsg } from "@/lib/error-utils"
@@ -72,7 +73,9 @@ export async function PATCH(request: Request, props: RouteContext) {
     if (urlLenErr) return urlLenErr
     const urlErr = validateHttpUrl(body.baseUrl as string)
     if (urlErr) return urlErr
-    updates.baseUrl = (body.baseUrl as string).trim()
+    // Same normalisation the create route applies, so an edit cannot
+    // reintroduce the trailing slash adapters would double.
+    updates.baseUrl = stripTrailingSlash((body.baseUrl as string).trim())
   }
   if (typeof body.isActive === "boolean") updates.isActive = body.isActive
   if (typeof body.color === "string") {
