@@ -13,6 +13,7 @@ import {
   validateHttpUrl,
   validateMaxLength,
 } from "@/lib/api-helpers"
+import { stripTrailingSlash } from "@/lib/data-transforms"
 import { db } from "@/lib/db"
 import { appSettings } from "@/lib/db/schema"
 import { sanitizeNetworkError } from "@/lib/error-utils"
@@ -38,7 +39,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "baseUrl and apiToken are required" }, { status: 400 })
   }
 
-  const trimmedBaseUrl = baseUrl.trim()
+  // Stripped exactly as POST /api/trackers stores it. Without this the test
+  // probes a URL the save then rewrites, so the two disagree about what was
+  // proven: a pasted trailing slash gives the concatenating adapters a doubled
+  // separator here and not once saved.
+  const trimmedBaseUrl = stripTrailingSlash(baseUrl.trim())
   const trimmedApiToken = apiToken.trim()
   const platform = typeof platformType === "string" ? platformType : "unit3d"
 

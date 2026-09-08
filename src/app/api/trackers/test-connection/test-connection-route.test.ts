@@ -217,6 +217,27 @@ describe("POST /api/trackers/test-connection — success", () => {
     expect(body.group).toBe("Member")
   })
 
+  it("tests the base URL the save route will store, not the one that was typed", async () => {
+    mockDbSettings()
+    ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ...VALID_BODY,
+      baseUrl: "https://avistaz.to/",
+    })
+
+    await POST(makeRequest({ ...VALID_BODY, baseUrl: "https://avistaz.to/" }))
+
+    const { getAdapter } = await import("@/lib/adapters")
+    const resolved = vi.mocked(getAdapter).mock.results[0]?.value as {
+      fetchStats: ReturnType<typeof vi.fn>
+    }
+    expect(resolved.fetchStats).toHaveBeenCalledWith(
+      "https://avistaz.to",
+      expect.anything(),
+      expect.anything(),
+      expect.anything()
+    )
+  })
+
   it("does not include encryptedApiToken or raw credentials in success response", async () => {
     mockDbSettings()
 
