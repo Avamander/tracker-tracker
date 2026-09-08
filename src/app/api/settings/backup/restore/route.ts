@@ -15,6 +15,7 @@ import {
   validateBackupJson,
 } from "@/lib/backup"
 import { decrypt, deriveKey, reencrypt } from "@/lib/crypto"
+import { stripTrailingSlash } from "@/lib/data-transforms"
 import { db } from "@/lib/db"
 import {
   appCoverageGaps,
@@ -44,6 +45,7 @@ import {
 } from "@/lib/limits"
 import { checkLockout, recordFailedAttempt, resetFailedAttempts } from "@/lib/lockout"
 import { log } from "@/lib/logger"
+import { NOTIFY_TOGGLE_KEYS } from "@/lib/notifications/types"
 import { ensureSchedulerRunning, stopScheduler } from "@/lib/scheduler"
 
 const BATCH_SIZE = 500
@@ -413,7 +415,9 @@ export async function POST(request: Request) {
           .insert(trackers)
           .values({
             name: fields.name as string,
-            baseUrl: fields.baseUrl as string,
+            // Backups predate the write-time strip and carry whatever was
+            // stored then, so a restore is a write path like any other.
+            baseUrl: stripTrailingSlash((fields.baseUrl as string).trim()),
             apiPath: fields.apiPath as string,
             platformType: fields.platformType as string,
             encryptedApiToken: apiToken,
@@ -744,20 +748,18 @@ export async function POST(request: Request) {
           }
 
           const configCleared = !encryptedConfig
+          // Listed by hand, this fell five columns behind the schema and every
+          // backup silently came back with those alerts switched off.
+          const toggles = Object.fromEntries(
+            NOTIFY_TOGGLE_KEYS.map((key) => [key, (fields[key] as boolean) ?? false])
+          ) as Record<(typeof NOTIFY_TOGGLE_KEYS)[number], boolean>
+
           await tx.insert(notificationTargets).values({
             name: fields.name as string,
             type: fields.type as string,
             enabled: configCleared ? false : (fields.enabled as boolean),
             encryptedConfig,
-            notifyRatioDrop: (fields.notifyRatioDrop as boolean) ?? false,
-            notifyHitAndRun: (fields.notifyHitAndRun as boolean) ?? false,
-            notifyTrackerDown: (fields.notifyTrackerDown as boolean) ?? false,
-            notifyBufferMilestone: (fields.notifyBufferMilestone as boolean) ?? false,
-            notifyWarned: (fields.notifyWarned as boolean) ?? false,
-            notifyRatioDanger: (fields.notifyRatioDanger as boolean) ?? false,
-            notifyZeroSeeding: (fields.notifyZeroSeeding as boolean) ?? false,
-            notifyRankChange: (fields.notifyRankChange as boolean) ?? false,
-            notifyAnniversary: (fields.notifyAnniversary as boolean) ?? false,
+            ...toggles,
             thresholds: (fields.thresholds as Record<string, unknown> | null) ?? null,
             includeTrackerName: (fields.includeTrackerName as boolean) ?? true,
             scope: (fields.scope as number[] | null) ?? null,

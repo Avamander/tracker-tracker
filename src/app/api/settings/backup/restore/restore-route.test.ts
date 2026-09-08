@@ -18,6 +18,7 @@ import { decrypt, deriveKey, encrypt } from "@/lib/crypto"
 import { db } from "@/lib/db"
 import { checkLockout } from "@/lib/lockout"
 import { log } from "@/lib/logger"
+import { NOTIFY_TOGGLE_KEYS } from "@/lib/notifications/types"
 import { ensureSchedulerRunning, stopScheduler } from "@/lib/scheduler"
 import { POST } from "./route"
 
@@ -279,6 +280,11 @@ function makeBackupPayload(encryptionSalt: string, ct: Ciphertexts): BackupPaylo
         notifyZeroSeeding: false,
         notifyRankChange: false,
         notifyAnniversary: false,
+        notifyBonusCap: true,
+        notifyVipExpiring: true,
+        notifyUnsatisfiedLimit: true,
+        notifyActiveHnrs: true,
+        notifyDownloadDisabled: true,
         thresholds: null,
         includeTrackerName: true,
         scope: null,
@@ -405,6 +411,38 @@ describe("POST /api/settings/backup/restore — credential re-encryption", () =>
     ;(db.transaction as ReturnType<typeof vi.fn>).mockImplementation(
       async (fn: (tx: unknown) => Promise<unknown>) => fn(created.tx)
     )
+  })
+
+  // ─── 0. Notify toggles survive the trip ──────────────────────────────────
+
+  // The export selects the whole row, so a toggle the insert below does not
+  // name is in the file and simply never comes back. Five of them were, and a
+  // restored instance stopped sending those alerts with nothing to show for it.
+  it("restores every notify toggle the backup carries", async () => {
+    const backupKey = await deriveKey(PASSWORD, SALT_A)
+    const payload = makeBackupPayload(SALT_A, encryptAll(backupKey))
+    mockCurrentSettings({ encryptionSalt: SALT_A })
+
+    expect(await POST(makeRequest(payload, PASSWORD))).toHaveProperty("status", 200)
+
+    const saved = payload.notificationTargets?.[0] as Record<string, unknown>
+    const restored = onlyInsert(recorder, "notification_targets")
+    for (const key of NOTIFY_TOGGLE_KEYS) {
+      expect(restored[key], key).toBe(saved[key])
+    }
+  })
+
+  // A backup taken before base URLs were stored bare carries the trailing
+  // slash, and restoring it used to hand every adapter a doubled separator.
+  it("strips a trailing slash off a restored base URL", async () => {
+    const backupKey = await deriveKey(PASSWORD, SALT_A)
+    const payload = makeBackupPayload(SALT_A, encryptAll(backupKey))
+    ;(payload.trackers[0] as Record<string, unknown>).baseUrl = "https://example.com/"
+    mockCurrentSettings({ encryptionSalt: SALT_A })
+
+    expect(await POST(makeRequest(payload, PASSWORD))).toHaveProperty("status", 200)
+
+    expect(onlyInsert(recorder, "trackers").baseUrl).toBe("https://example.com")
   })
 
   // ─── 1. Cross-salt round trip: the disaster-recovery path ────────────────────

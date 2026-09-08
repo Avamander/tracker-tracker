@@ -9,6 +9,7 @@
 import { describe, expect, it } from "vitest"
 import { notificationTargets } from "@/lib/db/schema"
 import { NOTIFY_TOGGLE_KEYS } from "@/lib/notifications/types"
+import { notificationTargetColumns } from "@/lib/server-data"
 
 describe("NOTIFY_TOGGLE_KEYS", () => {
   const schemaKeys = Object.keys(notificationTargets)
@@ -25,5 +26,16 @@ describe("NOTIFY_TOGGLE_KEYS", () => {
 
   it("lists no key twice", () => {
     expect(new Set(NOTIFY_TOGGLE_KEYS).size).toBe(NOTIFY_TOGGLE_KEYS.length)
+  })
+
+  // Drizzle infers the row type from this object's keys, so it cannot be built
+  // from the list above without losing the per-column types every caller reads.
+  // It stays hand-written and is pinned here instead: a column absent from the
+  // projection never reaches the settings sheet or a backup file.
+  it("is mirrored by the notification target projection", () => {
+    const projected = Object.keys(notificationTargetColumns)
+      .filter((k) => k.startsWith("notify"))
+      .sort()
+    expect(projected).toEqual(schemaKeys)
   })
 })
