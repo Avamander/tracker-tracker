@@ -86,6 +86,24 @@ function textFromDatagrid(doc: ParsedElement, label: string): string {
  * Uses regex-only matching to handle whitespace variations in the DOM
  * (i.e. "Hit & Run:" may have line breaks between words).
  */
+/**
+ * A ratio-bar figure as a number, or null when the bar carries no such item.
+ * extractRatioBarValue returns "" for an absent label and parseInt("") is NaN,
+ * which the old `|| 0` turned into a measured zero.
+ */
+function ratioBarNumber(items: ParsedElement[], labelRegex: RegExp): number | null {
+  const raw = extractRatioBarValue(items, labelRegex)
+  if (!raw) return null
+  const value = Number.parseFloat(raw)
+  return Number.isFinite(value) ? value : null
+}
+
+/** A count from an item's own text, or null when it holds no number. */
+function toCount(text: string): number | null {
+  const value = Number.parseInt(text.replace(/,/g, ""), 10)
+  return Number.isFinite(value) ? value : null
+}
+
 function extractRatioBarValue(items: ParsedElement[], labelRegex: RegExp): string {
   for (const li of items) {
     const text = li.textContent?.replace(/\s+/g, " ").trim() ?? ""
@@ -140,11 +158,16 @@ export function parseAvistazProfile(html: string, username: string): TrackerStat
   }
 
   // Upload / download / seeding / leeching / bonus from tooltip-titled items
-  let uploadedBytes = 0n
-  let downloadedBytes = 0n
-  let seedingCount = 0
-  let leechingCount = 0
-  let seedbonus = 0
+  // undefined until a row is actually read, so "the ratio bar had no Upload
+  // item" stays distinct from "it said 0 B". Only the first is a parse failure.
+  let uploadedBytes: bigint | undefined
+  let downloadedBytes: bigint | undefined
+  // null until the ratio bar actually yields the figure. types.ts requires an
+  // unknown count to stay distinguishable from a measured zero, and a zero
+  // start reported "no seeds" for a bar that simply had no Active Seeds item.
+  let seedingCount: number | null = null
+  let leechingCount: number | null = null
+  let seedbonus: number | null = null
 
   for (const li of items) {
     // AvistaZ (BS3): data-toggle="tooltip" title="Upload"
@@ -161,29 +184,34 @@ export function parseAvistazProfile(html: string, username: string): TrackerStat
     } else if (title === "Download" || title === "Downloaded") {
       downloadedBytes = strictParseBytes(text, "download")
     } else if (title === "Active Seeds") {
-      seedingCount = parseInt(text.replace(/,/g, ""), 10) || 0
+      seedingCount = toCount(text)
     } else if (title === "Active Leeches") {
-      leechingCount = parseInt(text.replace(/,/g, ""), 10) || 0
+      leechingCount = toCount(text)
     } else if (title === "Bonus Points") {
       const numMatch = text.match(/([\d,.]+)/)
-      seedbonus = numMatch ? parseFloat(numMatch[1].replace(/,/g, "")) : 0
+      seedbonus = numMatch ? Number.parseFloat(numMatch[1].replace(/,/g, "")) : null
     }
   }
 
-  if (uploadedBytes === 0n && downloadedBytes === 0n) {
+  // A ratio bar with neither item is a page this parser does not understand.
+  // A brand new account, whose items read 0 B, is not, and used to throw here.
+  if (uploadedBytes === undefined && downloadedBytes === undefined) {
     throw new Error(
       "Could not extract upload/download bytes from AvistaZ ratio bar. The page structure may have changed."
     )
   }
 
+  const uploaded = uploadedBytes ?? 0n
+  const downloaded = downloadedBytes ?? 0n
+
   // BS3 (AvistaZ) uses text labels like "Seeding: 2". BS5 (AnimeZ) uses tooltip
-  // titles handled above. Fall back to text-based extraction for BS3.
-  if (!seedingCount)
-    seedingCount = parseInt(extractRatioBarValue(items, /Seeding:\s*([\d,]+)/), 10) || 0
-  if (!leechingCount)
-    leechingCount = parseInt(extractRatioBarValue(items, /Leeching:\s*([\d,]+)/), 10) || 0
-  if (!seedbonus) seedbonus = parseFloat(extractRatioBarValue(items, /Bonus:\s*([\d,.]+)/)) || 0
-  const hitAndRuns = parseInt(extractRatioBarValue(items, /Hit\s*&\s*Run:\s*([\d,]+)/), 10) || 0
+  // titles handled above. Fall back to text-based extraction for BS3. A tooltip
+  // that read a real zero is now kept rather than sent back through the
+  // fallback, which the old falsy test could not tell from "nothing found".
+  if (seedingCount === null) seedingCount = ratioBarNumber(items, /Seeding:\s*([\d,]+)/)
+  if (leechingCount === null) leechingCount = ratioBarNumber(items, /Leeching:\s*([\d,]+)/)
+  if (seedbonus === null) seedbonus = ratioBarNumber(items, /Bonus:\s*([\d,.]+)/)
+  const hitAndRuns = ratioBarNumber(items, /Hit\s*&\s*Run:\s*([\d,]+)/)
   const reseedRequests = parseInt(extractRatioBarValue(items, /Reseed:\s*([\d,]+)/), 10) || 0
 
   // ── Profile table rows ─────────────────────────────────────────────────────
@@ -280,12 +308,12 @@ export function parseAvistazProfile(html: string, username: string): TrackerStat
   return {
     username: parsedUsername,
     group,
-    uploadedBytes,
-    downloadedBytes,
+    uploadedBytes: uploaded,
+    downloadedBytes: downloaded,
     // Compute from byte totals, not the ratio bar. AvistaZ caps its display at
     // 999999.99, so a near-zero account parses to a fake number not infinity.
-    ratio: computeRatio(uploadedBytes, downloadedBytes),
-    bufferBytes: computeBufferBytes(uploadedBytes, downloadedBytes),
+    ratio: computeRatio(uploaded, downloaded),
+    bufferBytes: computeBufferBytes(uploaded, downloaded),
     seedingCount,
     leechingCount,
     seedbonus,

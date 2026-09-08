@@ -119,11 +119,16 @@ export function parseIptProfile(html: string): TrackerStats {
 
   const username = doc.querySelector(".uname")?.textContent?.trim() ?? ""
 
-  let uploadedBytes = 0n
-  let downloadedBytes = 0n
-  let seedingCount = 0
-  let leechingCount = 0
-  let seedbonus = 0
+  // undefined until a row is actually read, so "the stats bar had no Uploaded
+  // row" stays distinct from "it said 0 B". Only the first is a parse failure.
+  let uploadedBytes: bigint | undefined
+  let downloadedBytes: bigint | undefined
+  // null until the stats bar actually yields the figure. types.ts requires an
+  // unknown count to stay distinguishable from a measured zero, and a zero
+  // start reported "no seeds" for a bar that simply had no Active Torrents.
+  let seedingCount: number | null = null
+  let leechingCount: number | null = null
+  let seedbonus: number | null = null
 
   for (const wrap of statsDiv.querySelectorAll(".tTipWrap")) {
     const label = wrap.querySelector(".tTip")?.textContent?.trim() ?? ""
@@ -146,22 +151,24 @@ export function parseIptProfile(html: string): TrackerStats {
     }
   }
 
-  if (uploadedBytes === 0n && downloadedBytes === 0n) {
+  if (uploadedBytes === undefined && downloadedBytes === undefined) {
     const fallback = parseUpStatCards(doc)
     if (fallback.uploadedBytes !== undefined) uploadedBytes = fallback.uploadedBytes
     if (fallback.downloadedBytes !== undefined) downloadedBytes = fallback.downloadedBytes
     if (fallback.seedbonus !== undefined) seedbonus = fallback.seedbonus
   }
 
-  // Every accumulator starts at zero and tryParseBytes swallows parse failures
-  // by design, so a third DOM variant would return a complete set of zeros:
-  // a stored snapshot of nothing and a connection test that goes green. Same
-  // guard, and the same trade against a brand new account, as avistaz.ts.
-  if (uploadedBytes === 0n && downloadedBytes === 0n) {
+  // tryParseBytes swallows parse failures by design, so a third DOM variant
+  // would otherwise return a complete set of zeros: a stored snapshot of
+  // nothing and a connection test that goes green beside it.
+  if (uploadedBytes === undefined && downloadedBytes === undefined) {
     throw new Error(
       "Could not extract upload/download bytes from the IPTorrents stats bar. The page structure may have changed."
     )
   }
+
+  const uploaded = uploadedBytes ?? 0n
+  const downloaded = downloadedBytes ?? 0n
 
   let group = "User"
   const vipEl = doc.querySelector(".hdr-vip")
@@ -172,13 +179,13 @@ export function parseIptProfile(html: string): TrackerStats {
   return {
     username,
     group,
-    uploadedBytes,
-    downloadedBytes,
+    uploadedBytes: uploaded,
+    downloadedBytes: downloaded,
     // Derived from byte totals, not the stats bar's own Ratio text. Whatever
     // that field holds for a zero-download account, the old parse left it at 0
     // either way, so a healthy account read as a critical ratio.
-    ratio: computeRatio(uploadedBytes, downloadedBytes),
-    bufferBytes: computeBufferBytes(uploadedBytes, downloadedBytes),
+    ratio: computeRatio(uploaded, downloaded),
+    bufferBytes: computeBufferBytes(uploaded, downloaded),
     seedingCount,
     leechingCount,
     seedbonus,

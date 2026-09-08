@@ -182,6 +182,39 @@ describe("parseAvistazProfile", () => {
     expect(stats.username).toBe("fallbackuser")
   })
 
+  it("reads a brand new account as zeros rather than an unreadable page", () => {
+    // Both items are present and both say 0 B. The old guard could not tell
+    // that apart from a ratio bar it failed to parse, so a new account errored.
+    const newAccount = `<!doctype html><html><head></head><body>
+      <div class="ratio-bar"><div class="container"><ul class="list-inline">
+        <li data-toggle="tooltip" title="Upload"><i></i> 0 B</li>
+        <li data-toggle="tooltip" title="Download"><i></i> 0 B</li>
+      </ul></div></div>
+    </body></html>`
+
+    const stats = parseAvistazProfile(newAccount, "newuser")
+    expect(stats.uploadedBytes).toBe(0n)
+    expect(stats.downloadedBytes).toBe(0n)
+    expect(stats.ratio).toBe(0)
+  })
+
+  it("reports ratio bar figures that are absent as unknown", () => {
+    // A zero here is a claim the account seeds nothing and owes no hit and
+    // runs, rather than a bar that never carried those items.
+    const bytesOnly = `<!doctype html><html><head></head><body>
+      <div class="ratio-bar"><div class="container"><ul class="list-inline">
+        <li data-toggle="tooltip" title="Upload"><i></i> 10.00 GB</li>
+        <li data-toggle="tooltip" title="Download"><i></i> 5.00 GB</li>
+      </ul></div></div>
+    </body></html>`
+
+    const stats = parseAvistazProfile(bytesOnly, "testuser")
+    expect(stats.seedingCount).toBeNull()
+    expect(stats.leechingCount).toBeNull()
+    expect(stats.seedbonus).toBeNull()
+    expect(stats.hitAndRuns).toBeNull()
+  })
+
   it("reports an infinite ratio for a zero-download account", () => {
     const noDownloadsPage = `<!doctype html><html><head></head><body>
       <div class="ratio-bar"><div class="container"><ul class="list-inline">

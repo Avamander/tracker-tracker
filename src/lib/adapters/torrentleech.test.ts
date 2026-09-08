@@ -165,11 +165,15 @@ describe("parseTlProfile", () => {
     expect(parseTlProfile(noSpan, "testuser").seedbonus).toBeCloseTo(2750.5)
   })
 
-  it("reports counts as 0 when the top bar is missing entirely", () => {
+  // The hit and run assertion above already reads a missing top bar as unknown.
+  // Seeding and leeching came back as a measured zero from the same absent
+  // widget, which is what puts a tracker on the "no seeds" badge.
+  it("reports counts as unknown when the top bar is missing entirely", () => {
     const noTopBar = `<!doctype html><html><body>${PROFILE_HTML}</body></html>`
     const stats = parseTlProfile(noTopBar, "testuser")
-    expect(stats.seedingCount).toBe(0)
-    expect(stats.leechingCount).toBe(0)
+    expect(stats.seedingCount).toBeNull()
+    expect(stats.leechingCount).toBeNull()
+    expect(stats.seedbonus).toBeNull()
   })
 
   it("reports an infinite ratio (∞) as Infinity", () => {

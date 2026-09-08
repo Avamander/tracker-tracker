@@ -36,6 +36,36 @@ describe("parseIptProfile", () => {
     expect(() => parseIptProfile(unknownShape)).toThrow(/upload\/download bytes/i)
   })
 
+  it("reads a brand new account as zeros rather than an unreadable page", () => {
+    // Both rows are present and both say 0 B. The old guard could not tell that
+    // apart from a stats bar it failed to parse, so a new account errored.
+    const newAccount = `<!doctype html><html><body><div class="stats">
+      <span class="uname">newuser</span>
+      <div class="tTipWrap"><span class="tTip">Uploaded</span> 0 B</div>
+      <div class="tTipWrap"><span class="tTip">Downloaded</span> 0 B</div>
+    </div></body></html>`
+
+    const stats = parseIptProfile(newAccount)
+    expect(stats.uploadedBytes).toBe(0n)
+    expect(stats.downloadedBytes).toBe(0n)
+    expect(stats.ratio).toBe(0)
+  })
+
+  it("reports counts the stats bar does not carry as unknown", () => {
+    // A zero here is a claim the account seeds nothing, which is what the
+    // no-seeds badge and the zero-seeding alert both key on.
+    const bytesOnly = `<!doctype html><html><body><div class="stats">
+      <span class="uname">testuser</span>
+      <div class="tTipWrap"><span class="tTip">Uploaded</span> 1.00 GB</div>
+      <div class="tTipWrap"><span class="tTip">Downloaded</span> 500 MB</div>
+    </div></body></html>`
+
+    const stats = parseIptProfile(bytesOnly)
+    expect(stats.seedingCount).toBeNull()
+    expect(stats.leechingCount).toBeNull()
+    expect(stats.seedbonus).toBeNull()
+  })
+
   it("computes bufferBytes as upload minus download", () => {
     const stats = parseIptProfile(FULL_PAGE)
     // This fixture is a deficit account (14.5 GB up, 19.6 GB down), the

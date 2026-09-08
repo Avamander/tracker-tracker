@@ -258,9 +258,9 @@ function topBarCell(doc: ParsedElement, title: RegExp): string {
  * total. Anchor on the parentheses, and report nothing rather than a guess when
  * they are absent.
  */
-function parenCount(text: string): number {
+function parenCount(text: string): number | null {
   const match = text.match(/\((\d[\d,]*)\)/)
-  return match ? parseInt(match[1].replace(/,/g, ""), 10) : 0
+  return match ? parseInt(match[1].replace(/,/g, ""), 10) : null
 }
 
 /** The last standalone integer in a cell, for cells that carry only a count. */
@@ -324,14 +324,16 @@ export function parseTlProfile(html: string, username: string): TrackerStats {
   const hitAndRuns = trailingCount(topBarCell(doc, /hit and run/i))
 
   // TL Points. Read from the span that holds the figure; the "TL Points:" label
-  // is a fallback for layouts that do not carry the class.
-  let seedbonus = 0
-  const pointsText = textAfterNode(doc, ".total-TL-points")
+  // covers layouts that do not carry the class. Neither present means the page
+  // did not say, not that the account has none, and an unparseable figure used
+  // to reach the snapshot as NaN.
+  let seedbonus: number | null = null
+  const pointsText =
+    textAfterNode(doc, ".total-TL-points") ||
+    ((doc.textContent ?? "").match(/TL Points:\s*([\d,.]+)/i)?.[1] ?? "")
   if (pointsText) {
-    seedbonus = parseFloat(pointsText.replace(/,/g, ""))
-  } else {
-    const pointsMatch = (doc.textContent ?? "").match(/TL Points:\s*([\d,.]+)/i)
-    if (pointsMatch) seedbonus = parseFloat(pointsMatch[1].replace(/,/g, ""))
+    const parsed = Number.parseFloat(pointsText.replace(/,/g, ""))
+    if (Number.isFinite(parsed)) seedbonus = parsed
   }
 
   // User class, from the badge beside the avatar, falling back to the "Class"
