@@ -59,7 +59,7 @@ function makeStats(overrides: Partial<AggregateStats> = {}): AggregateStats {
 const trackers = [makeTracker(1, "Aither"), makeTracker(2, "BTN"), makeTracker(3, "Blutopia")]
 
 function hitAndRunCard(): HTMLElement {
-  return screen.getByRole("group", { name: "Hit & Runs" })
+  return screen.getByTestId("stat-card-Hit & Runs")
 }
 
 describe("EcosystemStatsSection hit & runs card", () => {

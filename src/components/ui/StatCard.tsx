@@ -509,12 +509,13 @@ function StatCard(props: StatCardProps) {
     )
   }
 
-  // Default: basic. A named group gives assistive tech the tile's label and
-  // gives tests a stable anchor that is not a styling class.
+  // Default: basic. The tile is a label and a value, not a set of related
+  // controls, so it carries no role; the aria-label only made screen readers
+  // read the heading the tile already shows. What the role was really doing is
+  // spelled out instead, in the same way as OutageBandLegend.
   return (
     <Shell
-      role="group"
-      aria-label={props.label}
+      data-testid={`stat-card-${props.label}`}
       accentColor={accentColor}
       alert={alert}
       className={className}
