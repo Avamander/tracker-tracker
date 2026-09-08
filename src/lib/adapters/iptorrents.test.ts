@@ -314,3 +314,40 @@ describe("IptorrentsAdapter - redirect handling", () => {
     expect(callCount).toBe(2)
   })
 })
+
+describe("IptorrentsAdapter.fetchRaw", () => {
+  const adapter = new IptorrentsAdapter()
+  const validToken = JSON.stringify({ cookies: "uid=123; pass=abc123", userAgent: "Mozilla/5.0" })
+
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it("returns the parsed profile as a successful call", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: async () => FULL_PAGE,
+    } as Response)
+
+    const calls = await adapter.fetchRaw("https://iptorrents.com", validToken, "")
+
+    expect(calls).toHaveLength(1)
+    expect(calls[0].error).toBeNull()
+    expect(calls[0].data).not.toBeNull()
+  })
+
+  it("records an unreadable page instead of throwing", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: async () => "<html><body>nothing recognisable</body></html>",
+    } as Response)
+
+    const calls = await adapter.fetchRaw("https://iptorrents.com", validToken, "")
+
+    expect(calls).toHaveLength(1)
+    expect(calls[0].data).toBeNull()
+    expect(calls[0].error).toBeTruthy()
+  })
+})

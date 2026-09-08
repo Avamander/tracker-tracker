@@ -282,3 +282,38 @@ describe("GGnAdapter - security", () => {
     )
   })
 })
+
+describe("GGnAdapter.fetchRaw", () => {
+  const adapter = new GGnAdapter()
+
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it("returns the quick user call as a successful call", async () => {
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce({ ok: true, json: async () => mockQuickUserResponse() } as Response)
+      .mockResolvedValueOnce({ ok: true, json: async () => mockUserResponse() } as Response)
+
+    const calls = await adapter.fetchRaw("https://gazellegames.net", "fake-token", "/api.php")
+
+    expect(calls.length).toBeGreaterThan(0)
+    expect(calls[0].label).toBe("Quick User")
+    expect(calls[0].error).toBeNull()
+    expect(calls[0].data).not.toBeNull()
+  })
+
+  it("records a failed quick user request instead of throwing", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue({
+      ok: false,
+      status: 401,
+      statusText: "Unauthorized",
+    } as Response)
+
+    const calls = await adapter.fetchRaw("https://gazellegames.net", "fake-token", "/api.php")
+
+    expect(calls).toHaveLength(1)
+    expect(calls[0].data).toBeNull()
+    expect(calls[0].error).toBeTruthy()
+  })
+})

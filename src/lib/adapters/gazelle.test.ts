@@ -480,3 +480,39 @@ describe("GazelleAdapter - security", () => {
     expect(stats.leechingCount).toBe(2)
   })
 })
+
+describe("GazelleAdapter.fetchRaw", () => {
+  const adapter = new GazelleAdapter()
+
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it("returns the index call as a successful call", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => mockGazelleResponse(),
+    } as Response)
+
+    const calls = await adapter.fetchRaw("https://redacted.sh", "fake-token", "/ajax.php")
+
+    expect(calls.length).toBeGreaterThan(0)
+    expect(calls[0].label).toBe("Index")
+    expect(calls[0].error).toBeNull()
+    expect(calls[0].data).not.toBeNull()
+  })
+
+  it("records a failed index request instead of throwing", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue({
+      ok: false,
+      status: 401,
+      statusText: "Unauthorized",
+    } as Response)
+
+    const calls = await adapter.fetchRaw("https://redacted.sh", "fake-token", "/ajax.php")
+
+    expect(calls).toHaveLength(1)
+    expect(calls[0].data).toBeNull()
+    expect(calls[0].error).toBeTruthy()
+  })
+})

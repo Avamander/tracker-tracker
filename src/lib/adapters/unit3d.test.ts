@@ -760,3 +760,39 @@ describe("Unit3dAdapter - LST envelope (issue #214)", () => {
     expect(stats.platformMeta).toEqual({})
   })
 })
+
+describe("Unit3dAdapter.fetchRaw", () => {
+  const adapter = new Unit3dAdapter()
+
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it("returns the raw body as a successful call", async () => {
+    const body = { username: "JohnDoe", uploaded: "1 GiB" }
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => body,
+    } as Response)
+
+    const calls = await adapter.fetchRaw("https://aither.cc", "fake-token", "/api/user")
+
+    expect(calls).toHaveLength(1)
+    expect(calls[0].error).toBeNull()
+    expect(calls[0].data).toEqual(body)
+  })
+
+  it("records a failed request instead of throwing", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue({
+      ok: false,
+      status: 500,
+      statusText: "Internal Server Error",
+    } as Response)
+
+    const calls = await adapter.fetchRaw("https://aither.cc", "fake-token", "/api/user")
+
+    expect(calls).toHaveLength(1)
+    expect(calls[0].data).toBeNull()
+    expect(calls[0].error).toBeTruthy()
+  })
+})

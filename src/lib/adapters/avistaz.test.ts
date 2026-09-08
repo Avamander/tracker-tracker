@@ -438,3 +438,44 @@ describe("AvistazAdapter.fetchStats — network error classification", () => {
     )
   })
 })
+
+describe("AvistazAdapter.fetchRaw", () => {
+  const adapter = new AvistazAdapter()
+  const validToken = JSON.stringify({
+    cookies: "cf_clearance=aaaa; session=bbbb",
+    userAgent: "Mozilla/5.0",
+    username: "testuser",
+  })
+
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it("returns the parsed profile as a successful call", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: async () => FULL_PAGE,
+    } as Response)
+
+    const calls = await adapter.fetchRaw("https://avistaz.to", validToken, "")
+
+    expect(calls).toHaveLength(1)
+    expect(calls[0].error).toBeNull()
+    expect(calls[0].data).not.toBeNull()
+  })
+
+  it("records an expired session instead of throwing", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: async () => "<html><body>/auth/login</body></html>",
+    } as Response)
+
+    const calls = await adapter.fetchRaw("https://avistaz.to", validToken, "")
+
+    expect(calls).toHaveLength(1)
+    expect(calls[0].data).toBeNull()
+    expect(calls[0].error).toContain("Session expired")
+  })
+})
