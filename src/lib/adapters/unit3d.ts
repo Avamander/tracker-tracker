@@ -38,9 +38,16 @@ function toBytes(value: string | number): bigint {
   return typeof value === "number" ? floatBytesToBigInt(value) : parseBytes(value)
 }
 
-/** Decimal field (seedbonus), a bare number on newer builds, "964533.23" on older ones. */
-function toNumber(value: string | number): number {
-  return (typeof value === "number" ? value : parseFloat(value)) || 0
+/**
+ * Decimal field (seedbonus), a bare number on newer builds, "964533.23" on
+ * older ones. Absent or unparseable reads as null, never 0: the shape guard
+ * below requires only the byte fields, so a fork that omits this one still
+ * reaches here, and "∞" is a spelling this API is already known to use.
+ */
+function toNumber(value: string | number | undefined): number | null {
+  if (value == null) return null
+  const parsed = typeof value === "number" ? value : Number.parseFloat(value)
+  return Number.isFinite(parsed) ? parsed : null
 }
 
 /** Signed byte field (buffer only), a deficit account must keep its sign. */
@@ -55,10 +62,13 @@ interface Unit3dApiResponse {
   downloaded: string | number
   ratio: string | number
   buffer: string | number
-  seeding: number
-  leeching: number
-  seedbonus: string | number
-  hit_and_runs: number
+  // Optional because unwrapUnit3dResponse only requires the byte fields. Marking
+  // them so is what makes the null-coalesce at the mapping site load-bearing
+  // rather than dead code a reader would be tempted to delete.
+  seeding?: number
+  leeching?: number
+  seedbonus?: string | number
+  hit_and_runs?: number
 }
 
 // ---------------------------------------------------------------------------
@@ -279,10 +289,10 @@ export class Unit3dAdapter implements TrackerAdapter {
       bufferBytes: isUnlimitedBuffer(data.buffer)
         ? computeBufferBytes(uploadedBytes, downloadedBytes)
         : toSignedBytes(data.buffer),
-      seedingCount: data.seeding,
-      leechingCount: data.leeching,
+      seedingCount: data.seeding ?? null,
+      leechingCount: data.leeching ?? null,
       seedbonus: toNumber(data.seedbonus),
-      hitAndRuns: data.hit_and_runs,
+      hitAndRuns: data.hit_and_runs ?? null,
       requiredRatio: null,
       warned: null,
       freeleechTokens: null,

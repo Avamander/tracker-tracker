@@ -41,6 +41,55 @@ describe("Unit3dAdapter", () => {
     expect(stats.hitAndRuns).toBe(0)
   })
 
+  it("reports figures the response omits as unknown, not as zero", async () => {
+    // unwrapUnit3dResponse requires only uploaded, downloaded and buffer, so a
+    // fork that trims the payload reaches the mapping with these absent. Zero
+    // here is a claim the account seeds nothing and holds no bonus.
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        username: "JohnDoe",
+        group: "Power User",
+        uploaded: "500.25 GiB",
+        downloaded: "125.50 GiB",
+        ratio: "3.99",
+        buffer: "374.75 GiB",
+      }),
+    } as Response)
+
+    const stats = await adapter.fetchStats("https://aither.cc", "fake-token", "/api/user")
+
+    expect(stats.seedingCount).toBeNull()
+    expect(stats.leechingCount).toBeNull()
+    expect(stats.seedbonus).toBeNull()
+    expect(stats.hitAndRuns).toBeNull()
+  })
+
+  it("reports an unparseable bonus as unknown rather than zero", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        username: "JohnDoe",
+        group: "Power User",
+        uploaded: "500.25 GiB",
+        downloaded: "125.50 GiB",
+        ratio: "3.99",
+        buffer: "374.75 GiB",
+        seeding: 5,
+        leeching: 0,
+        seedbonus: "∞",
+        hit_and_runs: 0,
+      }),
+    } as Response)
+
+    const stats = await adapter.fetchStats("https://aither.cc", "fake-token", "/api/user")
+
+    expect(stats.seedbonus).toBeNull()
+    // A reported zero stays a zero; only the unreadable figure becomes unknown.
+    expect(stats.leechingCount).toBe(0)
+    expect(stats.hitAndRuns).toBe(0)
+  })
+
   it("throws on non-ok response", async () => {
     vi.spyOn(global, "fetch").mockResolvedValueOnce({
       ok: false,
