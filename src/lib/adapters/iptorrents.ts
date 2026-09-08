@@ -7,6 +7,7 @@ import { type HTMLElement as ParsedElement, parse as parseHtml } from "node-html
 import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
 import { parseBytes } from "@/lib/parser"
 import { parseCredentialJson, validateCookieHeader } from "./cookie-credentials"
+import { SessionExpiredError } from "./errors"
 import { fetchTrackerHtml } from "./html-fetch"
 import type { DebugApiCall, FetchOptions, TrackerAdapter, TrackerStats } from "./types"
 
@@ -97,7 +98,7 @@ function parseUpStatCards(doc: ParsedElement): {
 
 export function parseIptProfile(html: string): TrackerStats {
   if (html.includes("/auth/login")) {
-    throw new Error("Session expired. Browser cookies need to be refreshed")
+    throw new SessionExpiredError("Session expired. Browser cookies need to be refreshed")
   }
 
   if (

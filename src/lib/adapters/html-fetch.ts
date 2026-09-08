@@ -5,6 +5,7 @@
 
 import { classifyFetchError, sanitizeNetworkError } from "@/lib/error-utils"
 import { ADAPTER_FETCH_TIMEOUT_MS } from "@/lib/limits"
+import { SessionExpiredError } from "./errors"
 import type { FetchOptions } from "./types"
 
 // ---------------------------------------------------------------------------
@@ -150,7 +151,7 @@ async function followRedirectChain(
     if (!isRedirect(current.status)) return current
 
     const location = current.location()
-    if (loginPattern.test(location)) throw new Error(sessionExpiredMessage)
+    if (loginPattern.test(location)) throw new SessionExpiredError(sessionExpiredMessage)
     // A redirect with no Location is malformed and cannot be followed.
     if (!location || hop === maxHops) break
 
@@ -200,7 +201,7 @@ export async function fetchTrackerHtml(request: TrackerHtmlRequest): Promise<str
       label
     )
   } else if (isRedirect(response.status)) {
-    throw new Error(sessionExpiredMessage)
+    throw new SessionExpiredError(sessionExpiredMessage)
   }
 
   if (!response.ok) throw fetchFailure(label, response.status, response.statusText)

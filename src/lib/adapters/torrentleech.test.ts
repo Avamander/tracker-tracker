@@ -1,6 +1,7 @@
 // src/lib/adapters/torrentleech.test.ts
 
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { SessionExpiredError } from "./errors"
 import { parseTlCredentials, parseTlProfile, TorrentleechAdapter } from "./torrentleech"
 
 // The proxy path is what these tests are checking is TAKEN, so proxyFetch is
@@ -195,6 +196,11 @@ describe("parseTlProfile", () => {
     expect(stats.uploadedBytes).toBe(250_000_000_000n)
     expect(stats.downloadedBytes).toBe(0n)
     expect(stats.ratio).toBe(Infinity)
+  })
+
+  it("raises session expiry as a type, so withTlSession need not read the message", () => {
+    const loginPage = `<!doctype html><html><body><form action="/user/account/login/">login</form></body></html>`
+    expect(() => parseTlProfile(loginPage, "testuser")).toThrow(SessionExpiredError)
   })
 
   it("detects session expiry from a login page redirect", () => {

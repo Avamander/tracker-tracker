@@ -9,6 +9,7 @@ import { parse as parseHtml } from "node-html-parser"
 import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
 import { log } from "@/lib/logger"
 import { parseCredentialJson, validateCookieHeader } from "./cookie-credentials"
+import { SessionExpiredError } from "./errors"
 import { fetchTrackerHtml } from "./html-fetch"
 import { datePrefix, normalizeWhitespace, tryParseSiteBytes } from "./html-parse"
 import type {
@@ -78,7 +79,9 @@ function assertAuthenticated(html: string, page: string): void {
   }
 
   if (!html.includes("logout.php")) {
-    throw new Error(`Session expired. Browser cookies need to be refreshed (${page})`)
+    throw new SessionExpiredError(
+      `Session expired. Browser cookies need to be refreshed (${page})`
+    )
   }
 }
 

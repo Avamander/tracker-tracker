@@ -12,6 +12,7 @@ import { log } from "@/lib/logger"
 import { parseBytes } from "@/lib/parser"
 import { proxyFetch } from "@/lib/tunnel"
 import { parseCredentialJson } from "./cookie-credentials"
+import { SessionExpiredError } from "./errors"
 import { fetchTrackerHtml } from "./html-fetch"
 import type { DebugApiCall, FetchOptions, TrackerAdapter, TrackerStats } from "./types"
 
@@ -272,7 +273,7 @@ function trailingCount(text: string): number | null {
 
 export function parseTlProfile(html: string, username: string): TrackerStats {
   if (html.includes("/user/account/login")) {
-    throw new Error("Session expired. TorrentLeech cookies need to be refreshed")
+    throw new SessionExpiredError("Session expired. TorrentLeech cookies need to be refreshed")
   }
 
   if (
@@ -392,9 +393,9 @@ function fetchHtml(
     cookies,
     proxyAgent,
     label: "TorrentLeech",
-    // The "Session expired" prefix is load-bearing: withTlSession keys its
-    // retry on it. The tail used to tell the user to refresh cookies, but the
-    // stored credentials are a username, a password and a 2FA token.
+    // Wording is free to change: withTlSession keys its retry on the error
+    // type. The tail used to tell the user to refresh cookies, but the stored
+    // credentials are a username, a password and a 2FA token.
     sessionExpiredMessage:
       "Session expired. Check the stored TorrentLeech username, password and 2FA token if this persists",
   })
@@ -422,7 +423,7 @@ async function withTlSession<T>(
   try {
     return await work(await getTlSession(baseUrl, creds, proxyAgent))
   } catch (err) {
-    if (!(err instanceof Error) || !err.message.startsWith("Session expired")) throw err
+    if (!(err instanceof SessionExpiredError)) throw err
     invalidateTlSession(baseUrl, creds.username)
     return work(await getTlSession(baseUrl, creds, proxyAgent))
   }

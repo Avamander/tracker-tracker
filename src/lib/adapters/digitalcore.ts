@@ -6,6 +6,7 @@
 import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
 import { sanitizeNetworkError } from "@/lib/error-utils"
 import { adapterRequest } from "./adapter-fetch"
+import { SessionExpiredError } from "./errors"
 import type {
   DebugApiCall,
   DigitalCorePlatformMeta,
@@ -238,7 +239,7 @@ async function fetchDCJson<T>(
   const response = await adapterRequest(url, parsed.hostname, { proxyAgent }, headers)
 
   if (response.status === 401) {
-    throw new Error("Session expired. Re-copy uid and pass cookies from your browser.")
+    throw new SessionExpiredError("Session expired. Re-copy uid and pass cookies from your browser.")
   }
 
   if (!response.ok) {
@@ -355,12 +356,12 @@ export class DigitalCoreAdapter implements TrackerAdapter {
         hearts: profile.hearts ?? 0,
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "unknown"
       // Auth failures during enrichment mean the session is degrading. Surface them
       // so the user knows their cookies need refreshing.
-      if (msg.includes("Session expired")) {
+      if (err instanceof SessionExpiredError) {
         throw err
       }
+      const msg = err instanceof Error ? err.message : "unknown"
       // Other enrichment failures are non-fatal, core stats + baseMeta from /status are still valid
       console.warn(`[digitalcore] Enrichment failed: ${msg}`)
     }

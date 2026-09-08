@@ -8,6 +8,7 @@ import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
 import { localDateStr } from "@/lib/formatters"
 import { parseBytes } from "@/lib/parser"
 import { parseCredentialJson, validateCookieHeader } from "./cookie-credentials"
+import { SessionExpiredError } from "./errors"
 import { fetchTrackerHtml } from "./html-fetch"
 import type {
   AvistazPlatformMeta,
@@ -120,7 +121,7 @@ function extractRatioBarValue(items: ParsedElement[], labelRegex: RegExp): strin
 export function parseAvistazProfile(html: string, username: string): TrackerStats {
   // Detect login redirect. AvistaZ uses /auth/login, AnimeZ and others use /login.
   if (html.includes("/auth/login") || html.includes('action="/login"')) {
-    throw new Error("Session expired. Browser cookies need to be refreshed")
+    throw new SessionExpiredError("Session expired. Browser cookies need to be refreshed")
   }
 
   // Detect Cloudflare challenge (classic JS challenge or Turnstile widget)

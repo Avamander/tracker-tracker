@@ -1,5 +1,6 @@
 // src/lib/adapters/html-fetch.test.ts
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { SessionExpiredError } from "./errors"
 import { fetchTrackerHtml } from "./html-fetch"
 
 const BASE = {
@@ -81,6 +82,17 @@ describe("fetchTrackerHtml - redirects", () => {
     vi.spyOn(global, "fetch").mockResolvedValueOnce(redirectResponse("/login"))
 
     await expect(fetchTrackerHtml(BASE)).rejects.toThrow("Session expired")
+  })
+
+  // The TorrentLeech retry and the DigitalCore enrichment rethrow both branch
+  // on this type. They used to match the message text, which quietly made a
+  // string shown to the user part of the control flow.
+  it("raises an expired session as a type a caller can branch on", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(redirectResponse("/login"))
+
+    await expect(
+      fetchTrackerHtml({ ...BASE, sessionExpiredMessage: "Reworded entirely" })
+    ).rejects.toBeInstanceOf(SessionExpiredError)
   })
 
   it("follows a non-login redirect when configured to", async () => {

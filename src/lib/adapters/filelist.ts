@@ -7,6 +7,7 @@
 import { parse as parseHtml } from "node-html-parser"
 import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
 import { parseCredentialJson, validateCookieHeader } from "./cookie-credentials"
+import { SessionExpiredError } from "./errors"
 import { fetchTrackerHtml } from "./html-fetch"
 import { datePrefix, normalizeWhitespace, tryParseSiteBytes } from "./html-parse"
 import type {
@@ -73,7 +74,7 @@ export function parseFilelistProfile(html: string): TrackerStats {
   // redirects anonymous requests, but this also guards a login page served
   // with a 200.
   if (!html.includes("logout.php")) {
-    throw new Error("Session expired. Browser cookies need to be refreshed")
+    throw new SessionExpiredError("Session expired. Browser cookies need to be refreshed")
   }
 
   const doc = parseHtml(html)
