@@ -4,6 +4,7 @@
 //            textAfterNode, firstText, topBarCell, parenCount, trailingCount,
 //            parseTlProfile, fetchHtml, TorrentleechAdapter
 
+import { createHash } from "node:crypto"
 import { type HTMLElement as ParsedElement, parse as parseHtml } from "node-html-parser"
 import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
 import { classifyFetchError } from "@/lib/error-utils"
@@ -91,9 +92,23 @@ const gTl = globalThis as typeof globalThis & {
 if (!gTl.__tlSessionCache) gTl.__tlSessionCache = new Map()
 const tlSessionCache = gTl.__tlSessionCache
 
-/** Cache key is scoped per site+account so multiple logins don't collide. */
-function sessionKey(baseUrl: string, username: string): string {
-  return `${baseUrl}|${username}`
+/**
+ * Cache key is scoped per site and per credential set.
+ *
+ * The password and the static alt 2FA token belong in it because the connection
+ * test authenticates through this cache. Keyed on the username alone, a test of
+ * a newly typed password was answered with the session the previous one had
+ * established, so the settings sheet reported success for a credential it had
+ * never sent, and only a process restart revealed the stored password was wrong.
+ *
+ * Hashed rather than concatenated: this map is process-global and long-lived,
+ * and a key is the one part of it that tends to end up in a debugger view.
+ */
+function sessionKey(baseUrl: string, creds: TlCredentials): string {
+  const fingerprint = createHash("sha256")
+    .update(`${creds.username}\u0000${creds.password}\u0000${creds.alt2FAToken ?? ""}`)
+    .digest("hex")
+  return `${baseUrl}|${fingerprint}`
 }
 
 async function getTlSession(
@@ -101,7 +116,7 @@ async function getTlSession(
   creds: TlCredentials,
   proxyAgent?: FetchOptions["proxyAgent"]
 ): Promise<string> {
-  const key = sessionKey(baseUrl, creds.username)
+  const key = sessionKey(baseUrl, creds)
   const cached = tlSessionCache.get(key)
   if (cached) return cached
 
@@ -110,8 +125,8 @@ async function getTlSession(
   return cookies
 }
 
-function invalidateTlSession(baseUrl: string, username: string): void {
-  tlSessionCache.delete(sessionKey(baseUrl, username))
+function invalidateTlSession(baseUrl: string, creds: TlCredentials): void {
+  tlSessionCache.delete(sessionKey(baseUrl, creds))
 }
 
 async function login(
@@ -424,7 +439,7 @@ async function withTlSession<T>(
     return await work(await getTlSession(baseUrl, creds, proxyAgent))
   } catch (err) {
     if (!(err instanceof SessionExpiredError)) throw err
-    invalidateTlSession(baseUrl, creds.username)
+    invalidateTlSession(baseUrl, creds)
     return work(await getTlSession(baseUrl, creds, proxyAgent))
   }
 }

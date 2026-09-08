@@ -632,4 +632,84 @@ describe("TorrentleechAdapter.fetchStats", () => {
     )
     expect(loginCalls).toHaveLength(1)
   })
+
+  // The connection test authenticates through this same cache, so a key that
+  // ignores the password let the settings sheet report success for a credential
+  // it never sent: type a wrong new password, press Test, get a green tick from
+  // the session the old password had established.
+  it("logs in again when the password changes rather than reusing the session", async () => {
+    const loginResponse = {
+      ok: true,
+      status: 200,
+      headers: { getSetCookie: () => ["tluid=123; Path=/", "tlpass=abc; Path=/"] },
+      text: async () => "",
+    } as unknown as Response
+    const profileResponse = {
+      ok: true,
+      status: 200,
+      headers: { getSetCookie: () => [] },
+      text: async () => PROFILE_HTML,
+    } as unknown as Response
+
+    const fetchSpy = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce(loginResponse)
+      .mockResolvedValueOnce(profileResponse)
+      .mockResolvedValueOnce(loginResponse)
+      .mockResolvedValueOnce(profileResponse)
+
+    await adapter.fetchStats(
+      "https://www.torrentleech.org",
+      JSON.stringify({ username: "tluser", password: "first-password" }),
+      ""
+    )
+    await adapter.fetchStats(
+      "https://www.torrentleech.org",
+      JSON.stringify({ username: "tluser", password: "second-password" }),
+      ""
+    )
+
+    const loginCalls = fetchSpy.mock.calls.filter(([url]) =>
+      String(url).includes("/user/account/login/")
+    )
+    expect(loginCalls).toHaveLength(2)
+  })
+
+  it("logs in again when the alt 2FA token changes", async () => {
+    const loginResponse = {
+      ok: true,
+      status: 200,
+      headers: { getSetCookie: () => ["tluid=123; Path=/", "tlpass=abc; Path=/"] },
+      text: async () => "",
+    } as unknown as Response
+    const profileResponse = {
+      ok: true,
+      status: 200,
+      headers: { getSetCookie: () => [] },
+      text: async () => PROFILE_HTML,
+    } as unknown as Response
+
+    const fetchSpy = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce(loginResponse)
+      .mockResolvedValueOnce(profileResponse)
+      .mockResolvedValueOnce(loginResponse)
+      .mockResolvedValueOnce(profileResponse)
+
+    await adapter.fetchStats(
+      "https://www.torrentleech.org",
+      JSON.stringify({ username: "tluser", password: "pw", alt2FAToken: "token-one" }),
+      ""
+    )
+    await adapter.fetchStats(
+      "https://www.torrentleech.org",
+      JSON.stringify({ username: "tluser", password: "pw", alt2FAToken: "token-two" }),
+      ""
+    )
+
+    const loginCalls = fetchSpy.mock.calls.filter(([url]) =>
+      String(url).includes("/user/account/login/")
+    )
+    expect(loginCalls).toHaveLength(2)
+  })
 })
