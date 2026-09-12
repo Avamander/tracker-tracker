@@ -23,16 +23,36 @@ export function datePrefix(value: string): string | undefined {
 }
 
 /**
+ * parseBytes' unit table is case-sensitive and mixes cases across families
+ * ("KB" but "KiB"), so a site printing "kB" or "gib" misses it. Uppercasing the
+ * whole unit fixes the decimal family and breaks the binary one, since "GiB"
+ * becomes "GIB" and matches nothing. Canonicalising per unit is what handles
+ * both, and getting it wrong is invisible: the value silently reads as unknown.
+ */
+const CANONICAL_UNITS: Record<string, string> = {
+  b: "B",
+  kb: "KB",
+  mb: "MB",
+  gb: "GB",
+  tb: "TB",
+  kib: "KiB",
+  mib: "MiB",
+  gib: "GiB",
+  tib: "TiB",
+}
+
+/**
  * `parseBytes` for site-printed totals, returning undefined instead of throwing
- * so one odd cell cannot abort a whole profile parse. The unit is uppercased
- * ("kB" vs parseBytes' case-sensitive table) and grouping commas stripped.
- * Decimal units are an unverified assumption; check against live figures.
+ * so one odd cell cannot abort a whole profile parse. Grouping commas are
+ * stripped and the unit is canonicalised, so both "1,024 kB" and "1 GiB" parse.
  */
 export function tryParseSiteBytes(value: string): bigint | undefined {
   const match = value.trim().match(/^([\d,.]+)\s*([A-Za-z]+)$/)
   if (!match) return undefined
+  const unit = CANONICAL_UNITS[match[2].toLowerCase()]
+  if (!unit) return undefined
   try {
-    return parseBytes(`${match[1].replace(/,/g, "")} ${match[2].toUpperCase()}`)
+    return parseBytes(`${match[1].replace(/,/g, "")} ${unit}`)
   } catch {
     return undefined
   }
