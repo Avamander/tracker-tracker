@@ -1,6 +1,6 @@
 // src/lib/adapters/ggn.ts
 
-import { computeBufferBytes, floatBytesToBigInt } from "@/lib/data-transforms"
+import { computeBufferBytes, computeRatio, floatBytesToBigInt } from "@/lib/data-transforms"
 import { adapterFetch } from "./helpers/adapter-fetch"
 import { envelopeError } from "./helpers/envelope"
 import type {
@@ -136,14 +136,21 @@ export class GGnAdapter implements TrackerAdapter {
 
     const uploaded = floatBytesToBigInt(resp.stats.uploaded)
     const downloaded = floatBytesToBigInt(resp.stats.downloaded)
-    const ratio =
-      typeof resp.stats.ratio === "number" ? resp.stats.ratio : parseFloat(resp.stats.ratio) || 0
+    // GGn types its ratio as string | number. A string that does not parse fell
+    // to 0, the worst ratio the app can hold, and that figure is stored in the
+    // snapshot and fed to the ratio_danger alert (tracker-scheduler.ts:336).
+    // An account with nothing downloaded is the case that matters: the site
+    // prints an infinity glyph, parseFloat gives NaN, and the account was
+    // reported as critically in debt. Fall back to the byte totals instead.
+    const reported =
+      typeof resp.stats.ratio === "number" ? resp.stats.ratio : parseFloat(resp.stats.ratio)
+    const ratio = Number.isFinite(reported) ? reported : computeRatio(uploaded, downloaded)
 
     // Every field here is optional on GGnPlatformMeta, so an absent one stays
     // absent. Defaulting them fabricated data in both directions (`?? false`
     // for donor, `?? true` for enabled, from the same missing `personal`) and
     // it made the unknown branches in slot-registry.ts dead code: an unreported
-    // hourly gold rendered as "+0" instead of the "—" that file already draws.
+    // hourly gold rendered as "+0" instead of the placeholder it already draws.
     const platformMeta: GGnPlatformMeta = {
       donor: resp.personal?.donor,
       parked: resp.personal?.parked,

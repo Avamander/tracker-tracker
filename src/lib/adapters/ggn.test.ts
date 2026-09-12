@@ -317,3 +317,49 @@ describe("GGnAdapter.fetchRaw", () => {
     expect(calls[0].error).toBeTruthy()
   })
 })
+
+// ratio reaches the stored snapshot and the ratio_danger alert
+// (tracker-scheduler.ts:336), so an unparseable string must not become 0.
+// GGn types the field string | number and prints a glyph for an account that
+// has downloaded nothing, which parseFloat cannot read.
+describe("GGnAdapter ratio", () => {
+  const adapter = new GGnAdapter()
+
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it("derives the ratio from the byte totals when the reported one will not parse", async () => {
+    mockBothCalls({ stats: { ratio: "∞", uploaded: 5_000_000_000, downloaded: 0 } })
+
+    const stats = await adapter.fetchStats("https://gazellegames.net", "key", "/api.php")
+
+    // Infinity, not 0. A zero here reads as critically in debt.
+    expect(stats.ratio).toBe(Number.POSITIVE_INFINITY)
+    expect(stats.ratio).not.toBe(0)
+  })
+
+  it("derives rather than zeroing when the string is plain nonsense", async () => {
+    mockBothCalls({ stats: { ratio: "N/A", uploaded: 300, downloaded: 100 } })
+
+    const stats = await adapter.fetchStats("https://gazellegames.net", "key", "/api.php")
+
+    expect(stats.ratio).toBe(3)
+  })
+
+  it("still prefers a ratio the tracker did report", async () => {
+    mockBothCalls({ stats: { ratio: "0.99699" } })
+
+    const stats = await adapter.fetchStats("https://gazellegames.net", "key", "/api.php")
+
+    expect(stats.ratio).toBeCloseTo(0.99699, 5)
+  })
+
+  it("accepts a numeric ratio unchanged", async () => {
+    mockBothCalls({ stats: { ratio: 2.5 } })
+
+    const stats = await adapter.fetchStats("https://gazellegames.net", "key", "/api.php")
+
+    expect(stats.ratio).toBe(2.5)
+  })
+})

@@ -1,7 +1,7 @@
 // src/lib/adapters/digitalcore.ts
 //
-// Functions: parseDigitalCoreCredentials, dcClassNameFromId, parseJsonSafe,
-//            fetchDCJson, DigitalCoreAdapter
+// Functions: parseDigitalCoreCredentials, dcFlag, dcClassNameFromId,
+//            parseJsonSafe, fetchDCJson, DigitalCoreAdapter
 
 import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
 import { sanitizeNetworkError } from "@/lib/error-utils"

@@ -5,8 +5,8 @@
 
 import { classifyFetchError, sanitizeNetworkError } from "@/lib/error-utils"
 import { ADAPTER_FETCH_TIMEOUT_MS } from "@/lib/limits"
-import { SessionExpiredError } from "./errors"
 import type { FetchOptions } from "../types"
+import { SessionExpiredError } from "./errors"
 
 // ---------------------------------------------------------------------------
 // Shared HTML fetcher for the scraping adapters.
