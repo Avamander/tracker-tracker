@@ -1,6 +1,12 @@
 // src/lib/formatters.test.ts
 import { describe, expect, it } from "vitest"
-import { formatBytesFromString, formatBytesNum, formatRatio, formatStatValue } from "./formatters"
+import {
+  formatBytesFromString,
+  formatBytesNum,
+  formatRatio,
+  formatStatValue,
+  trackerDateStr,
+} from "./formatters"
 
 describe("formatBytesFromString", () => {
   it("formats GiB values", () => {
@@ -146,5 +152,38 @@ describe("formatStatValue", () => {
 
   it("returns dash for null seedingCount", () => {
     expect(formatStatValue({ ...stats, seedingCount: null }, "seeding")).toBe("—")
+  })
+})
+
+describe("trackerDateStr", () => {
+  // Adapters return at least five date shapes because TrackerStats puts no
+  // format contract on joinedDate/lastAccessDate. A bare date is the one that
+  // used to corrupt: new Date("2026-08-28") is UTC midnight, and rendering
+  // that in any negative-offset zone gives 2026-08-27.
+  it("returns a bare date unchanged, whatever the server timezone is", () => {
+    expect(trackerDateStr("2026-08-28")).toBe("2026-08-28")
+    expect(trackerDateStr("2021-06-15")).toBe("2021-06-15")
+    expect(trackerDateStr("  2026-01-01  ")).toBe("2026-01-01")
+  })
+
+  it("does not route a bare date through Date, which would shift the day", () => {
+    const bare = "2026-08-28"
+    const viaDate = new Date(bare).toLocaleDateString("en-CA")
+    // Only meaningful off UTC, where the two genuinely differ.
+    if (viaDate !== bare) expect(trackerDateStr(bare)).not.toBe(viaDate)
+    expect(trackerDateStr(bare)).toBe(bare)
+  })
+
+  it("converts a shape that carries a real time to the local calendar date", () => {
+    expect(trackerDateStr("2021-06-15 09:00:00")).toBe("2021-06-15")
+    expect(trackerDateStr("2024-12-02T12:00:00+00:00")).toBe(
+      new Date("2024-12-02T12:00:00+00:00").toLocaleDateString("en-CA")
+    )
+  })
+
+  it("returns undefined rather than a bogus date for an unparseable value", () => {
+    expect(trackerDateStr("never")).toBeUndefined()
+    expect(trackerDateStr("")).toBeUndefined()
+    expect(trackerDateStr("N/A")).toBeUndefined()
   })
 })

@@ -27,7 +27,7 @@ import {
   trackers,
 } from "@/lib/db/schema"
 import { errMsg, sanitizeNetworkError } from "@/lib/error-utils"
-import { localDateStr } from "@/lib/formatters"
+import { localDateStr, trackerDateStr } from "@/lib/formatters"
 import { POLL_INTERVAL_DEFAULT } from "@/lib/limits"
 import { log } from "@/lib/logger"
 import { dispatchNotifications } from "@/lib/notifications/dispatch"
@@ -146,12 +146,12 @@ export async function fetchTrackerStats(
     metaUpdates.remoteUserId = stats.remoteUserId
   }
   if (stats.joinedDate && !tracker.joinedAt) {
-    const parsed = new Date(stats.joinedDate)
-    if (!Number.isNaN(parsed.getTime())) metaUpdates.joinedAt = localDateStr(parsed)
+    const joined = trackerDateStr(stats.joinedDate)
+    if (joined) metaUpdates.joinedAt = joined
   }
   if (stats.lastAccessDate) {
-    const parsed = new Date(stats.lastAccessDate)
-    if (!Number.isNaN(parsed.getTime())) metaUpdates.lastAccessAt = localDateStr(parsed)
+    const lastAccess = trackerDateStr(stats.lastAccessDate)
+    if (lastAccess) metaUpdates.lastAccessAt = lastAccess
   }
   if (stats.platformMeta) metaUpdates.platformMeta = JSON.stringify(stats.platformMeta)
   if (stats.avatarUrl) metaUpdates.avatarRemoteUrl = stats.avatarUrl
@@ -227,16 +227,12 @@ export async function pollTracker(
       metaUpdates.remoteUserId = stats.remoteUserId
     }
     if (stats.joinedDate && !tracker.joinedAt) {
-      const parsed = new Date(stats.joinedDate)
-      if (!Number.isNaN(parsed.getTime())) {
-        metaUpdates.joinedAt = localDateStr(parsed)
-      }
+      const joined = trackerDateStr(stats.joinedDate)
+      if (joined) metaUpdates.joinedAt = joined
     }
     if (stats.lastAccessDate) {
-      const parsed = new Date(stats.lastAccessDate)
-      if (!Number.isNaN(parsed.getTime())) {
-        metaUpdates.lastAccessAt = localDateStr(parsed)
-      }
+      const lastAccess = trackerDateStr(stats.lastAccessDate)
+      if (lastAccess) metaUpdates.lastAccessAt = lastAccess
     }
     if (stats.platformMeta) {
       metaUpdates.platformMeta = JSON.stringify(stats.platformMeta)

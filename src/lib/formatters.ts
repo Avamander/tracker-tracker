@@ -190,6 +190,27 @@ export function localDateStr(date?: Date | number): string {
   return d.toLocaleDateString("en-CA")
 }
 
+/** A date with no time part, which `new Date()` reads as UTC rather than local. */
+const DATE_ONLY = /^(\d{4}-\d{2}-\d{2})$/
+
+/**
+ * Normalizes the date strings adapters return, which arrive in at least five
+ * shapes because TrackerStats puts no format contract on them.
+ *
+ * A bare YYYY-MM-DD is already the calendar date the tracker meant, so it is
+ * returned untouched. Passing it through `new Date()` would not be harmless:
+ * ECMA-262 reads a date-only form as UTC midnight, and rendering that back in
+ * any negative-offset zone yields the previous day. Shapes that carry a time
+ * do have an instant to convert, so those still go through localDateStr.
+ */
+export function trackerDateStr(value: string): string | undefined {
+  const bare = value.trim().match(DATE_ONLY)
+  if (bare) return bare[1]
+
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? undefined : localDateStr(parsed)
+}
+
 export function formatSpeed(bytesPerSec: number): string {
   if (!bytesPerSec || bytesPerSec <= 0) return "0 B/s"
   return `${formatBytesNum(bytesPerSec)}/s`
