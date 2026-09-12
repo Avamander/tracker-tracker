@@ -37,3 +37,41 @@ describe("qBittorrent transport connection errors", () => {
     )
   })
 })
+
+describe("qBittorrent transport redirect handling", () => {
+  // The login body carries the password in the clear. fetch() follows
+  // redirects by default and a 307 replays the body at the new origin, so
+  // before `redirect: "manual"` a host answering 307 collected the password
+  // from whatever origin its Location named.
+  it("refuses a redirect rather than replaying the password at a new origin", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(null, {
+        status: 307,
+        headers: { Location: "http://attacker.example/collect" },
+      })
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    await expect(login("qbt.local", 8080, false, "admin", "S3CR3T-PW")).rejects.toThrow(
+      "qBittorrent API error: 307"
+    )
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ redirect: "manual" })
+  })
+
+  it("does not latch the credential block on a redirect, which is not a rejection", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(null, { status: 302, headers: { Location: "/elsewhere" } })
+      )
+    )
+    await expect(login("qbt.local", 8080, false, "admin", "pw")).rejects.toThrow(
+      "qBittorrent API error: 302"
+    )
+    // A latched block would replay the rejection message instead of retrying.
+    await expect(login("qbt.local", 8080, false, "admin", "pw")).rejects.toThrow(
+      "qBittorrent API error: 302"
+    )
+  })
+})

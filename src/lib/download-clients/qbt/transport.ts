@@ -272,6 +272,12 @@ export async function login(
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body,
+      // A 307 or 308 replays the method and the body at the new origin, and
+      // undici strips Cookie and Authorization when the origin changes but
+      // never the body. Following one hands the plaintext password to
+      // whatever host the configured client names. Manual mode surfaces the
+      // 3xx as non-ok, which the check below already throws on.
+      redirect: "manual",
       signal: AbortSignal.timeout(ADAPTER_FETCH_TIMEOUT_MS),
     })
   } catch (err) {
@@ -370,6 +376,10 @@ async function qbtFetch(
   try {
     response = await fetch(url, {
       headers: authHeaders(auth),
+      // Same reason as login(). No credential rides in this body, but a
+      // followed redirect would feed the parser a response from an origin the
+      // user never configured.
+      redirect: "manual",
       signal: AbortSignal.timeout(ADAPTER_FETCH_TIMEOUT_MS),
     })
   } catch (err) {
