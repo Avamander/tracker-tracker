@@ -1,5 +1,6 @@
 // src/lib/adapters/digitalcore.test.ts
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { sanitizeNetworkError } from "@/lib/error-utils"
 import { DigitalCoreAdapter, parseDigitalCoreCredentials } from "./digitalcore"
 import type { DigitalCorePlatformMeta } from "./types"
 
@@ -941,7 +942,7 @@ describe("DigitalCoreAdapter.fetchStats — non-JSON response handling", () => {
     )
   })
 
-  it("throws invalid JSON message for non-HTML non-JSON responses", async () => {
+  it("throws an unexpected-response message for non-HTML non-JSON responses", async () => {
     vi.spyOn(global, "fetch").mockResolvedValueOnce({
       ok: true,
       status: 200,
@@ -950,7 +951,7 @@ describe("DigitalCoreAdapter.fetchStats — non-JSON response handling", () => {
     } as Response)
 
     await expect(adapter.fetchStats("https://digitalcore.club", validToken, "")).rejects.toThrow(
-      "invalid JSON"
+      "Unexpected response from DigitalCore"
     )
   })
 
@@ -963,7 +964,7 @@ describe("DigitalCoreAdapter.fetchStats — non-JSON response handling", () => {
     } as Response)
 
     await expect(adapter.fetchStats("https://digitalcore.club", validToken, "")).rejects.toThrow(
-      "invalid JSON"
+      "Unexpected response from DigitalCore"
     )
   })
 })
@@ -1265,4 +1266,38 @@ describe("DigitalCoreAdapter - stored userAgent", () => {
     expect(headers["User-Agent"]).not.toBe(DEFAULT_USER_AGENT)
     vi.doUnmock("@/lib/tunnel")
   })
+})
+
+// The wording is load-bearing, not cosmetic. sanitizeNetworkError picks a rule
+// by matching the raw message, and its credentials rule matches a bare
+// "invalid" anywhere in the string, so the old "returned invalid JSON" wording
+// reached the user as "Invalid credentials" and pointed them at a key that was
+// never the problem.
+describe("DigitalCore body errors classify as a tracker fault, not a credential one", () => {
+  const adapter = new DigitalCoreAdapter()
+  const validToken = JSON.stringify({ uid: "54321", pass: "abc123xyz" })
+
+  for (const [label, body] of [
+    ["a maintenance page", "<!DOCTYPE html><html><body>maintenance</body></html>"],
+    ["an unparseable body", "this is not json or html"],
+  ] as const) {
+    it(`reports ${label} as an unexpected response`, async () => {
+      vi.spyOn(global, "fetch").mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        text: async () => body,
+      } as Response)
+
+      const err = await adapter
+        .fetchStats("https://digitalcore.club", validToken, "")
+        .then(() => null)
+        .catch((e: unknown) => (e instanceof Error ? e : null))
+
+      expect(err).not.toBeNull()
+      expect(sanitizeNetworkError(err?.message ?? "")).toBe(
+        "Tracker returned an unexpected response"
+      )
+    })
+  }
 })

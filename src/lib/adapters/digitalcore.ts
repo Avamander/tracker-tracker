@@ -209,16 +209,21 @@ interface DCUserResponse {
 // Cookie-based JSON fetcher
 // ---------------------------------------------------------------------------
 
+// Both messages open with "Unexpected response from" so sanitizeNetworkError
+// classifies them by its shape rule (error-utils.ts:56). The earlier wording
+// said "invalid JSON", and that rule's `invalid` alternative belongs to the
+// credentials rule below it, so a maintenance page reached the user as
+// "Invalid credentials" and sent them to re-enter a key that was fine.
 function parseJsonSafe<T>(text: string, pathname: string): T {
   try {
     return JSON.parse(text) as T
   } catch {
     if (text.includes("<!DOCTYPE") || text.includes("<html")) {
       throw new Error(
-        "DigitalCore returned HTML instead of JSON (maintenance page or Cloudflare challenge)"
+        `Unexpected response from DigitalCore: HTML instead of JSON (maintenance page or Cloudflare challenge)`
       )
     }
-    throw new Error(`DigitalCore returned invalid JSON from ${pathname}`)
+    throw new Error(`Unexpected response from DigitalCore: unparseable JSON from ${pathname}`)
   }
 }
 
