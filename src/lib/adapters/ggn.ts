@@ -2,6 +2,7 @@
 
 import { computeBufferBytes, floatBytesToBigInt } from "@/lib/data-transforms"
 import { adapterFetch } from "./helpers/adapter-fetch"
+import { envelopeError } from "./helpers/envelope"
 import type {
   DebugApiCall,
   FetchOptions,
@@ -138,13 +139,18 @@ export class GGnAdapter implements TrackerAdapter {
     const ratio =
       typeof resp.stats.ratio === "number" ? resp.stats.ratio : parseFloat(resp.stats.ratio) || 0
 
+    // Every field here is optional on GGnPlatformMeta, so an absent one stays
+    // absent. Defaulting them fabricated data in both directions (`?? false`
+    // for donor, `?? true` for enabled, from the same missing `personal`) and
+    // it made the unknown branches in slot-registry.ts dead code: an unreported
+    // hourly gold rendered as "+0" instead of the "—" that file already draws.
     const platformMeta: GGnPlatformMeta = {
-      donor: resp.personal?.donor ?? false,
-      parked: resp.personal?.parked ?? false,
-      enabled: resp.personal?.enabled ?? true,
-      invites: resp.personal?.invites ?? 0,
-      onIRC: resp.stats.onIRC ?? false,
-      hourlyGold: resp.community?.hourlyGold ?? 0,
+      donor: resp.personal?.donor,
+      parked: resp.personal?.parked,
+      enabled: resp.personal?.enabled,
+      invites: resp.personal?.invites ?? undefined,
+      onIRC: resp.stats.onIRC,
+      hourlyGold: resp.community?.hourlyGold ?? undefined,
       snatched: resp.community?.snatched ?? undefined,
       uniqueSnatched: resp.community?.uniqueSnatched ?? undefined,
     }
@@ -194,12 +200,16 @@ export class GGnAdapter implements TrackerAdapter {
           hostname,
           options
         )
+        const bodyError = envelopeError(quickData)
         calls.push({
           label: "Quick User",
           endpoint: `${apiPath}?request=quick_user`,
           data: quickData,
-          error: null,
+          error: bodyError,
         })
+        // A rejected key answers 200 with no response.id, so without this the
+        // second call is skipped and the whole debug view is one green call.
+        if (bodyError) return calls
         userId = quickData.response?.id
       } catch (err) {
         calls.push({
@@ -223,7 +233,7 @@ export class GGnAdapter implements TrackerAdapter {
           hostname,
           options
         )
-        calls.push({ label: "User Profile", endpoint, data: userData, error: null })
+        calls.push({ label: "User Profile", endpoint, data: userData, error: envelopeError(userData) })
       } catch (err) {
         calls.push({
           label: "User Profile",

@@ -1301,3 +1301,46 @@ describe("DigitalCore body errors classify as a tracker fault, not a credential 
     })
   }
 })
+
+// DigitalCore spells booleans as "yes"/"no" or 0/1. A bare equality test read
+// an absent key as "no", so a response that simply omitted a flag reported the
+// account as not a donor, not connectable and unbanned, none of which the API
+// had said. Every flag on DigitalCorePlatformMeta is optional so it can stay
+// unknown, and TrackerStats.warned is boolean | null for the same reason.
+describe("DigitalCore keeps an omitted flag unknown rather than false", () => {
+  const adapter = new DigitalCoreAdapter()
+  const validToken = JSON.stringify({ uid: "54321", pass: "abc123xyz" })
+
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it("leaves omitted flags undefined and warned null", async () => {
+    const status = mockStatusResponse()
+    for (const key of ["donor", "seedboxdonor", "enabled", "warned", "parkerad", "connectable"]) {
+      delete (status.user as Record<string, unknown>)[key]
+    }
+    vi.spyOn(global, "fetch").mockResolvedValue(mockResponse(status))
+
+    const stats = await adapter.fetchStats("https://digitalcore.club", validToken, "")
+    const meta = stats.platformMeta as DigitalCorePlatformMeta
+
+    expect(meta.donor).toBeUndefined()
+    expect(meta.seedboxDonor).toBeUndefined()
+    expect(meta.enabled).toBeUndefined()
+    expect(meta.parked).toBeUndefined()
+    expect(meta.connectable).toBeUndefined()
+    expect(stats.warned).toBeNull()
+  })
+
+  it("still reports a flag the API did send", async () => {
+    const status = mockStatusResponse()
+    ;(status.user as Record<string, unknown>).donor = "yes"
+    ;(status.user as Record<string, unknown>).warned = "no"
+    vi.spyOn(global, "fetch").mockResolvedValue(mockResponse(status))
+
+    const stats = await adapter.fetchStats("https://digitalcore.club", validToken, "")
+    expect((stats.platformMeta as DigitalCorePlatformMeta).donor).toBe(true)
+    expect(stats.warned).toBe(false)
+  })
+})

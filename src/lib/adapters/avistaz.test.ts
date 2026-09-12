@@ -479,3 +479,37 @@ describe("AvistazAdapter.fetchRaw", () => {
     expect(calls[0].error).toContain("Session expired")
   })
 })
+
+// A profile layout that never rendered the permission rows used to read as
+// permission GRANTED, because field() returns "" for an absent row and
+// `"" !== "no"` is true. Same for 2FA, where `!"".includes("Not Enabled")`
+// is true. Unknown must stay unknown; AvistazPlatformMeta marks every one of
+// these optional precisely so it can.
+describe("parseAvistazProfile with the permission rows absent", () => {
+  const NO_PROFILE_TABLE = `<!doctype html><html><body>${RATIO_BAR_HTML}<section class="container content" id="content-area"></section></body></html>`
+
+  it("reports the permissions as unknown rather than granted", () => {
+    const meta = parseAvistazProfile(NO_PROFILE_TABLE, "testuser")
+      .platformMeta as AvistazPlatformMeta
+
+    expect(meta.canDownload).toBeUndefined()
+    expect(meta.canUpload).toBeUndefined()
+    expect(meta.twoFactorEnabled).toBeUndefined()
+    expect(meta.donor).toBeUndefined()
+  })
+
+  it("reports absent counts as unknown rather than zero", () => {
+    const meta = parseAvistazProfile(NO_PROFILE_TABLE, "testuser")
+      .platformMeta as AvistazPlatformMeta
+
+    expect(meta.invites).toBeUndefined()
+    expect(meta.totalUploads).toBeUndefined()
+    expect(meta.totalDownloads).toBeUndefined()
+  })
+
+  it("still reports a real zero as zero, which is a different thing", () => {
+    const meta = parseAvistazProfile(FULL_PAGE, "testuser").platformMeta as AvistazPlatformMeta
+    expect(meta.totalUploads).toBe(0)
+    expect(meta.invites).toBe(0)
+  })
+})

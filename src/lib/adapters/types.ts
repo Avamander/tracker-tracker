@@ -69,9 +69,11 @@ export interface GazelleRanks {
 export interface GazelleCommunity {
   posts: number
   torrentComments: number
-  artistComments: number
-  collageComments: number
-  requestComments: number
+  // Optional because some Gazelle builds omit them. The adapter used to send
+  // 0 so this could stay required, which made an omitted count look measured.
+  artistComments?: number
+  collageComments?: number
+  requestComments?: number
   collagesStarted: number
   collagesContrib: number
   requestsFilled: number

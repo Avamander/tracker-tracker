@@ -98,8 +98,15 @@ export class NebulanceAdapter implements TrackerAdapter {
     try {
       data = await result.json<NebulanceResponse>()
     } catch (err) {
-      // Transport failures are already classified by adapterRequest; only a
-      // malformed body reaches here.
+      // Two different faults land here. A SyntaxError is the body itself not
+      // being JSON, which is the tracker's fault and takes the wording the
+      // other adapters share so sanitizeNetworkError classifies it as a shape
+      // problem rather than a failure to reach the host. Anything else is a
+      // real transport break, which only the direct path can raise here since
+      // json() is still reading the stream, and that still gets classified.
+      if (err instanceof SyntaxError) {
+        throw new Error(`Unexpected response from ${hostname}: body was not JSON`)
+      }
       throw classifyFetchError(err, hostname)
     }
 

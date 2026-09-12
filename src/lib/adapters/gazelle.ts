@@ -9,6 +9,7 @@ import {
   signedFloatBytesToBigInt,
 } from "@/lib/data-transforms"
 import { adapterFetch } from "./helpers/adapter-fetch"
+import { envelopeError } from "./helpers/envelope"
 import type {
   DebugApiCall,
   FetchOptions,
@@ -253,7 +254,7 @@ export class GazelleAdapter implements TrackerAdapter {
         label: "Index",
         endpoint: `${apiPath}?action=index`,
         data: indexData,
-        error: null,
+        error: envelopeError(indexData),
       })
     } catch (err) {
       calls.push({
@@ -281,7 +282,7 @@ export class GazelleAdapter implements TrackerAdapter {
           options,
           { Authorization: authHeader }
         )
-        calls.push({ label: "User Profile", endpoint, data: userData, error: null })
+        calls.push({ label: "User Profile", endpoint, data: userData, error: envelopeError(userData) })
       } catch (err) {
         calls.push({
           label: "User Profile",
@@ -347,9 +348,9 @@ export class GazelleAdapter implements TrackerAdapter {
       meta.community = {
         posts: resp.community.posts,
         torrentComments: resp.community.torrentComments,
-        artistComments: resp.community.artistComments ?? 0,
-        collageComments: resp.community.collageComments ?? 0,
-        requestComments: resp.community.requestComments ?? 0,
+        artistComments: resp.community.artistComments,
+        collageComments: resp.community.collageComments,
+        requestComments: resp.community.requestComments,
         collagesStarted: resp.community.collagesStarted,
         collagesContrib: resp.community.collagesContrib,
         requestsFilled: resp.community.requestsFilled,

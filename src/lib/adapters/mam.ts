@@ -195,7 +195,14 @@ export class MamAdapter implements TrackerAdapter {
       const data = await adapterFetch<Record<string, unknown>>(url.toString(), hostname, options, {
         Cookie: `mam_id=${mamId}`,
       })
-      calls.push({ label: "User Stats", endpoint, data, error: null })
+      // fetchStats treats a body with no username as a rejected mam_id, so
+      // reporting it as a healthy call here would hide exactly that.
+      calls.push({
+        label: "User Stats",
+        endpoint,
+        data,
+        error: data.username ? null : `Unexpected response from ${hostname}: missing username`,
+      })
     } catch (err) {
       calls.push({
         label: "User Stats",

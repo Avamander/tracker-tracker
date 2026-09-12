@@ -50,6 +50,12 @@ export function parseAvistazCredentials(apiToken: string): AvistazCredentials {
 // with exact bigint arithmetic. AvistaZ uses decimal units (GB, KB).
 // ---------------------------------------------------------------------------
 
+/** A site-printed count, or undefined when the row was absent or unparseable. */
+function count(text: string): number | undefined {
+  const n = parseInt(text.replace(/,/g, ""), 10)
+  return Number.isNaN(n) ? undefined : n
+}
+
 function strictParseBytes(text: string, field: string): bigint {
   const trimmed = text.trim()
   if (!trimmed) throw new Error(`AvistaZ: empty ${field} byte string`)
@@ -281,29 +287,35 @@ export function parseAvistazProfile(html: string, username: string): TrackerStat
 
   // ── Activity summary (.well-sm block) ──────────────────────────────────────
   const wellItems = Array.from(doc.querySelectorAll(".well-sm li"))
-  let totalUploads = 0
-  let totalDownloads = 0
+  let totalUploads: number | undefined
+  let totalDownloads: number | undefined
 
   for (const li of wellItems) {
     const text = li.textContent?.trim() ?? ""
-    const strong = li.querySelector("strong")?.textContent?.trim() ?? "0"
+    const strong = li.querySelector("strong")?.textContent?.trim() ?? ""
     if (text.includes("Total Uploads")) {
-      totalUploads = parseInt(strong, 10) || 0
+      totalUploads = count(strong)
     } else if (text.includes("Downloads")) {
-      totalDownloads = parseInt(strong, 10) || 0
+      totalDownloads = count(strong)
     }
   }
 
+  // Every field() below returns "" for a row this profile layout never
+  // rendered, and "" is unknown rather than a value. Reading it as one was
+  // biased towards granting: `"" !== "no"` is true, so a missing permission row
+  // reported an account that can upload and download, and a missing 2FA row
+  // reported 2FA enabled. Every field here is optional on AvistazPlatformMeta,
+  // so leaving it absent is what the type already expects.
   const platformMeta: AvistazPlatformMeta = {
-    donor: donorText.toLowerCase().includes("yes") || donorText.toLowerCase().includes("true"),
+    donor: donorText ? /yes|true/i.test(donorText) : undefined,
     vipExpiry: vipExpiryText === "-" ? null : vipExpiryText || null,
-    invites: parseInt(invitesText, 10) || 0,
-    canDownload: canDownloadText.toLowerCase() !== "no",
-    canUpload: canUploadText.toLowerCase() !== "no",
+    invites: count(invitesText),
+    canDownload: canDownloadText ? canDownloadText.toLowerCase() !== "no" : undefined,
+    canUpload: canUploadText ? canUploadText.toLowerCase() !== "no" : undefined,
     totalUploads,
     totalDownloads,
     reseedRequests,
-    twoFactorEnabled: !twoFaText.includes("Not Enabled"),
+    twoFactorEnabled: twoFaText ? !twoFaText.includes("Not Enabled") : undefined,
   }
 
   return {

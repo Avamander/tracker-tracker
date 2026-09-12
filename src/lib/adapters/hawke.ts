@@ -9,6 +9,7 @@ import {
   signedFloatBytesToBigInt,
 } from "@/lib/data-transforms"
 import { adapterFetch } from "./helpers/adapter-fetch"
+import { envelopeError } from "./helpers/envelope"
 import type {
   DebugApiCall,
   FetchOptions,
@@ -102,12 +103,17 @@ export class HawkeAdapter implements TrackerAdapter {
     const uploadedBytes = floatBytesToBigInt(data.uploaded)
     const downloadedBytes = floatBytesToBigInt(data.downloaded)
 
+    // All optional on HawkePlatformMeta. `warnings` in particular must not
+    // default: TrackerStats.warned is deliberately null here because a count
+    // of 0 cannot be told from "not tracked", and zeroing the count threw away
+    // the very distinction that null was preserving. The four permission flags
+    // defaulted to false, which reported an account that can do nothing.
     const platformMeta: HawkePlatformMeta = {
-      warnings: data.warnings ?? 0,
-      canUpload: data.can_upload ?? false,
-      canDownload: data.can_download ?? false,
-      canRequest: data.can_request ?? false,
-      canInvite: data.can_invite ?? false,
+      warnings: data.warnings,
+      canUpload: data.can_upload,
+      canDownload: data.can_download,
+      canRequest: data.can_request,
+      canInvite: data.can_invite,
     }
     if (data.seed_divisions) platformMeta.seedDivisions = data.seed_divisions
 
@@ -154,7 +160,7 @@ export class HawkeAdapter implements TrackerAdapter {
       const data = await adapterFetch<Record<string, unknown>>(url, hostname, options, {
         Authorization: `Bearer ${apiToken}`,
       })
-      return [{ label: "Profile", endpoint: apiPath, data, error: null }]
+      return [{ label: "Profile", endpoint: apiPath, data, error: envelopeError(data) }]
     } catch (err) {
       return [
         {

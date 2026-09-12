@@ -124,6 +124,16 @@ const DC_CLASS_MAP: Record<number, string> = {
   90: "Administrator",
 }
 
+/**
+ * DigitalCore spells its booleans as "yes"/"no" strings or 0/1 numbers. An
+ * absent field is unknown, not false: every flag on DigitalCorePlatformMeta is
+ * optional, and a bare equality test quietly reported "no" for a key the API
+ * never sent.
+ */
+function dcFlag<T extends string | number>(value: T | undefined, truthy: T): boolean | undefined {
+  return value === undefined ? undefined : value === truthy
+}
+
 function dcClassNameFromId(classId: number): string {
   return DC_CLASS_MAP[classId] ?? `Class ${classId}`
 }
@@ -290,21 +300,24 @@ export class DigitalCoreAdapter implements TrackerAdapter {
 
     // Build baseline platformMeta from status (survives enrichment failure)
     const baseMeta: DigitalCorePlatformMeta = {
-      donor: user.donor === "yes",
-      seedboxDonor: user.seedboxdonor === "yes",
-      parked: user.parkerad === 1,
-      enabled: user.enabled === "yes",
-      invites: user.invites ?? 0,
-      leechBonus: user.leechbonus ?? 0,
-      hnr: user.hnr ?? 0,
-      hnrWarned: user.hnr_warned === "yes",
-      downloadBan: user.downloadban === 1,
-      uploadBan: user.uploadban === 1,
-      connectable: user.connectable === 1,
-      crown: user.crown === 1,
-      skull: user.skull === 1,
-      pokal: user.pokal === 1,
-      coin: user.coin === 1,
+      donor: dcFlag(user.donor, "yes"),
+      seedboxDonor: dcFlag(user.seedboxdonor, "yes"),
+      parked: dcFlag(user.parkerad, 1),
+      enabled: dcFlag(user.enabled, "yes"),
+      // Every field on DigitalCorePlatformMeta is optional, so an absent figure
+      // stays absent. A fabricated 0 is indistinguishable from a measured one,
+      // which is the same distinction TrackerStats keeps with null.
+      invites: user.invites ?? undefined,
+      leechBonus: user.leechbonus ?? undefined,
+      hnr: user.hnr ?? undefined,
+      hnrWarned: dcFlag(user.hnr_warned, "yes"),
+      downloadBan: dcFlag(user.downloadban, 1),
+      uploadBan: dcFlag(user.uploadban, 1),
+      connectable: dcFlag(user.connectable, 1),
+      crown: dcFlag(user.crown, 1),
+      skull: dcFlag(user.skull, 1),
+      pokal: dcFlag(user.pokal, 1),
+      coin: dcFlag(user.coin, 1),
     }
 
     const stats: TrackerStats = {
@@ -315,13 +328,14 @@ export class DigitalCoreAdapter implements TrackerAdapter {
       ratio: computeRatio(uploaded, downloaded),
       bufferBytes: computeBufferBytes(uploaded, downloaded),
       seedingCount: user.myseedstotal ?? null,
-      // DigitalCore reports no leeching count at all, so this is unknown
-      // rather than a measured zero.
+      // The status call carries no leeching count, so this is unknown rather
+      // than a measured zero. The enrichment call below may supply one.
       leechingCount: null,
       seedbonus: user.bonuspoang ?? null,
       hitAndRuns: user.hit_and_run_total ?? null,
       requiredRatio: null,
-      warned: user.warned === "yes",
+      // TrackerStats.warned is boolean | null, so an absent flag is null.
+      warned: dcFlag(user.warned, "yes") ?? null,
       freeleechTokens: null,
       remoteUserId: user.id,
       avatarUrl: user.avatar || undefined,
@@ -336,10 +350,17 @@ export class DigitalCoreAdapter implements TrackerAdapter {
 
       stats.joinedDate = profile.added || undefined
       stats.lastAccessDate = profile.last_access || undefined
-      stats.leechingCount = profile.peersLeecher ?? 0
+      // Raise the null above to a real figure, never to a fabricated zero: an
+      // absent count still means unknown, and a run of zeroes is
+      // indistinguishable from an account that stopped leeching. gazelle.ts
+      // guards its own enrichment the same way.
+      if (typeof profile.peersLeecher === "number") {
+        stats.leechingCount = profile.peersLeecher
+      }
 
       // Override warned from enrichment (more authoritative source)
-      stats.warned = profile.warned === "yes"
+      const enrichedWarned = dcFlag(profile.warned, "yes")
+      if (enrichedWarned !== undefined) stats.warned = enrichedWarned
 
       stats.platformMeta = {
         ...baseMeta,
@@ -352,13 +373,13 @@ export class DigitalCoreAdapter implements TrackerAdapter {
           : {}),
         uploadedReal: profile.uploaded_real,
         downloadedReal: profile.downloaded_real,
-        torrents: profile.torrents ?? 0,
-        requests: profile.requests ?? 0,
-        forumPosts: profile.forumPosts ?? 0,
-        torrentComments: profile.torrentComments ?? 0,
-        invitees: profile.invitees ?? 0,
-        hnrWarned: profile.hnr_warned === "yes",
-        hearts: profile.hearts ?? 0,
+        torrents: profile.torrents ?? undefined,
+        requests: profile.requests ?? undefined,
+        forumPosts: profile.forumPosts ?? undefined,
+        torrentComments: profile.torrentComments ?? undefined,
+        invitees: profile.invitees ?? undefined,
+        hnrWarned: dcFlag(profile.hnr_warned, "yes"),
+        hearts: profile.hearts ?? undefined,
       }
     } catch (err) {
       // Auth failures during enrichment mean the session is degrading. Surface them
