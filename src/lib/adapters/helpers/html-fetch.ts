@@ -1,4 +1,4 @@
-// src/lib/adapters/html-fetch.ts
+// src/lib/adapters/helpers/html-fetch.ts
 //
 // Functions: buildHtmlHeaders, fetchFailure, fetchViaProxy, getHtml, isRedirect,
 //            followRedirectChain, fetchTrackerHtml
@@ -6,7 +6,7 @@
 import { classifyFetchError, sanitizeNetworkError } from "@/lib/error-utils"
 import { ADAPTER_FETCH_TIMEOUT_MS } from "@/lib/limits"
 import { SessionExpiredError } from "./errors"
-import type { FetchOptions } from "./types"
+import type { FetchOptions } from "../types"
 
 // ---------------------------------------------------------------------------
 // Shared HTML fetcher for the scraping adapters.

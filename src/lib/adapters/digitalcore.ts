@@ -5,8 +5,8 @@
 
 import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
 import { sanitizeNetworkError } from "@/lib/error-utils"
-import { adapterRequest } from "./adapter-fetch"
-import { SessionExpiredError } from "./errors"
+import { adapterRequest } from "./helpers/adapter-fetch"
+import { SessionExpiredError } from "./helpers/errors"
 import type {
   DebugApiCall,
   DigitalCorePlatformMeta,

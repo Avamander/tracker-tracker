@@ -1,4 +1,4 @@
-// src/lib/adapters/cookie-credentials.ts
+// src/lib/adapters/helpers/cookie-credentials.ts
 //
 // Functions: formatFieldList, parseCredentialJson, validateCookieHeader
 
@@ -26,8 +26,8 @@ function formatFieldList(fields: readonly string[], suffix = ""): string {
  *
  * `optionalFields` may be absent from the blob entirely, but when present must
  * be strings; blank is allowed, callers decide whether blank means absent.
- * This is the seam for credential fields only some accounts need (TorrentLeech
- * alt2FAToken), so adapters do not each re-parse the blob for them.
+ * This is where credential fields only some accounts need are parsed
+ * (TorrentLeech alt2FAToken), so adapters do not each re-parse the blob.
  */
 export function parseCredentialJson<
   F extends readonly string[],

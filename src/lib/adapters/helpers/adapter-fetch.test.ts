@@ -1,4 +1,4 @@
-// src/lib/adapters/adapter-fetch.test.ts
+// src/lib/adapters/helpers/adapter-fetch.test.ts
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { DEFAULT_USER_AGENT } from "@/lib/user-agent"
 import { adapterFetch, adapterRequest } from "./adapter-fetch"

@@ -1,4 +1,4 @@
-// src/lib/adapters/adapter-fetch.ts
+// src/lib/adapters/helpers/adapter-fetch.ts
 //
 // Functions: adapterRequest, adapterFetch
 
@@ -6,7 +6,7 @@ import { classifyFetchError } from "@/lib/error-utils"
 import { ADAPTER_FETCH_TIMEOUT_MS } from "@/lib/limits"
 import { proxyFetch } from "@/lib/tunnel"
 import { withDefaultUserAgent } from "@/lib/user-agent"
-import type { FetchOptions } from "./types"
+import type { FetchOptions } from "../types"
 
 /**
  * The proxied and direct transports normalized to one shape. proxyFetch
@@ -21,7 +21,7 @@ export interface AdapterResponse {
 }
 
 /**
- * The single outbound seam for JSON tracker APIs. Picks the proxied or direct
+ * Every JSON tracker API request goes out through here. Picks proxied or direct
  * transport, applies the default User-Agent and shared timeout, and classifies
  * connection failures.
  *

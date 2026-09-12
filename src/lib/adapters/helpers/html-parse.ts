@@ -1,4 +1,4 @@
-// src/lib/adapters/html-parse.ts
+// src/lib/adapters/helpers/html-parse.ts
 //
 // Functions: normalizeWhitespace, datePrefix, tryParseSiteBytes
 

@@ -1135,7 +1135,7 @@ describe("DigitalCoreAdapter — connectable (issue #167)", () => {
 })
 
 // ---------------------------------------------------------------------------
-// DigitalCore routes through the shared adapterRequest seam. It previously
+// DigitalCore routes through the shared adapterRequest helper. It previously
 // hand-rolled its own proxy branch, which duplicated the 401 and non-ok
 // handling verbatim and sent no User-Agent through the tunnel.
 // ---------------------------------------------------------------------------

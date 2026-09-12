@@ -8,7 +8,7 @@ import {
   floatBytesToBigInt,
   signedFloatBytesToBigInt,
 } from "@/lib/data-transforms"
-import { adapterFetch } from "./adapter-fetch"
+import { adapterFetch } from "./helpers/adapter-fetch"
 import type {
   DebugApiCall,
   FetchOptions,

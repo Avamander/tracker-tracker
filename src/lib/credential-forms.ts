@@ -10,7 +10,7 @@
 // ---------------------------------------------------------------------------
 
 import type { PlatformType } from "@/lib/adapters/constants"
-import { validateCookieHeader } from "@/lib/adapters/cookie-credentials"
+import { validateCookieHeader } from "@/lib/adapters/helpers/cookie-credentials"
 
 export type CredentialKind = "token" | "cookies" | "cookies-username" | "uid-pass" | "login"
 

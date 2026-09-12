@@ -1,4 +1,4 @@
-// src/lib/adapters/html-fetch.test.ts
+// src/lib/adapters/helpers/html-fetch.test.ts
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { SessionExpiredError } from "./errors"
 import { fetchTrackerHtml } from "./html-fetch"

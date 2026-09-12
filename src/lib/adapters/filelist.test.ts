@@ -565,7 +565,7 @@ describe("FilelistAdapter.fetchStats — redirects and network errors", () => {
     )
   })
 
-  it("reports a timeout with the seam's wording", async () => {
+  it("reports a timeout with fetchTrackerHtml's wording", async () => {
     vi.spyOn(global, "fetch").mockRejectedValueOnce(
       Object.assign(new Error("The operation was aborted due to timeout"), {
         name: "TimeoutError",

@@ -1,7 +1,7 @@
 // src/lib/adapters/ggn.ts
 
 import { computeBufferBytes, floatBytesToBigInt } from "@/lib/data-transforms"
-import { adapterFetch } from "./adapter-fetch"
+import { adapterFetch } from "./helpers/adapter-fetch"
 import type {
   DebugApiCall,
   FetchOptions,

@@ -12,9 +12,9 @@ import { ADAPTER_FETCH_TIMEOUT_MS } from "@/lib/limits"
 import { log } from "@/lib/logger"
 import { parseBytes } from "@/lib/parser"
 import { proxyFetch } from "@/lib/tunnel"
-import { parseCredentialJson } from "./cookie-credentials"
-import { SessionExpiredError } from "./errors"
-import { fetchTrackerHtml } from "./html-fetch"
+import { parseCredentialJson } from "./helpers/cookie-credentials"
+import { SessionExpiredError } from "./helpers/errors"
+import { fetchTrackerHtml } from "./helpers/html-fetch"
 import type { DebugApiCall, FetchOptions, TrackerAdapter, TrackerStats } from "./types"
 
 // ---------------------------------------------------------------------------

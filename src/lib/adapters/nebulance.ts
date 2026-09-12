@@ -8,7 +8,7 @@
 
 import { computeBufferBytes, computeRatio, floatBytesToBigInt } from "@/lib/data-transforms"
 import { classifyFetchError } from "@/lib/error-utils"
-import { adapterRequest } from "./adapter-fetch"
+import { adapterRequest } from "./helpers/adapter-fetch"
 import type {
   DebugApiCall,
   FetchOptions,

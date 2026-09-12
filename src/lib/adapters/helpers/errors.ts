@@ -1,4 +1,4 @@
-// src/lib/adapters/errors.ts
+// src/lib/adapters/helpers/errors.ts
 //
 // Classes: SessionExpiredError
 

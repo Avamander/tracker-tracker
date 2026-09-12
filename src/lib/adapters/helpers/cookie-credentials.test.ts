@@ -1,4 +1,4 @@
-// src/lib/adapters/cookie-credentials.test.ts
+// src/lib/adapters/helpers/cookie-credentials.test.ts
 import { describe, expect, it } from "vitest"
 import { parseCredentialJson, validateCookieHeader } from "./cookie-credentials"
 

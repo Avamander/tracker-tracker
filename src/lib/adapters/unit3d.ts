@@ -9,7 +9,7 @@ import {
   signedFloatBytesToBigInt,
 } from "@/lib/data-transforms"
 import { parseBytes, parseSignedBytes } from "@/lib/parser"
-import { adapterRequest } from "./adapter-fetch"
+import { adapterRequest } from "./helpers/adapter-fetch"
 import type {
   DebugApiCall,
   FetchOptions,

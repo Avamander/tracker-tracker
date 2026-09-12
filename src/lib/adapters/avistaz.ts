@@ -7,9 +7,9 @@ import { type HTMLElement as ParsedElement, parse as parseHtml } from "node-html
 import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
 import { localDateStr } from "@/lib/formatters"
 import { parseBytes } from "@/lib/parser"
-import { parseCredentialJson, validateCookieHeader } from "./cookie-credentials"
-import { SessionExpiredError } from "./errors"
-import { fetchTrackerHtml } from "./html-fetch"
+import { parseCredentialJson, validateCookieHeader } from "./helpers/cookie-credentials"
+import { SessionExpiredError } from "./helpers/errors"
+import { fetchTrackerHtml } from "./helpers/html-fetch"
 import type {
   AvistazPlatformMeta,
   DebugApiCall,

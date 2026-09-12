@@ -172,8 +172,8 @@ describe("useDashboardSettings", () => {
     // the dashboard, the outage-band provider. Before the broadcast existed, a
     // toggle flipped in the sheet updated only the sheet's copy, so the user
     // could switch something off and watch it stay on everywhere else. This is
-    // the seam the "toggle hides the outage bands" behaviour actually rides
-    // through in the app, so it is pinned directly.
+    // the broadcast the "toggle hides the outage bands" behaviour actually
+    // rides on in the app, so it is pinned directly.
     it("applies one instance's write to every other instance", async () => {
       vi.spyOn(global, "fetch").mockResolvedValue(jsonResponse(DASHBOARD_SETTINGS_DEFAULTS))
 

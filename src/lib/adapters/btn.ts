@@ -4,7 +4,7 @@
 
 import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
 import { localDateStr } from "@/lib/formatters"
-import { adapterFetch } from "./adapter-fetch"
+import { adapterFetch } from "./helpers/adapter-fetch"
 import type { DebugApiCall, FetchOptions, TrackerAdapter, TrackerStats } from "./types"
 
 /**

@@ -467,7 +467,7 @@ describe("NebulanceAdapter - security", () => {
 })
 
 // ---------------------------------------------------------------------------
-// Nebulance routes through the shared adapterRequest seam. Before that it
+// Nebulance routes through the shared adapterRequest helper. Before that it
 // hand-rolled its own proxy branch, which sent no User-Agent through the
 // tunnel and would have to be kept in sync by hand.
 // ---------------------------------------------------------------------------

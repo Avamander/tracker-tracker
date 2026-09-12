@@ -1,7 +1,7 @@
 // src/lib/adapters/torrentleech.test.ts
 
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { SessionExpiredError } from "./errors"
+import { SessionExpiredError } from "./helpers/errors"
 import { parseTlCredentials, parseTlProfile, TorrentleechAdapter } from "./torrentleech"
 
 // The proxy path is what these tests are checking is TAKEN, so proxyFetch is
