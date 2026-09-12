@@ -67,6 +67,17 @@ export function buildBaseUrl(host: string, port: number, ssl: boolean): string {
 // SID session cache to avoid re-authenticating on every poll cycle.
 // ---------------------------------------------------------------------------
 
+/**
+ * Characters that must never reach a Cookie header. `split(";", 1)` already
+ * drops anything after a semicolon and `trim()` strips the ends, so only an
+ * interior control character could survive, and undici rejects CR and LF
+ * inside a parsed response header before getSetCookie() returns. That makes
+ * this unreachable today, which is the point: the guarantee currently lives in
+ * a dependency, and authHeaders interpolates the value straight into a header.
+ */
+// biome-ignore lint/suspicious/noControlCharactersInRegex: intentional control-char check
+const unsafeChars = /[;\r\n\x00-\x1F\x7F]/
+
 /** The session cookie qBittorrent assigns at login, name varies by version/port. */
 export type SidCookie = { name: string; value: string }
 
@@ -342,6 +353,11 @@ export async function login(
 
   if (!sid) {
     throw new Error("Authentication failed. SID cookie not found in response")
+  }
+  // Only the cookie actually selected is checked. An unrelated Set-Cookie on
+  // the same response is none of our business and must not fail the login.
+  if (unsafeChars.test(sid.value)) {
+    throw new Error("Authentication failed. Session cookie contained an unsafe character")
   }
 
   return sid

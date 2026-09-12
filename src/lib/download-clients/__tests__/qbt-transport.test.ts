@@ -75,3 +75,45 @@ describe("qBittorrent transport redirect handling", () => {
     )
   })
 })
+
+describe("qBittorrent session cookie validation", () => {
+  // authHeaders interpolates the SID value straight into a Cookie header.
+  // undici rejects CR and LF inside a parsed response header, so a real server
+  // cannot deliver one, which is why the response is faked here rather than
+  // built with Response: the guard exists because that protection lives in a
+  // dependency rather than in this file.
+  function loginRespondingWith(setCookie: string[]) {
+    return vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      text: async () => "Ok.",
+      headers: { getSetCookie: () => setCookie },
+    } as unknown as Response)
+  }
+
+  it("refuses a session cookie carrying a control character", async () => {
+    vi.stubGlobal("fetch", loginRespondingWith(["SID=abc\r\nX-Injected: 1; Path=/"]))
+
+    await expect(login("qbt.local", 8080, false, "admin", "pw")).rejects.toThrow(
+      "unsafe character"
+    )
+  })
+
+  it("accepts an ordinary session cookie", async () => {
+    vi.stubGlobal("fetch", loginRespondingWith(["QBT_SID_8080=abc123def456; Path=/; HttpOnly"]))
+
+    const sid = await login("qbt.local", 8080, false, "admin", "pw")
+    expect(sid).toEqual({ name: "QBT_SID_8080", value: "abc123def456" })
+  })
+
+  it("ignores an unrelated Set-Cookie rather than failing the login", async () => {
+    vi.stubGlobal(
+      "fetch",
+      loginRespondingWith(["analytics=x; Path=/", "SID=cleanvalue; Path=/"])
+    )
+
+    const sid = await login("qbt.local", 8080, false, "admin", "pw")
+    expect(sid.value).toBe("cleanvalue")
+  })
+})

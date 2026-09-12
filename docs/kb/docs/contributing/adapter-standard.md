@@ -335,6 +335,12 @@ Short and current. Everything else the audit found has been fixed.
    two constants drift apart silently. Pass it explicitly.
 6. **The `Functions:` headers are wrong in 4 of 10 files** (`avistaz`, `gazelle`, `torrentleech`, `unit3d`). See section 4.
 7. **15 em dashes in adapter test files**, none in adapter or helper source.
+8. **The audit's cookie-injection guard check can be satisfied by a variable name.**
+   `INJECTION_GUARD_PATTERNS` in `scripts/security-audit.ts` includes `/unsafeChars/`, and it is
+   tested against the whole file, so declaring `const unsafeChars = /nothing/` passes the check
+   with no real validation. Verified by neutering the guard in `qbt/transport.ts` and watching
+   the check still pass. Require a character class that actually contains the injection
+   characters.
 
 ---
 

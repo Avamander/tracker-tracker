@@ -136,6 +136,19 @@ const SECURITY_FILES = [
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
+/**
+ * walkFiles returns [] for a directory that does not exist, so a scoped check
+ * whose path is wrong reports a clean pass over zero files. That is how
+ * "lib/qbt" went unnoticed: it never existed, and download-clients was never
+ * scanned by the three checks scoped this way.
+ */
+function requireDir(dir: string, check: string): string {
+  if (!fs.existsSync(dir)) {
+    throw new Error(`security-audit: ${check} is scoped to a missing directory: ${dir}`)
+  }
+  return dir
+}
+
 function walkFiles(dir: string, ext: string): string[] {
   const results: string[] = []
   if (!fs.existsSync(dir)) return results
@@ -1073,12 +1086,12 @@ function checkFetchTimeout(): CheckResult {
   const findings: Finding[] = []
   const FETCH_RE = /\bfetch\s*\(/
 
-  const adaptersDir = path.resolve(SRC_DIR, "lib/adapters")
-  const qbtDir = path.resolve(SRC_DIR, "lib/qbt")
+  const adaptersDir = requireDir(path.resolve(SRC_DIR, "lib/adapters"), "fetch-timeout")
+  const clientsDir = requireDir(path.resolve(SRC_DIR, "lib/download-clients"), "fetch-timeout")
   const libDir = path.resolve(SRC_DIR, "lib")
 
-  // Collect all .ts files from adapters/ and qbt/ (recursive via walkFiles),
-  // plus direct .ts files in lib/ root only (not recursive into subdirs).
+  // Collect all .ts files from adapters/ and download-clients/ (recursive via
+  // walkFiles), plus direct .ts files in lib/ root only (not recursive).
   const libRootFiles = fs.existsSync(libDir)
     ? fs
         .readdirSync(libDir, { withFileTypes: true })
@@ -1086,7 +1099,11 @@ function checkFetchTimeout(): CheckResult {
         .map((e) => path.join(libDir, e.name))
     : []
 
-  const scanFiles = [...walkFiles(adaptersDir, ".ts"), ...walkFiles(qbtDir, ".ts"), ...libRootFiles]
+  const scanFiles = [
+    ...walkFiles(adaptersDir, ".ts"),
+    ...walkFiles(clientsDir, ".ts"),
+    ...libRootFiles,
+  ]
 
   for (const absPath of scanFiles) {
     if (isTestFile(absPath)) continue
@@ -1102,8 +1119,28 @@ function checkFetchTimeout(): CheckResult {
       if (trimmed.startsWith("//") || trimmed.startsWith("*")) continue
       if (!FETCH_RE.test(line)) continue
 
-      // Check within 5 lines after (and on the same line) for timeout indicators
-      const windowEnd = Math.min(i + 5, lines.length - 1)
+      // Read the whole argument list by balancing parentheses from the fetch(
+      // onward, capped so a malformed file cannot run away. A fixed line window
+      // flagged correct calls whose options object was merely long, and a false
+      // positive on a CI-blocking check teaches people to ignore it.
+      const fetchAt = line.search(FETCH_RE)
+      let depth = 0
+      let opened = false
+      let windowEnd = i
+      for (let j = i; j < Math.min(i + 60, lines.length); j++) {
+        const from = j === i ? fetchAt : 0
+        for (let k = from; k < lines[j].length; k++) {
+          const ch = lines[j][k]
+          if (ch === "(") {
+            depth++
+            opened = true
+          } else if (ch === ")") {
+            depth--
+          }
+        }
+        windowEnd = j
+        if (opened && depth <= 0) break
+      }
       const fetchWindow = lines.slice(i, windowEnd + 1).join("\n")
 
       const hasTimeout =
@@ -2398,8 +2435,15 @@ function checkClientEnvLeak(): CheckResult {
 
 function checkAdapterCookieInjection(): CheckResult {
   const findings: Finding[] = []
-  const adaptersDir = path.resolve(SRC_DIR, "lib/adapters")
-  const adapterFiles = walkFiles(adaptersDir, ".ts")
+  // download-clients builds a Cookie header from a value the remote host chose,
+  // which is exactly what this check exists to catch, and it went unscanned for
+  // as long as the scope was adapters only.
+  const adaptersDir = requireDir(path.resolve(SRC_DIR, "lib/adapters"), "adapter-cookie-injection")
+  const clientsDir = requireDir(
+    path.resolve(SRC_DIR, "lib/download-clients"),
+    "adapter-cookie-injection"
+  )
+  const adapterFiles = [...walkFiles(adaptersDir, ".ts"), ...walkFiles(clientsDir, ".ts")]
 
   // Matches: Cookie: `...${...}...`  (template literal with interpolation)
   const COOKIE_INTERPOLATION_RE = /Cookie:\s*`[^`]*\$\{/
@@ -2468,7 +2512,7 @@ function checkAdapterCookieInjection(): CheckResult {
 
 function checkAdapterCredentialLogging(): CheckResult {
   const findings: Finding[] = []
-  const adaptersDir = path.resolve(SRC_DIR, "lib/adapters")
+  const adaptersDir = requireDir(path.resolve(SRC_DIR, "lib/adapters"), "adapter-credential-logging")
   const adapterFiles = walkFiles(adaptersDir, ".ts")
 
   // Variable names that hold credentials in adapter code
