@@ -11,7 +11,7 @@ export type {
   PlatformMeta,
 } from "@/lib/adapters/types"
 
-import type { PlatformType } from "@/lib/adapters/constants"
+import type { PlatformType } from "@/data/platform-types"
 import type { PlatformMeta } from "@/lib/adapters/types"
 import type { DownloadClientRow, NotificationTargetRow } from "@/lib/db/schema"
 import type { SystemEvent } from "@/lib/events"

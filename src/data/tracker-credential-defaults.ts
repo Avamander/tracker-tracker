@@ -24,8 +24,8 @@
 // on its own registry entry; everything else falls through to its platform's list
 // and then to the universal fallback.
 
+import type { PlatformType } from "@/data/platform-types"
 import type { TrackerRegistryEntry } from "@/data/tracker-registry"
-import type { PlatformType } from "@/lib/adapters/constants"
 import type { TrackerCredentialFieldDefinition } from "@/lib/tracker-credentials/types"
 
 /**

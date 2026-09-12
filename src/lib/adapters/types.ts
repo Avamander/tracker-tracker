@@ -1,6 +1,11 @@
 // src/lib/adapters/types.ts
 
 import type { Agent as HttpAgent } from "node:http"
+import type {
+  GazelleAuthStyle,
+  NebulanceAuthParam,
+  Unit3dAuthStyle,
+} from "@/data/platform-types"
 
 export interface TrackerStats {
   username: string
@@ -278,9 +283,7 @@ export function metaFor<P extends keyof PlatformMetaMap>(
   return ctx.meta as PlatformMetaMap[P]
 }
 
-export type GazelleAuthStyle = "token" | "raw"
-export type Unit3dAuthStyle = "bearer" | "query"
-export type NebulanceAuthParam = "api_key" | "apikey"
+export type { GazelleAuthStyle, NebulanceAuthParam, Unit3dAuthStyle } from "@/data/platform-types"
 
 export interface FetchOptions {
   proxyAgent?: HttpAgent

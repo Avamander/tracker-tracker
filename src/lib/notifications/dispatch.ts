@@ -1,7 +1,7 @@
 // src/lib/notifications/dispatch.ts
 
 import { eq } from "drizzle-orm"
-import { MAM_BONUS_CAP } from "@/lib/adapters/constants"
+import { MAM_BONUS_CAP } from "@/data/platform-types"
 import { db } from "@/lib/db"
 import type { NotificationTargetRow } from "@/lib/db/schema"
 import { notificationDeliveryState, notificationTargets } from "@/lib/db/schema"

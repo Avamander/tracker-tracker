@@ -1,10 +1,10 @@
 // src/data/tracker-registry.ts
 
-import type { PlatformType } from "@/lib/adapters/constants"
-import type { GazelleAuthStyle, NebulanceAuthParam, Unit3dAuthStyle } from "@/lib/adapters/types"
+import type { PlatformType } from "@/data/platform-types"
 import { normalizeUrl } from "@/lib/data-transforms"
 import type { SatisfactionMode } from "@/lib/satisfaction"
 import type { TrackerCredentialFieldDefinition } from "@/lib/tracker-credentials/types"
+import type { GazelleAuthStyle, NebulanceAuthParam, Unit3dAuthStyle } from "./platform-types"
 import { ALL_TRACKERS } from "./trackers"
 
 export interface ReleaseGroup {

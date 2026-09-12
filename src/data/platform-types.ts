@@ -1,4 +1,4 @@
-// src/lib/adapters/constants.ts
+// src/data/platform-types.ts
 
 export const VALID_PLATFORM_TYPES = [
   "unit3d",
@@ -35,3 +35,13 @@ export const DEFAULT_API_PATHS: Record<string, string> = {
   hawke: "/api/profile",
   retrotoon: "/userdetails.php",
 }
+
+/**
+ * How a platform expects its credential to be presented. These live with the
+ * platform vocabulary rather than with the adapters because a registry entry
+ * sets them and buildFetchOptions passes them through; src/data must not need
+ * to import from src/lib to describe its own rows.
+ */
+export type GazelleAuthStyle = "token" | "raw"
+export type Unit3dAuthStyle = "bearer" | "query"
+export type NebulanceAuthParam = "api_key" | "apikey"

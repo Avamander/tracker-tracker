@@ -11,6 +11,7 @@
 import fs from "node:fs"
 import path from "node:path"
 import { afterAll, describe, expect, it } from "vitest"
+import { DEFAULT_API_PATHS, VALID_PLATFORM_TYPES } from "@/data/platform-types"
 import {
   getTrackerBySlug,
   TRACKER_REGISTRY,
@@ -26,8 +27,6 @@ import {
   validateDefunct,
 } from "@/data/tracker-validation-rules"
 import { ALL_TRACKERS } from "@/data/trackers"
-import { DEFAULT_API_PATHS } from "@/lib/adapters"
-import { VALID_PLATFORM_TYPES } from "@/lib/adapters/constants"
 import { isValidHex } from "@/lib/validators"
 
 const VALID_PLATFORMS = VALID_PLATFORM_TYPES

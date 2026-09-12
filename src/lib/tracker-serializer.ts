@@ -1,7 +1,7 @@
 // src/lib/tracker-serializer.ts
 import "server-only"
 
-import type { PlatformType } from "@/lib/adapters/constants"
+import type { PlatformType } from "@/data/platform-types"
 import type { PlatformMeta } from "@/lib/adapters/types"
 import { DEFAULT_TRACKER_COLOR } from "@/lib/constants"
 import type { TrackerRow as FullTrackerRow, TrackerSnapshotRow } from "@/lib/db/schema"

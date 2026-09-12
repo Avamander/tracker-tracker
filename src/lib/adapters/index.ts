@@ -17,8 +17,8 @@ import { TorrentleechAdapter } from "./torrentleech"
 import type { FetchOptions, TrackerAdapter } from "./types"
 import { Unit3dAdapter } from "./unit3d"
 
-export type { PlatformType } from "./constants"
-export { DEFAULT_API_PATHS, VALID_PLATFORM_TYPES } from "./constants"
+export type { PlatformType } from "@/data/platform-types"
+export { DEFAULT_API_PATHS, VALID_PLATFORM_TYPES } from "@/data/platform-types"
 
 const adapters: Record<string, TrackerAdapter> = {
   avistaz: new AvistazAdapter(),

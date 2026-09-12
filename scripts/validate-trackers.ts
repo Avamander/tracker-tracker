@@ -10,6 +10,7 @@
 
 import fs from "node:fs"
 import path from "node:path"
+import { DEFAULT_API_PATHS, VALID_PLATFORM_TYPES } from "@/data/platform-types"
 import type { TrackerRegistryEntry } from "@/data/tracker-registry"
 import {
   isEmpty,
@@ -21,7 +22,6 @@ import {
   validateDefunct,
 } from "@/data/tracker-validation-rules"
 import { ALL_TRACKERS } from "@/data/trackers"
-import { DEFAULT_API_PATHS, VALID_PLATFORM_TYPES } from "@/lib/adapters/constants"
 import { isValidHex } from "@/lib/validators"
 
 const VALID_PLATFORMS = [...VALID_PLATFORM_TYPES, "custom"]

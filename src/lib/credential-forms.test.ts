@@ -4,7 +4,7 @@
 // parseCredentialJson key lists, and the cookie messages a user acts on.
 
 import { describe, expect, it } from "vitest"
-import { VALID_PLATFORM_TYPES } from "@/lib/adapters/constants"
+import { VALID_PLATFORM_TYPES } from "@/data/platform-types"
 import {
   buildCredentialBlob,
   CREDENTIAL_FORMS,
