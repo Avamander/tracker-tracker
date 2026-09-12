@@ -17,9 +17,6 @@ import { TorrentleechAdapter } from "./torrentleech"
 import type { FetchOptions, TrackerAdapter } from "./types"
 import { Unit3dAdapter } from "./unit3d"
 
-export type { PlatformType } from "@/data/platform-types"
-export { DEFAULT_API_PATHS, VALID_PLATFORM_TYPES } from "@/data/platform-types"
-
 const adapters: Record<string, TrackerAdapter> = {
   avistaz: new AvistazAdapter(),
   btn: new BtnAdapter(),
@@ -62,11 +59,4 @@ export function buildFetchOptions(
   return fetchOptions
 }
 
-export type {
-  FetchOptions,
-  GazelleAuthStyle,
-  NebulanceAuthParam,
-  TrackerAdapter,
-  TrackerStats,
-  Unit3dAuthStyle,
-} from "./types"
+export type { FetchOptions, TrackerAdapter } from "./types"

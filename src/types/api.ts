@@ -9,13 +9,13 @@ export type {
   MamPlatformMeta,
   NebulancePlatformMeta,
   PlatformMeta,
-} from "@/lib/adapters/types"
+} from "@/types/tracker-stats"
 
 import type { PlatformType } from "@/data/platform-types"
-import type { PlatformMeta } from "@/lib/adapters/types"
 import type { DownloadClientRow, NotificationTargetRow } from "@/lib/db/schema"
 import type { SystemEvent } from "@/lib/events"
 import type { NotificationThresholds } from "@/lib/notifications/types"
+import type { PlatformMeta } from "@/types/tracker-stats"
 
 /** Fields shared between TrackerLatestStats and Snapshot */
 interface TrackerStatFields {

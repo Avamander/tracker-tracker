@@ -2,10 +2,10 @@
 import "server-only"
 
 import type { PlatformType } from "@/data/platform-types"
-import type { PlatformMeta } from "@/lib/adapters/types"
 import { DEFAULT_TRACKER_COLOR } from "@/lib/constants"
 import type { TrackerRow as FullTrackerRow, TrackerSnapshotRow } from "@/lib/db/schema"
 import type { TrackerSummary } from "@/types/api"
+import type { PlatformMeta } from "@/types/tracker-stats"
 
 // The ciphertext columns are omitted from the INPUT type, not just left out of
 // the output object. Callers physically cannot hand this function a secret, so

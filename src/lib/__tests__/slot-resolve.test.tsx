@@ -2,15 +2,15 @@
 
 import { describe, expect, it } from "vitest"
 import { resolveSlots } from "@/components/tracker-detail/resolve-slots"
+import type { Snapshot, TrackerSummary } from "@/types/api"
+import type { SlotContext } from "@/types/slots"
 import type {
   DigitalCorePlatformMeta,
   GazellePlatformMeta,
   GGnPlatformMeta,
   NebulancePlatformMeta,
   Unit3dPlatformMeta,
-} from "@/lib/adapters/types"
-import type { Snapshot, TrackerSummary } from "@/types/api"
-import type { SlotContext } from "@/types/slots"
+} from "@/types/tracker-stats"
 
 // ---------------------------------------------------------------------------
 // Fixtures

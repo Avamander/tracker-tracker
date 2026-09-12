@@ -5,8 +5,8 @@ import { InfoTip } from "@/components/ui/InfoTip"
 import { Notice } from "@/components/ui/Notice"
 import { ProgressWidget } from "@/components/ui/ProgressWidget"
 import { MAM_BONUS_CAP } from "@/data/platform-types"
-import type { MamPlatformMeta } from "@/lib/adapters/types"
 import { formatCount } from "@/lib/formatters"
+import type { MamPlatformMeta } from "@/types/tracker-stats"
 
 export interface MamHealthOverviewProps {
   meta: MamPlatformMeta

@@ -7,7 +7,6 @@
 import { eq } from "drizzle-orm"
 import { NextResponse } from "next/server"
 import { buildFetchOptions, getAdapter } from "@/lib/adapters"
-import type { DebugApiCall, TrackerStats } from "@/lib/adapters/types"
 import { authenticate, decodeKey, parseTrackerId, type RouteContext } from "@/lib/api-helpers"
 import { decrypt } from "@/lib/crypto"
 import { db } from "@/lib/db"
@@ -15,6 +14,7 @@ import { appSettings, trackers } from "@/lib/db/schema"
 import { log } from "@/lib/logger"
 import { scrubObject } from "@/lib/scrub-object"
 import { buildProxyAgentFromSettings } from "@/lib/tunnel"
+import type { DebugApiCall, TrackerStats } from "@/types/tracker-stats"
 
 function serializeStats(stats: TrackerStats): Record<string, unknown> {
   return {

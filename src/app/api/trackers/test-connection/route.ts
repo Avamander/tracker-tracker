@@ -1,11 +1,7 @@
 // src/app/api/trackers/test-connection/route.ts
 import { NextResponse } from "next/server"
-import {
-  buildFetchOptions,
-  DEFAULT_API_PATHS,
-  getAdapter,
-  VALID_PLATFORM_TYPES,
-} from "@/lib/adapters"
+import { DEFAULT_API_PATHS, VALID_PLATFORM_TYPES } from "@/data/platform-types"
+import { buildFetchOptions, getAdapter } from "@/lib/adapters"
 import {
   authenticate,
   decodeKey,

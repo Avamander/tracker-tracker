@@ -8,11 +8,6 @@ import type { Agent as HttpAgent } from "node:http"
 import { and, desc, eq, isNotNull, lt, notInArray, sql } from "drizzle-orm"
 import cron, { type ScheduledTask } from "node-cron"
 import { buildFetchOptions, getAdapter } from "@/lib/adapters"
-import type {
-  AvistazPlatformMeta,
-  DigitalCorePlatformMeta,
-  MamPlatformMeta,
-} from "@/lib/adapters/types"
 import { pruneDismissedAlerts } from "@/lib/alert-pruning"
 import { pruneCoverageGaps } from "@/lib/app-liveness"
 import { decrypt } from "@/lib/crypto"
@@ -36,6 +31,11 @@ import { recordDatabaseSize } from "@/lib/server-data"
 import { pruneTrackerOutages, recordTrackerPollFailure } from "@/lib/tracker-outages"
 import { getPauseState, resolveRequiredRatio } from "@/lib/tracker-status"
 import { buildProxyAgentFromSettings } from "@/lib/tunnel"
+import type {
+  AvistazPlatformMeta,
+  DigitalCorePlatformMeta,
+  MamPlatformMeta,
+} from "@/types/tracker-stats"
 
 // Store on globalThis to survive HMR in development.
 // Without this, each hot-reload orphans the old cron job (it keeps firing)

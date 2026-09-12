@@ -4,7 +4,7 @@
 
 import { NextResponse } from "next/server"
 import { CHART_THEME } from "@/components/charts/lib/theme"
-import { DEFAULT_API_PATHS, VALID_PLATFORM_TYPES } from "@/lib/adapters"
+import { DEFAULT_API_PATHS, VALID_PLATFORM_TYPES } from "@/data/platform-types"
 import {
   authenticate,
   decodeKey,
