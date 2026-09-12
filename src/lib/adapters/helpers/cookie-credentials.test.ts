@@ -1,6 +1,6 @@
 // src/lib/adapters/helpers/cookie-credentials.test.ts
 import { describe, expect, it } from "vitest"
-import { parseCredentialJson, validateCookieHeader } from "./cookie-credentials"
+import { parseCredentialJson } from "./cookie-credentials"
 
 describe("parseCredentialJson", () => {
   it("returns the requested fields", () => {
@@ -117,80 +117,5 @@ describe("parseCredentialJson optional fields", () => {
       ["alt2FAToken"]
     )
     expect(creds.alt2FAToken).toBe("")
-  })
-})
-
-describe("validateCookieHeader", () => {
-  const opts = { example: "uid=123; pass=abc123" }
-
-  it("strips a pasted 'Cookie: ' prefix", () => {
-    expect(validateCookieHeader("Cookie: uid=1; pass=2", opts)).toBe("uid=1; pass=2")
-  })
-
-  it("trims surrounding whitespace", () => {
-    expect(validateCookieHeader("  uid=1  ", opts)).toBe("uid=1")
-  })
-
-  it("rejects a bare cookie name from the shared list", () => {
-    expect(() => validateCookieHeader("cf_clearance", opts)).toThrow("pasted a cookie name")
-  })
-
-  it("rejects a bare cookie name supplied by the caller", () => {
-    expect(() => validateCookieHeader("love", { ...opts, extraCookieNames: ["love"] })).toThrow(
-      "pasted a cookie name"
-    )
-  })
-
-  it("does not reject a caller's extra name for a different tracker", () => {
-    expect(validateCookieHeader("love=yes", opts)).toBe("love=yes")
-  })
-
-  it("rejects a value with no key=value pair, quoting the tracker's example", () => {
-    expect(() => validateCookieHeader("justastring", opts)).toThrow("uid=123; pass=abc123")
-  })
-
-  it("rejects a value truncated by DevTools into a non-ASCII character", () => {
-    expect(() => validateCookieHeader("uid=1; pass=abc…", opts)).toThrow(
-      /non-ASCII character \("…", U\+2026\) at position 15/
-    )
-  })
-
-  it("accepts a realistic cookie blob", () => {
-    const blob = "cf_clearance=AbC-123_x; uid=456; pass=deadbeef; XSRF-TOKEN=zzz"
-    expect(validateCookieHeader(blob, opts)).toBe(blob)
-  })
-})
-
-describe("validateCookieHeader control characters", () => {
-  // Regression: CR/LF passed the byte-range guard, fetch() then threw a
-  // TypeError quoting the whole header, and classifyFetchError copied that
-  // message into the log file and the debug endpoint. Verified before the fix:
-  // "Failed to connect to <host>: Headers.append: "PHPSESSID=<secret>\r\nHost:
-  // ..." is an invalid header value."
-  it("rejects a pasted raw request-header block containing CRLF", () => {
-    expect(() =>
-      validateCookieHeader("PHPSESSID=secret\r\nHost: retrotoon.world", { example: "a=b" })
-    ).toThrow(/control character \(U\+000D\) at position 16/)
-  })
-
-  it("rejects a bare newline and a tab", () => {
-    expect(() => validateCookieHeader("a=b\nc=d", { example: "a=b" })).toThrow(/U\+000A/)
-    expect(() => validateCookieHeader("a=b\tc=d", { example: "a=b" })).toThrow(/U\+0009/)
-  })
-
-  it("never echoes the cookie value in the error", () => {
-    let message = ""
-    try {
-      validateCookieHeader("PHPSESSID=SUPERSECRETVALUE\r\nHost: x", { example: "a=b" })
-    } catch (err) {
-      message = (err as Error).message
-    }
-    expect(message).not.toContain("SUPERSECRETVALUE")
-  })
-
-  it("still accepts an ordinary multi-cookie header", () => {
-    expect(
-      validateCookieHeader("cf_clearance=abc; PHPSESSID=def; other=ghi", { example: "a=b" })
-    ).toBe("cf_clearance=abc; PHPSESSID=def; other=ghi")
   })
 })

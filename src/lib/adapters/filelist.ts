@@ -6,7 +6,8 @@
 
 import { parse as parseHtml } from "node-html-parser"
 import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
-import { parseCredentialJson, validateCookieHeader } from "./helpers/cookie-credentials"
+import { validateCookieHeader } from "@/lib/tracker-credentials/cookie-header"
+import { parseCredentialJson } from "./helpers/cookie-credentials"
 import { SessionExpiredError } from "./helpers/errors"
 import { fetchTrackerHtml } from "./helpers/html-fetch"
 import { datePrefix, normalizeWhitespace, tryParseSiteBytes } from "./helpers/html-parse"

@@ -5,12 +5,11 @@
 
 // ---------------------------------------------------------------------------
 // One row per platform: what the credential UI asks for, what a valid answer
-// looks like, and what gets stored. Client-safe: the only adapter import is
-// validateCookieHeader, which imports nothing.
+// looks like, and what gets stored. Client-safe: it imports no adapter code.
 // ---------------------------------------------------------------------------
 
 import type { PlatformType } from "@/data/platform-types"
-import { validateCookieHeader } from "@/lib/adapters/helpers/cookie-credentials"
+import { validateCookieHeader } from "@/lib/tracker-credentials/cookie-header"
 
 export type CredentialKind = "token" | "cookies" | "cookies-username" | "uid-pass" | "login"
 
