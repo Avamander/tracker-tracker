@@ -4,10 +4,10 @@ What a tracker adapter must do, written from what the thirteen existing adapters
 you are adding a **site**, you probably want [adding-a-tracker.md](adding-a-tracker.md) instead;
 most new sites need a data file and no code at all.
 
-> `src/data/trackers/` says what a tracker **is**. `src/lib/adapters/` says how it is **polled**.
+> `src/data/trackers/` says what a tracker **is**. `src/lib/tracker-platforms/` says how it is **polled**.
 > If your change is a site, it is one file in `src/data/trackers/` and you never open `src/lib`.
-> If your change is a new way to poll, it is one file in `src/lib/adapters/`, and the shared code
-> it may call lives in `src/lib/adapters/helpers/`.
+> If your change is a new way to poll, it is one file in `src/lib/tracker-platforms/adapters/`, and the shared code
+> it may call lives in `src/lib/tracker-platforms/helpers/`.
 
 ---
 
@@ -24,7 +24,7 @@ world, not a licence to hardcode. If your site runs a platform that already has 
 are adding a data file.
 
 **Per-site variation is configuration, not a branch.** `buildFetchOptions` in
-`src/lib/adapters/index.ts` reads `unit3dAuthStyle`, `gazelleAuthStyle`, `gazelleEnrich` and
+`src/lib/tracker-platforms/index.ts` reads `unit3dAuthStyle`, `gazelleAuthStyle`, `gazelleEnrich` and
 `nebulanceAuthParam` off the registry entry and passes them in `options`. No family adapter
 contains a hostname test, and none should gain one.
 
@@ -40,7 +40,7 @@ export interface TrackerAdapter {
 ```
 
 All thirteen implement both. `fetchRaw` is still declared optional at
-`src/lib/adapters/types.ts:308`; treat it as required.
+`src/lib/tracker-platforms/contract.ts`; treat it as required.
 
 ### 2.1 The null versus zero rule
 
@@ -187,7 +187,7 @@ must not lie.
 
 ## 3. Shared helpers
 
-Everything in `src/lib/adapters/helpers/` exists because at least two adapters had already written
+Everything in `src/lib/tracker-platforms/helpers/` exists because at least two adapters had already written
 it. Import it rather than writing it again.
 
 | Helper | File | Use it for | Do not hand-roll |
@@ -205,10 +205,10 @@ it. Import it rather than writing it again.
 | `SessionExpiredError` | `helpers/errors.ts` | Signalling that an authenticated request came back as a login page. Callers use `instanceof`. | Matching the message text |
 | `classifyFetchError` | `@/lib/error-utils` | Errors thrown by `fetch` or `proxyFetch`, only | Applying it to a `JSON.parse` failure |
 | `log` | `@/lib/logger` | Every log line in the adapter layer | `console.warn`, `console.error` |
-| `metaFor` | `src/lib/adapters/types.ts` | Narrowing `platformMeta` **outside** the adapter that produced it | `meta as XPlatformMeta` in a component |
+| `metaFor` | `@/types/tracker-stats` | Narrowing `platformMeta` **outside** the adapter that produced it | `meta as XPlatformMeta` in a component |
 
-`types.ts` and `constants.ts` live at `src/lib/adapters/`, not under `helpers/`. Adapters import
-them as `./types`; helpers import them as `../types`.
+The interface an adapter implements is `contract.ts` at the module root. Adapters import it as
+`../contract`; helpers import it the same way.
 
 **Two helpers that do not exist yet.** If you need one, promote it into `helpers/html-parse.ts`
 rather than adding another private copy:
@@ -383,7 +383,7 @@ adapter needs to be driven.
 
 ### 7.3 A source-text conformance test
 
-Same shape as `tracker-registry.test.ts`, over `src/lib/adapters/`:
+Same shape as `tracker-registry.test.ts`, over `src/lib/tracker-platforms/`:
 
 | Assertion | Current violations |
 |---|---|
@@ -410,8 +410,8 @@ files, no AST needed.
 
 `biome.json` already uses `overrides` with `includes`, so scoping is a two-block edit.
 
-- `suspicious/noConsole` at error level, scoped to `src/lib/adapters/**`.
-- `style/noRestrictedImports` scoped to `src/lib/adapters/*.ts` (adapters only, not `helpers/`),
+- `suspicious/noConsole` at error level, scoped to `src/lib/tracker-platforms/**`.
+- `style/noRestrictedImports` scoped to `src/lib/tracker-platforms/adapters/*.ts` (adapters only, not `helpers/`),
   banning a direct `@/lib/tunnel` import with a message pointing at `adapterFetch` and
   `fetchTrackerHtml`. One current exception, `torrentleech.ts`, which calls `proxyFetch` directly
   for its login POST, so it needs its own override entry. That exception being visible in

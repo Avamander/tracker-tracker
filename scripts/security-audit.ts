@@ -1086,7 +1086,7 @@ function checkFetchTimeout(): CheckResult {
   const findings: Finding[] = []
   const FETCH_RE = /\bfetch\s*\(/
 
-  const adaptersDir = requireDir(path.resolve(SRC_DIR, "lib/adapters"), "fetch-timeout")
+  const adaptersDir = requireDir(path.resolve(SRC_DIR, "lib/tracker-platforms"), "fetch-timeout")
   const clientsDir = requireDir(path.resolve(SRC_DIR, "lib/download-clients"), "fetch-timeout")
   const libDir = path.resolve(SRC_DIR, "lib")
 
@@ -2438,7 +2438,7 @@ function checkAdapterCookieInjection(): CheckResult {
   // download-clients builds a Cookie header from a value the remote host chose,
   // which is exactly what this check exists to catch, and it went unscanned for
   // as long as the scope was adapters only.
-  const adaptersDir = requireDir(path.resolve(SRC_DIR, "lib/adapters"), "adapter-cookie-injection")
+  const adaptersDir = requireDir(path.resolve(SRC_DIR, "lib/tracker-platforms"), "adapter-cookie-injection")
   const clientsDir = requireDir(
     path.resolve(SRC_DIR, "lib/download-clients"),
     "adapter-cookie-injection"
@@ -2512,7 +2512,7 @@ function checkAdapterCookieInjection(): CheckResult {
 
 function checkAdapterCredentialLogging(): CheckResult {
   const findings: Finding[] = []
-  const adaptersDir = requireDir(path.resolve(SRC_DIR, "lib/adapters"), "adapter-credential-logging")
+  const adaptersDir = requireDir(path.resolve(SRC_DIR, "lib/tracker-platforms"), "adapter-credential-logging")
   const adapterFiles = walkFiles(adaptersDir, ".ts")
 
   // Variable names that hold credentials in adapter code

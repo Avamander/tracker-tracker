@@ -66,8 +66,8 @@ vi.mock("@/lib/logger", () => ({
 // Mock all adapters via the adapters barrel. The test-connection route calls
 // getAdapter(platform).fetchStats(...). We intercept at the adapter level so
 // we can control success vs failure per test.
-vi.mock("@/lib/adapters", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/adapters")>()
+vi.mock("@/lib/tracker-platforms", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/tracker-platforms")>()
   return {
     ...actual,
     getAdapter: vi.fn().mockReturnValue({
@@ -226,7 +226,7 @@ describe("POST /api/trackers/test-connection — success", () => {
 
     await POST(makeRequest({ ...VALID_BODY, baseUrl: "https://avistaz.to/" }))
 
-    const { getAdapter } = await import("@/lib/adapters")
+    const { getAdapter } = await import("@/lib/tracker-platforms")
     const resolved = vi.mocked(getAdapter).mock.results[0]?.value as {
       fetchStats: ReturnType<typeof vi.fn>
     }
@@ -265,7 +265,7 @@ describe("POST /api/trackers/test-connection — sanitized error response", () =
 
   it("returns sanitized ECONNREFUSED message instead of generic fallback", async () => {
     mockDbSettings()
-    const { getAdapter } = await import("@/lib/adapters")
+    const { getAdapter } = await import("@/lib/tracker-platforms")
     ;(getAdapter as ReturnType<typeof vi.fn>).mockReturnValueOnce({
       fetchStats: vi
         .fn()
@@ -283,7 +283,7 @@ describe("POST /api/trackers/test-connection — sanitized error response", () =
 
   it("returns sanitized timeout message instead of generic fallback", async () => {
     mockDbSettings()
-    const { getAdapter } = await import("@/lib/adapters")
+    const { getAdapter } = await import("@/lib/tracker-platforms")
     ;(getAdapter as ReturnType<typeof vi.fn>).mockReturnValueOnce({
       fetchStats: vi.fn().mockRejectedValueOnce(new Error("Request to avistaz.to timed out")),
     })
@@ -298,7 +298,7 @@ describe("POST /api/trackers/test-connection — sanitized error response", () =
 
   it("returns sanitized auth failure message for 401 errors", async () => {
     mockDbSettings()
-    const { getAdapter } = await import("@/lib/adapters")
+    const { getAdapter } = await import("@/lib/tracker-platforms")
     ;(getAdapter as ReturnType<typeof vi.fn>).mockReturnValueOnce({
       fetchStats: vi.fn().mockRejectedValueOnce(new Error("HTTP 401 Unauthorized")),
     })
@@ -314,7 +314,7 @@ describe("POST /api/trackers/test-connection — sanitized error response", () =
     // Use a message that only triggers the proxy branch, not an earlier branch.
     // sanitizeNetworkError checks ECONNREFUSED before proxy, so use a proxy-only phrase.
     mockDbSettings()
-    const { getAdapter } = await import("@/lib/adapters")
+    const { getAdapter } = await import("@/lib/tracker-platforms")
     ;(getAdapter as ReturnType<typeof vi.fn>).mockReturnValueOnce({
       fetchStats: vi.fn().mockRejectedValueOnce(new Error("Failed to connect via proxy server")),
     })
@@ -328,7 +328,7 @@ describe("POST /api/trackers/test-connection — sanitized error response", () =
 
   it("returns 'Tracker test failed' fallback for truly unrecognized errors", async () => {
     mockDbSettings()
-    const { getAdapter } = await import("@/lib/adapters")
+    const { getAdapter } = await import("@/lib/tracker-platforms")
     ;(getAdapter as ReturnType<typeof vi.fn>).mockReturnValueOnce({
       fetchStats: vi
         .fn()
@@ -347,7 +347,7 @@ describe("POST /api/trackers/test-connection — sanitized error response", () =
   it("does not leak raw error messages or internal details to the client", async () => {
     const rawMessage = "ECONNREFUSED 104.21.0.1:443 - secret-internal-ip"
     mockDbSettings()
-    const { getAdapter } = await import("@/lib/adapters")
+    const { getAdapter } = await import("@/lib/tracker-platforms")
     ;(getAdapter as ReturnType<typeof vi.fn>).mockReturnValueOnce({
       fetchStats: vi.fn().mockRejectedValueOnce(new Error(rawMessage)),
     })
@@ -379,7 +379,7 @@ describe("POST /api/trackers/test-connection — error log enrichment", () => {
       platformType: "nebulance",
     })
     mockDbSettings()
-    const { getAdapter } = await import("@/lib/adapters")
+    const { getAdapter } = await import("@/lib/tracker-platforms")
     ;(getAdapter as ReturnType<typeof vi.fn>).mockReturnValueOnce({
       fetchStats: vi.fn().mockRejectedValueOnce(new Error("ECONNREFUSED")),
     })
@@ -397,7 +397,7 @@ describe("POST /api/trackers/test-connection — error log enrichment", () => {
       baseUrl: "https://nebulance.io",
     })
     mockDbSettings()
-    const { getAdapter } = await import("@/lib/adapters")
+    const { getAdapter } = await import("@/lib/tracker-platforms")
     ;(getAdapter as ReturnType<typeof vi.fn>).mockReturnValueOnce({
       fetchStats: vi.fn().mockRejectedValueOnce(new Error("ECONNREFUSED")),
     })
@@ -412,7 +412,7 @@ describe("POST /api/trackers/test-connection — error log enrichment", () => {
     const rawMsg = "Failed to connect to avistaz.to: ECONNREFUSED 104.21.0.1:443"
     ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue(VALID_BODY)
     mockDbSettings()
-    const { getAdapter } = await import("@/lib/adapters")
+    const { getAdapter } = await import("@/lib/tracker-platforms")
     ;(getAdapter as ReturnType<typeof vi.fn>).mockReturnValueOnce({
       fetchStats: vi.fn().mockRejectedValueOnce(new Error(rawMsg)),
     })
@@ -491,7 +491,7 @@ describe("POST /api/trackers/test-connection — proxy wiring", () => {
     ;(buildProxyAgentFromSettings as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeAgent)
     mockDbSettings({ proxyEnabled: true, proxyHost: "proxy.internal" })
 
-    const { buildFetchOptions } = await import("@/lib/adapters")
+    const { buildFetchOptions } = await import("@/lib/tracker-platforms")
 
     await POST(makeRequest(VALID_BODY))
 

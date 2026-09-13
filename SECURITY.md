@@ -135,7 +135,7 @@ Public routes are explicitly limited to: `/login`, `/setup`, `/api/auth/*`, `/ap
 - **Emergency lockdown** (`POST /api/settings/lockdown`): Stops scheduler, revokes all API tokens, rotates encryption salt, wipes TOTP/username, destroys session. Requires active session and three-checkbox UI acknowledgment.
 - **Scrub & delete** (`POST /api/settings/nuke`): Overwrites sensitive columns with random bytes, then deletes all rows. Requires active session + master password. Disk reclamation handled by PostgreSQL autovacuum.
 - **Backup/restore**: Pure JSON format (no zip/tar). Restore validates all fields before database writes. File deletion uses `path.resolve()` + base directory prefix check. Restore requires master password re-confirmation. Encrypted fields travel as ciphertext. See [Backup Security](#backup-security).
-- External HTTP requests use `AbortSignal.timeout(15_000)`. See `src/lib/adapters/unit3d.ts:29`.
+- External HTTP requests use `AbortSignal.timeout(15_000)`. See `src/lib/tracker-platforms/helpers/adapter-fetch.ts`.
 - Error messages sanitize hostnames and do not leak full URLs containing API tokens.
 
 ---

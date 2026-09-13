@@ -36,7 +36,7 @@ vi.mock("@/data/tracker-registry", () => ({ findRegistryEntry: vi.fn(() => null)
 vi.mock("node-cron", () => ({ default: { schedule: vi.fn() } }))
 
 const fetchStats = vi.fn()
-vi.mock("@/lib/adapters", () => ({
+vi.mock("@/lib/tracker-platforms", () => ({
   getAdapter: vi.fn(() => ({ fetchStats })),
   buildFetchOptions: vi.fn(() => ({})),
 }))

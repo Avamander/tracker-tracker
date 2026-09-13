@@ -26,7 +26,7 @@ vi.mock("@/lib/db", () => ({
   },
 }))
 
-vi.mock("@/lib/adapters", () => ({
+vi.mock("@/lib/tracker-platforms", () => ({
   getAdapter: vi.fn(),
   buildFetchOptions: vi.fn().mockReturnValue({}),
 }))
@@ -101,10 +101,10 @@ vi.mock("@/lib/notifications/dispatch", () => ({
 // ---------------------------------------------------------------------------
 
 import { POST as ResumePost } from "@/app/api/trackers/[id]/resume/route"
-import { getAdapter } from "@/lib/adapters"
 import { authenticate, parseTrackerId } from "@/lib/api-helpers"
 import { decrypt } from "@/lib/crypto"
 import { db } from "@/lib/db"
+import { getAdapter } from "@/lib/tracker-platforms"
 import {
   fetchTrackerStats,
   POLL_FAILURE_THRESHOLD,

@@ -1,7 +1,6 @@
 // src/app/api/trackers/test-connection/route.ts
 import { NextResponse } from "next/server"
 import { DEFAULT_API_PATHS, VALID_PLATFORM_TYPES } from "@/data/platform-types"
-import { buildFetchOptions, getAdapter } from "@/lib/adapters"
 import {
   authenticate,
   decodeKey,
@@ -15,6 +14,7 @@ import { appSettings } from "@/lib/db/schema"
 import { sanitizeNetworkError } from "@/lib/error-utils"
 import { LONG_STRING_MAX, maxTokenLengthFor, TRACKER_URL_MAX } from "@/lib/limits"
 import { log } from "@/lib/logger"
+import { buildFetchOptions, getAdapter } from "@/lib/tracker-platforms"
 import { buildProxyAgentFromSettings } from "@/lib/tunnel"
 
 export async function POST(request: Request) {

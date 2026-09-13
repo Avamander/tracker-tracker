@@ -745,9 +745,9 @@ invisible or unusable:
 
 | # | What | Where |
 |---|------|-------|
-| 1 | The adapter itself | `src/lib/adapters/<platform>.ts` implementing `TrackerAdapter` |
-| 2 | Register it | `adapters` record in `src/lib/adapters/index.ts` |
-| 3 | Declare the platform | `VALID_PLATFORM_TYPES` and `DEFAULT_API_PATHS` in `src/lib/adapters/constants.ts` |
+| 1 | The adapter itself | `src/lib/tracker-platforms/adapters/<platform>.ts` implementing `TrackerAdapter` |
+| 2 | Register it | `adapters` record in `src/lib/tracker-platforms/index.ts` |
+| 3 | Declare the platform | `VALID_PLATFORM_TYPES` and `DEFAULT_API_PATHS` in `src/data/platform-types.ts` |
 | 4 | Credential UI | a branch in `src/components/AddTrackerDialog.tsx` **and** `src/components/TrackerSettingsSheet.tsx` |
 | 5 | Credential size cap | `LARGE_TOKEN_PLATFORMS` in `src/lib/limits.ts`, if credentials are a JSON blob |
 
@@ -761,14 +761,14 @@ routes at once.
 
 ### Use the shared fetch helper
 
-Route requests through `adapterFetch` (`src/lib/adapters/adapter-fetch.ts`)
+Route requests through `adapterFetch` (`src/lib/tracker-platforms/helpers/adapter-fetch.ts`)
 rather than calling `fetch` directly. It supplies the shared timeout, honours
 a user's configured proxy, and normalizes errors. It supports `POST` with a
 body, so JSON-RPC style APIs work too.
 
 `adapterFetch` parses the response as JSON. If your tracker has no API and you
 have to scrape an authenticated page instead, use `fetchTrackerHtml`
-(`src/lib/adapters/html-fetch.ts`). It returns the raw HTML and handles the
+(`src/lib/tracker-platforms/helpers/html-fetch.ts`). It returns the raw HTML and handles the
 browser headers, the proxy, the timeout, and sanitized errors. It takes the
 parts that vary per tracker as options:
 
@@ -787,7 +787,7 @@ they configured a tunnel to prevent exactly that.
 ### Parse credential blobs with the shared helpers
 
 Platforms that need more than one secret take a JSON blob in the `apiToken`
-field. Use `parseCredentialJson` (`src/lib/adapters/cookie-credentials.ts`) to
+field. Use `parseCredentialJson` (`src/lib/tracker-platforms/helpers/cookie-credentials.ts`) to
 read it. It validates that every field you name is a present, non-empty string
 and produces the error wording users already see on the other adapters.
 
