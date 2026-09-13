@@ -114,7 +114,16 @@ export interface ClientAdapter {
 
   /** Fetch torrents, optionally filtered by tag or activity state.
    *  Note: only handles single-tag filtering. Multi-tag fan-out is the caller's job. */
-  getTorrents(options?: { tag?: string; filter?: string }): Promise<TorrentRecord[]>
+  /**
+   * `signal` is the caller's own deadline. Without it a client that overran its
+   * deadline was abandoned rather than cancelled, holding a socket and a
+   * response buffer open until the transport timeout.
+   */
+  getTorrents(options?: {
+    tag?: string
+    filter?: string
+    signal?: AbortSignal
+  }): Promise<TorrentRecord[]>
 
   /** Fetch global upload/download speeds. */
   getTransferInfo(): Promise<TransferStats>

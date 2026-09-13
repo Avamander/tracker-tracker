@@ -48,7 +48,8 @@ async function fetchClientTorrents(
   client: DownloadClientRow,
   tags: string[] | null,
   key: Buffer,
-  filter?: string
+  filter?: string,
+  signal?: AbortSignal
 ): Promise<TorrentRecord[]> {
   const baseUrl = buildBaseUrl(client.host, client.port, client.useSsl)
 
@@ -77,14 +78,16 @@ async function fetchClientTorrents(
   // `filter` still goes through, so the 5s active poll stays cheap instead of
   // dragging the whole torrent list across on every tick.
   if (tags === null) {
-    return adapter.getTorrents({ filter: filter as "active" | undefined })
+    return adapter.getTorrents({ filter: filter as "active" | undefined, signal })
   }
 
   if (tags.length === 1) {
-    return adapter.getTorrents({ tag: tags[0], filter: filter as "active" | undefined })
+    return adapter.getTorrents({ tag: tags[0], filter: filter as "active" | undefined, signal })
   }
 
-  const results = await Promise.allSettled(tags.map((tag) => adapter.getTorrents({ tag })))
+  const results = await Promise.allSettled(
+    tags.map((tag) => adapter.getTorrents({ tag, signal }))
+  )
   const allTorrents: TorrentRecord[] = []
   for (const result of results) {
     if (result.status === "fulfilled") allTorrents.push(...result.value)
@@ -139,18 +142,31 @@ export async function fetchAndMergeTorrents(
 
   const results = await Promise.allSettled(
     clients.map(async (client) => {
-      const deadline = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Client deadline exceeded")), CLIENT_DEADLINE_MS)
-      )
+      // The deadline used to release the caller and nothing else: the work kept
+      // running with its socket and response buffer open until the transport
+      // timeout, and the timer was never cleared on the happy path. Aborting is
+      // what actually stops a stalling host.
+      const controller = new AbortController()
+      let timer: ReturnType<typeof setTimeout> | undefined
+      const deadline = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          controller.abort()
+          reject(new Error("Client deadline exceeded"))
+        }, CLIENT_DEADLINE_MS)
+      })
       const work = (async () => {
-        const fetched = await fetchClientTorrents(client, tags, key, filter)
+        const fetched = await fetchClientTorrents(client, tags, key, filter, controller.signal)
         return {
           clientName: client.name,
           crossSeedTags: client.crossSeedTags ?? [],
           torrents: select ? fetched.filter(select) : fetched,
         }
       })()
-      return Promise.race([work, deadline])
+      try {
+        return await Promise.race([work, deadline])
+      } finally {
+        clearTimeout(timer)
+      }
     })
   )
 

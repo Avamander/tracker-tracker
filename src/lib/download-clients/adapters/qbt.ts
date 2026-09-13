@@ -74,9 +74,13 @@ export class QbtClientAdapter implements ClientAdapter {
     await qbtGetTransferInfo(this.baseUrl, { mode: "session", sid })
   }
 
-  async getTorrents(options?: { tag?: string; filter?: string }): Promise<TorrentRecord[]> {
+  async getTorrents(options?: {
+    tag?: string
+    filter?: string
+    signal?: AbortSignal
+  }): Promise<TorrentRecord[]> {
     const raw = await this.withAuth((baseUrl, auth) =>
-      qbtGetTorrents(baseUrl, auth, options?.tag, options?.filter)
+      qbtGetTorrents(baseUrl, auth, options?.tag, options?.filter, options?.signal)
     )
     return raw.map((t) => mapQbtTorrent(t as unknown as Record<string, unknown>))
   }

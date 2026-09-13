@@ -148,7 +148,8 @@ describe("QbtClientAdapter", () => {
       expect.any(String),
       { mode: "session", sid: { name: "SID", value: "test-sid" } },
       "aither",
-      "active"
+      "active",
+      undefined
     )
   })
 
@@ -281,6 +282,7 @@ describe("QbtClientAdapter with API-key auth", () => {
       "http://localhost:8080",
       { mode: "apikey", key: "qbt_examplekey" },
       "aither",
+      undefined,
       undefined
     )
   })
