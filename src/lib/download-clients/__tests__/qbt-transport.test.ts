@@ -4,7 +4,13 @@
 // scheduler logs raw, so what it copies out of an error is what ends up on disk.
 
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { clearAllSessions, clearAuthBlocks, login } from "@/lib/download-clients/qbt/transport"
+import {
+  clearAllSessions,
+  clearAuthBlocks,
+  getSession,
+  invalidateSession,
+  login,
+} from "@/lib/download-clients/qbt/transport"
 
 const BASE = "http://qbt.local:8080"
 
@@ -115,5 +121,59 @@ describe("qBittorrent session cookie validation", () => {
 
     const sid = await login("qbt.local", 8080, false, "admin", "pw")
     expect(sid.value).toBe("cleanvalue")
+  })
+})
+
+describe("qBittorrent session cache keying", () => {
+  // Two client rows can point at one host with different accounts. Keyed by
+  // baseUrl alone, the second row rode the first row's session, so its own
+  // credentials were never sent and a revoked password still polled green.
+  function loginOnce(sid: string) {
+    return vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      text: async () => "Ok.",
+      headers: { getSetCookie: () => [`SID=${sid}; Path=/`] },
+    } as unknown as Response)
+  }
+
+  it("does not hand one account the session minted for another", async () => {
+    const first = loginOnce("session-for-alice")
+    vi.stubGlobal("fetch", first)
+    const alice = await getSession("qbt.local", 8080, false, "alice", "pw-a")
+    expect(alice.sid.value).toBe("session-for-alice")
+
+    const second = loginOnce("session-for-bob")
+    vi.stubGlobal("fetch", second)
+    const bob = await getSession("qbt.local", 8080, false, "bob", "pw-b")
+
+    // Bob must have logged in rather than reusing the cached entry.
+    expect(second).toHaveBeenCalledTimes(1)
+    expect(bob.sid.value).toBe("session-for-bob")
+  })
+
+  it("reuses the session for the same credentials", async () => {
+    const fetchMock = loginOnce("session-once")
+    vi.stubGlobal("fetch", fetchMock)
+
+    await getSession("qbt.local", 8080, false, "alice", "pw-a")
+    await getSession("qbt.local", 8080, false, "alice", "pw-a")
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it("drops every session for a host when one is invalidated", async () => {
+    vi.stubGlobal("fetch", loginOnce("a"))
+    await getSession("qbt.local", 8080, false, "alice", "pw-a")
+    vi.stubGlobal("fetch", loginOnce("b"))
+    await getSession("qbt.local", 8080, false, "bob", "pw-b")
+
+    invalidateSession("http://qbt.local:8080")
+
+    const after = loginOnce("fresh")
+    vi.stubGlobal("fetch", after)
+    await getSession("qbt.local", 8080, false, "alice", "pw-a")
+    expect(after).toHaveBeenCalledTimes(1)
   })
 })

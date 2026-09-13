@@ -432,7 +432,7 @@ function okPage(html: string): Response {
   return { ok: true, status: 200, text: async () => html } as Response
 }
 
-describe("FilelistAdapter.fetchStats — user-id resolution", () => {
+describe("FilelistAdapter.fetchStats - user-id resolution", () => {
   const adapter = new FilelistAdapter()
 
   beforeEach(() => {
@@ -498,7 +498,7 @@ describe("FilelistAdapter.fetchStats — user-id resolution", () => {
   })
 })
 
-describe("FilelistAdapter.fetchStats — redirects and network errors", () => {
+describe("FilelistAdapter.fetchStats - redirects and network errors", () => {
   const adapter = new FilelistAdapter()
 
   beforeEach(() => {
@@ -650,7 +650,7 @@ describe("FilelistAdapter.fetchRaw", () => {
   })
 })
 
-describe("FilelistAdapter — proxy routing", () => {
+describe("FilelistAdapter - proxy routing", () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     vi.resetModules()

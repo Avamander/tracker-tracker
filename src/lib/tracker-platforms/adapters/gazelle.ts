@@ -1,6 +1,6 @@
 // src/lib/tracker-platforms/adapters/gazelle.ts
 //
-// Functions: GazelleAdapter, GazelleAdapter.fetchStats, GazelleAdapter.fetchRaw
+// Functions: gazelleAuthHeader, GazelleAdapter
 
 import {
   computeBufferBytes,

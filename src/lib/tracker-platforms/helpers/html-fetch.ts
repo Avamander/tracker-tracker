@@ -87,7 +87,13 @@ async function getHtmlViaProxy(
   proxyAgent: NonNullable<FetchOptions["proxyAgent"]>
 ): Promise<HtmlResponse> {
   const { proxyFetch } = await import("@/lib/tunnel")
-  const result = await proxyFetch(url, proxyAgent, { headers })
+  // Passed rather than inherited. tunnel.ts defaults to 15000, which happens to
+  // equal ADAPTER_FETCH_TIMEOUT_MS today, so the direct and proxied paths would
+  // drift apart silently the moment either number changed.
+  const result = await proxyFetch(url, proxyAgent, {
+    headers,
+    timeoutMs: ADAPTER_FETCH_TIMEOUT_MS,
+  })
   return {
     ok: result.ok,
     status: result.status,

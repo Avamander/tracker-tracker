@@ -205,7 +205,9 @@ export function parseRetrotoonProfile(html: string): TrackerStats {
   }
   if (joinedDate) stats.joinedDate = joinedDate
   if (lastAccessDate) stats.lastAccessDate = lastAccessDate
-  if (Object.keys(meta).length > 0) stats.platformMeta = meta
+  // Returned even when empty, so a figure the site stops reporting clears
+  // instead of leaving the previous poll's JSON in the row for good.
+  stats.platformMeta = meta
   return stats
 }
 
@@ -352,7 +354,7 @@ export class RetrotoonAdapter implements TrackerAdapter {
       )
     }
 
-    if (Object.keys(meta).length > 0) stats.platformMeta = meta
+    stats.platformMeta = meta
     // Persisted by the scheduler so later polls skip discovery.
     stats.remoteUserId = uid
     return stats

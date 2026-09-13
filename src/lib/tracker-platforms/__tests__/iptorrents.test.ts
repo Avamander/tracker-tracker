@@ -180,7 +180,7 @@ describe("parseIptCredentials", () => {
   })
 })
 
-describe("IptorrentsAdapter.fetchStats — network error classification", () => {
+describe("IptorrentsAdapter.fetchStats - network error classification", () => {
   const adapter = new IptorrentsAdapter()
   const validToken = JSON.stringify({ cookies: "uid=123; pass=abc123", userAgent: "Mozilla/5.0" })
 

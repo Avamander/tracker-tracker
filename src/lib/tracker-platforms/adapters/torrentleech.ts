@@ -1,8 +1,8 @@
 // src/lib/tracker-platforms/adapters/torrentleech.ts
 //
-// Functions: parseTlCredentials, sessionKey, getTlSession, invalidateTlSession, login,
-//            textAfterNode, firstText, topBarCell, parenCount, trailingCount,
-//            parseTlProfile, fetchHtml, TorrentleechAdapter
+// Functions: parseTlCredentials, sessionKey, getTlSession, invalidateTlSession,
+//            withTlSession, login, isRedirect, textAfterNode, firstText, topBarCell,
+//            parenCount, trailingCount, parseTlProfile, fetchHtml, TorrentleechAdapter
 
 import { createHash } from "node:crypto"
 import { type HTMLElement as ParsedElement, parse as parseHtml } from "node-html-parser"

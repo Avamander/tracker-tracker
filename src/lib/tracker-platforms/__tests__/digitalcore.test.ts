@@ -263,7 +263,7 @@ describe("parseDigitalCoreCredentials", () => {
 // DigitalCoreAdapter.fetchStats, happy path
 // ---------------------------------------------------------------------------
 
-describe("DigitalCoreAdapter.fetchStats — core stats", () => {
+describe("DigitalCoreAdapter.fetchStats - core stats", () => {
   const adapter = new DigitalCoreAdapter()
   const validToken = JSON.stringify({ uid: "54321", pass: "abc123xyz" })
 
@@ -490,7 +490,7 @@ describe("DigitalCoreAdapter.fetchStats — core stats", () => {
 // DigitalCoreAdapter.fetchStats, "yes"/"no" boolean normalization
 // ---------------------------------------------------------------------------
 
-describe("DigitalCoreAdapter.fetchStats — boolean string normalization", () => {
+describe("DigitalCoreAdapter.fetchStats - boolean string normalization", () => {
   const adapter = new DigitalCoreAdapter()
   const validToken = JSON.stringify({ uid: "54321", pass: "abc123xyz" })
 
@@ -591,7 +591,7 @@ describe("DigitalCoreAdapter.fetchStats — boolean string normalization", () =>
 // DigitalCoreAdapter.fetchStats, class ID mapping
 // ---------------------------------------------------------------------------
 
-describe("DigitalCoreAdapter.fetchStats — class ID mapping", () => {
+describe("DigitalCoreAdapter.fetchStats - class ID mapping", () => {
   const adapter = new DigitalCoreAdapter()
   const validToken = JSON.stringify({ uid: "54321", pass: "abc123xyz" })
 
@@ -642,7 +642,7 @@ describe("DigitalCoreAdapter.fetchStats — class ID mapping", () => {
 // DigitalCoreAdapter.fetchStats, enrichment (second call)
 // ---------------------------------------------------------------------------
 
-describe("DigitalCoreAdapter.fetchStats — enrichment", () => {
+describe("DigitalCoreAdapter.fetchStats - enrichment", () => {
   const adapter = new DigitalCoreAdapter()
   const validToken = JSON.stringify({ uid: "54321", pass: "abc123xyz" })
 
@@ -745,7 +745,7 @@ describe("DigitalCoreAdapter.fetchStats — enrichment", () => {
 // DigitalCoreAdapter.fetchStats, enrichment failure fallback
 // ---------------------------------------------------------------------------
 
-describe("DigitalCoreAdapter.fetchStats — enrichment failure fallback", () => {
+describe("DigitalCoreAdapter.fetchStats - enrichment failure fallback", () => {
   const adapter = new DigitalCoreAdapter()
   const validToken = JSON.stringify({ uid: "54321", pass: "abc123xyz" })
 
@@ -828,7 +828,7 @@ describe("DigitalCoreAdapter.fetchStats — enrichment failure fallback", () => 
 // DigitalCoreAdapter.fetchStats, 401 / error responses
 // ---------------------------------------------------------------------------
 
-describe("DigitalCoreAdapter.fetchStats — HTTP error handling", () => {
+describe("DigitalCoreAdapter.fetchStats - HTTP error handling", () => {
   const adapter = new DigitalCoreAdapter()
   const validToken = JSON.stringify({ uid: "54321", pass: "abc123xyz" })
 
@@ -907,7 +907,7 @@ describe("DigitalCoreAdapter.fetchStats — HTTP error handling", () => {
 // parseJsonSafe, HTML/Cloudflare/invalid JSON detection
 // ---------------------------------------------------------------------------
 
-describe("DigitalCoreAdapter.fetchStats — non-JSON response handling", () => {
+describe("DigitalCoreAdapter.fetchStats - non-JSON response handling", () => {
   const adapter = new DigitalCoreAdapter()
   const validToken = JSON.stringify({ uid: "54321", pass: "abc123xyz" })
 
@@ -973,7 +973,7 @@ describe("DigitalCoreAdapter.fetchStats — non-JSON response handling", () => {
 // DigitalCoreAdapter.fetchStats, cookie header construction
 // ---------------------------------------------------------------------------
 
-describe("DigitalCoreAdapter.fetchStats — cookie header", () => {
+describe("DigitalCoreAdapter.fetchStats - cookie header", () => {
   const adapter = new DigitalCoreAdapter()
 
   beforeEach(() => {
@@ -1089,7 +1089,7 @@ describe("DigitalCoreAdapter.fetchRaw", () => {
 // A live account returned connectable:0 from /api/v1/status while
 // /api/v1/users/:id returned unconnectable:0, i.e. actually connectable.
 // The profile endpoint wins, exactly as it already does for `warned`.
-describe("DigitalCoreAdapter — connectable (issue #167)", () => {
+describe("DigitalCoreAdapter - connectable (issue #167)", () => {
   const adapter = new DigitalCoreAdapter()
   const validToken = JSON.stringify({ uid: "54321", pass: "abc123xyz" })
 

@@ -365,7 +365,7 @@ describe("parseAvistazCredentials", () => {
 // useful message before propagating up to the caller.
 // ---------------------------------------------------------------------------
 
-describe("AvistazAdapter.fetchStats — network error classification", () => {
+describe("AvistazAdapter.fetchStats - network error classification", () => {
   const adapter = new AvistazAdapter()
   const validToken = JSON.stringify({
     cookies: "cf_clearance=aaaa; session=bbbb",
@@ -511,5 +511,36 @@ describe("parseAvistazProfile with the permission rows absent", () => {
     const meta = parseAvistazProfile(FULL_PAGE, "testuser").platformMeta as AvistazPlatformMeta
     expect(meta.totalUploads).toBe(0)
     expect(meta.invites).toBe(0)
+  })
+})
+
+describe("parseAvistazProfile permission spellings", () => {
+  // The flags used to be derived by negative match, so anything that was not
+  // the exact string "no" read as granted. A site renaming the value would
+  // have silently restored a revoked permission. Built by editing the real
+  // fixture so the row structure stays exactly what the parser expects.
+  const withValue = (label: string, from: string, to: string) =>
+    FULL_PAGE.replace(`${label}</td><td>${from}<`, `${label}</td><td>${to}<`)
+
+  it("reads a renamed negative spelling as denied, not granted", () => {
+    const page = withValue("Can Download", "Yes", "Disabled")
+    const meta = parseAvistazProfile(page, "testuser").platformMeta as AvistazPlatformMeta
+    expect(meta.canDownload).toBe(false)
+  })
+
+  it("reads an unrecognised value as unknown rather than granted", () => {
+    const page = withValue("Can Download", "Yes", "Pending review")
+    const meta = parseAvistazProfile(page, "testuser").platformMeta as AvistazPlatformMeta
+    expect(meta.canDownload).toBeUndefined()
+  })
+
+  it("still reads the ordinary spellings", () => {
+    const no = withValue("Can Upload", "Yes", "No")
+    expect(
+      (parseAvistazProfile(FULL_PAGE, "u").platformMeta as AvistazPlatformMeta).canUpload
+    ).toBe(true)
+    expect((parseAvistazProfile(no, "u").platformMeta as AvistazPlatformMeta).canUpload).toBe(
+      false
+    )
   })
 })

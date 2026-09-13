@@ -1,7 +1,8 @@
 // src/lib/tracker-platforms/adapters/avistaz.ts
 //
-// Functions: parseAvistazCredentials, strictParseBytes, textAfterLabel, textFromDatagrid,
-//            extractRatioBarValue, parseAvistazProfile, fetchHtml, AvistazAdapter
+// Functions: parseAvistazCredentials, yesNo, count, strictParseBytes, textAfterLabel,
+//            textFromDatagrid, toCount, ratioBarNumber, extractRatioBarValue,
+//            parseAvistazProfile, fetchHtml, AvistazAdapter
 
 import { type HTMLElement as ParsedElement, parse as parseHtml } from "node-html-parser"
 import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
@@ -50,6 +51,19 @@ export function parseAvistazCredentials(apiToken: string): AvistazCredentials {
 // Byte parsing: parseBytes handles both binary (GiB) and decimal (GB) units
 // with exact bigint arithmetic. AvistaZ uses decimal units (GB, KB).
 // ---------------------------------------------------------------------------
+
+/**
+ * A yes/no cell read by matching BOTH spellings, so only a value the page
+ * actually stated produces a boolean. A negative match (`!== "no"`) reports
+ * granted for anything it does not recognise, which turns a site renaming
+ * "No" to "Disabled" into a silently restored permission.
+ */
+function yesNo(text: string): boolean | undefined {
+  const value = text.trim().toLowerCase()
+  if (/^(yes|true|enabled|allowed|on)\b/.test(value)) return true
+  if (/^(no|false|disabled|denied|off|never)\b/.test(value)) return false
+  return undefined
+}
 
 /** A site-printed count, or undefined when the row was absent or unparseable. */
 function count(text: string): number | undefined {
@@ -308,15 +322,21 @@ export function parseAvistazProfile(html: string, username: string): TrackerStat
   // reported 2FA enabled. Every field here is optional on AvistazPlatformMeta,
   // so leaving it absent is what the type already expects.
   const platformMeta: AvistazPlatformMeta = {
-    donor: donorText ? /yes|true/i.test(donorText) : undefined,
+    donor: yesNo(donorText),
     vipExpiry: vipExpiryText === "-" ? null : vipExpiryText || null,
     invites: count(invitesText),
-    canDownload: canDownloadText ? canDownloadText.toLowerCase() !== "no" : undefined,
-    canUpload: canUploadText ? canUploadText.toLowerCase() !== "no" : undefined,
+    canDownload: yesNo(canDownloadText),
+    canUpload: yesNo(canUploadText),
     totalUploads,
     totalDownloads,
     reseedRequests,
-    twoFactorEnabled: twoFaText ? !twoFaText.includes("Not Enabled") : undefined,
+    // "Not Enabled" has to be tested before "Enabled", or the prefix match on
+    // the positive spelling swallows the negative one.
+    twoFactorEnabled: /not\s+enabled/i.test(twoFaText)
+      ? false
+      : /enabled/i.test(twoFaText)
+        ? true
+        : undefined,
   }
 
   return {

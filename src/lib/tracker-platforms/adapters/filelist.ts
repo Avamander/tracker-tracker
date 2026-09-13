@@ -195,7 +195,10 @@ export function parseFilelistProfile(html: string): TrackerStats {
   }
   if (joinedDate) stats.joinedDate = joinedDate
   if (lastAccessDate) stats.lastAccessDate = lastAccessDate
-  if (Object.keys(platformMeta).length > 0) stats.platformMeta = platformMeta
+  // Returned even when empty. The scheduler writes meta only when the key is
+  // present, so withholding it here leaves the previous poll's JSON in the row
+  // and a figure the site stopped reporting would never clear.
+  stats.platformMeta = platformMeta
   return stats
 }
 

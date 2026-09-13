@@ -1,6 +1,9 @@
 // src/lib/tracker-platforms/adapters/unit3d.ts
 //
-// Functions: isUnlimitedBuffer, toBytes, toNumber, toSignedBytes, isPlainObject, missingByteFields, quoteList, describeKeys, readApiKeyExpiry, unwrapUnit3dResponse, Unit3dAdapter
+// Functions: isUnlimitedBuffer, toBytes, toNumber, toSignedBytes, isPlainObject,
+//            missingByteFields, quoteList, describeKeys, readApiKeyExpiry,
+//            unwrapUnit3dResponse, readAuthStyle, rememberAuthStyle, buildRequest,
+//            unit3dFetch, Unit3dAdapter
 
 import {
   computeBufferBytes,

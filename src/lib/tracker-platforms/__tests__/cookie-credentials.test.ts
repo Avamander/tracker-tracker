@@ -22,7 +22,7 @@ describe("parseCredentialJson", () => {
     expect(creds.userAgent).toBe("UA")
   })
 
-  it("does not normalize values — callers decide what may be trimmed", () => {
+  it("does not normalize values - callers decide what may be trimmed", () => {
     const creds = parseCredentialJson('{"password":"  pad  "}', "X", ["password"] as const)
 
     expect(creds.password).toBe("  pad  ")
