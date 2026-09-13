@@ -163,11 +163,11 @@ export class BtnAdapter implements TrackerAdapter {
     try {
       const data = await callBtnUserInfo(BTN_API_URL, apiToken, BTN_API_HOSTNAME, options)
       const stats = mapBtnResult(data.result as BtnUserInfoResult)
-      return [{ label: "userInfo", endpoint: BTN_API_URL, data: stats, error: null }]
+      return [{ label: "User Info", endpoint: BTN_API_URL, data: stats, error: null }]
     } catch (err) {
       return [
         {
-          label: "userInfo",
+          label: "User Info",
           endpoint: BTN_API_URL,
           data: null,
           error: err instanceof Error ? err.message : "Request failed",

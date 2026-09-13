@@ -34,7 +34,7 @@ export interface TrackerAdapter {
     apiPath: string,
     options?: FetchOptions
   ): Promise<TrackerStats>
-  fetchRaw?(
+  fetchRaw(
     baseUrl: string,
     apiToken: string,
     apiPath: string,

@@ -1,8 +1,11 @@
 // src/types/tracker-stats.ts
 //
-// What a poll returns. Declarations only, no imports, so a React component can
-// read these without pulling the adapter barrel (and with it server-only) into
-// the client bundle.
+// What a poll returns. Declarations only. Its one import is the platform
+// vocabulary, which has no imports of its own, so a React component can read
+// these without pulling the adapter barrel (and with it server-only) into the
+// client bundle.
+
+import type { PlatformType } from "@/data/platform-types"
 
 export interface TrackerStats {
   username: string
@@ -26,17 +29,9 @@ export interface TrackerStats {
   lastAccessDate?: string
   shareScore?: number
   avatarUrl?: string
-  platformMeta?:
-    | GGnPlatformMeta
-    | GazellePlatformMeta
-    | NebulancePlatformMeta
-    | MamPlatformMeta
-    | AvistazPlatformMeta
-    | DigitalCorePlatformMeta
-    | HawkePlatformMeta
-    | FileListPlatformMeta
-    | Unit3dPlatformMeta
-    | RetrotoonPlatformMeta
+  // The union is declared once, below. Restating it here meant a new meta type
+  // could be added to one list and missed in the other.
+  platformMeta?: PlatformMeta
 }
 
 export interface GGnPlatformMeta {
@@ -267,6 +262,17 @@ export interface PlatformMetaMap {
   unit3d: Unit3dPlatformMeta
   retrotoon: RetrotoonPlatformMeta
 }
+
+type Assert<T extends true> = T
+
+/**
+ * Fails to compile if a PlatformMetaMap key is not a real platform. Without it
+ * a meta could be registered under a platform that does not exist in
+ * VALID_PLATFORM_TYPES, and nothing would say so.
+ */
+export type PlatformMetaMapKeysAreValid = Assert<
+  keyof PlatformMetaMap extends PlatformType ? true : false
+>
 
 /**
  * Type-safe narrowing of PlatformMeta using the existing platformType discriminant.
