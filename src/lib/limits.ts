@@ -133,6 +133,22 @@ export const BACKUP_RESTORE_MAX_BYTES = 50 * 1024 * 1024
 export const AVATAR_FETCH_MAX_BYTES = 5 * 1024 * 1024
 export const MOUSEHOLE_BODY_MAX_BYTES = 256
 
+/**
+ * Ceiling on a qBittorrent response body. The 15s timeout bounds elapsed time,
+ * not bytes, so a host that streams slowly and forever was previously read
+ * into memory without limit. Set well above a real library: 50k torrents of
+ * maindata is roughly 30MB, so this leaves headroom while still bounding a
+ * host that never stops sending.
+ */
+export const QBT_RESPONSE_MAX_BYTES = 64 * 1024 * 1024
+
+/**
+ * Ceiling on torrents held per client in the sync store. The store is keyed by
+ * a hash the host chooses and is never aged out, so without this a host can
+ * grow it without bound by naming new hashes every poll.
+ */
+export const SYNC_STORE_MAX_TORRENTS = 100_000
+
 // ─── Image Hosting ────────────────────────────────────────────────────────────
 export const IMAGE_EXPIRATION_MIN = 60
 export const IMAGE_EXPIRATION_MAX = 15_552_000

@@ -328,3 +328,109 @@ describe("replaceStoreTorrents", () => {
     expect(isStoreFresh(BASE, 60_000)).toBe(true)
   })
 })
+
+describe("applyMaindataUpdate validates a delta for a torrent it already holds", () => {
+  // The insert path coerces and shape-checks. The update path used to be a
+  // bare Object.assign, so once a hash had been seen, a hostile or buggy host
+  // could put any type into any field. The store outlives the poll and is
+  // serialized into cachedTorrents, so a bad value persisted rather than
+  // clearing on the next sync.
+  const seed = {
+    rid: 1,
+    fullUpdate: true,
+    torrents: {
+      abc: {
+        hash: "abc",
+        name: "Example",
+        state: "uploading",
+        size: 100,
+        ratio: 1.5,
+        tags: "aither, cross-seed",
+      },
+    },
+  } as unknown as DeltaSyncResponse
+
+  it("keeps tags a string when a delta sends a number", () => {
+    applyMaindataUpdate(BASE_URL, seed)
+    applyMaindataUpdate(BASE_URL, {
+      rid: 2,
+      torrents: { abc: { tags: 123 } },
+    } as unknown as DeltaSyncResponse)
+
+    const [torrent] = getStoredTorrents(BASE_URL)
+    expect(typeof torrent.tags).toBe("string")
+    // parseTorrentTags does rawTags.split(","), so a number used to throw here
+    // and take the whole aggregation with it.
+    expect(() => torrent.tags.split(",")).not.toThrow()
+  })
+
+  it("keeps a required number numeric when a delta sends a string", () => {
+    applyMaindataUpdate(BASE_URL, seed)
+    applyMaindataUpdate(BASE_URL, {
+      rid: 2,
+      torrents: { abc: { ratio: "not a number" } },
+    } as unknown as DeltaSyncResponse)
+
+    const [torrent] = getStoredTorrents(BASE_URL)
+    expect(typeof torrent.ratio).toBe("number")
+  })
+
+  it("still applies an ordinary delta", () => {
+    applyMaindataUpdate(BASE_URL, seed)
+    applyMaindataUpdate(BASE_URL, {
+      rid: 2,
+      torrents: { abc: { ratio: 2.5, tags: "aither" } },
+    } as unknown as DeltaSyncResponse)
+
+    const [torrent] = getStoredTorrents(BASE_URL)
+    expect(torrent.ratio).toBe(2.5)
+    expect(torrent.tags).toBe("aither")
+  })
+
+  it("keeps the previous record when a delta would break the shape", () => {
+    applyMaindataUpdate(BASE_URL, seed)
+    applyMaindataUpdate(BASE_URL, {
+      rid: 2,
+      torrents: { abc: { name: 42 } },
+    } as unknown as DeltaSyncResponse)
+
+    const [torrent] = getStoredTorrents(BASE_URL)
+    expect(torrent.name).toBe("Example")
+  })
+})
+
+describe("applyMaindataUpdate torrent cap", () => {
+  // The store is keyed by hashes the host chooses and is never aged out, so
+  // without a ceiling a host naming fresh hashes each poll grows it forever.
+  function bulk(count: number, prefix: string) {
+    const torrents: Record<string, unknown> = {}
+    for (let i = 0; i < count; i++) {
+      torrents[`${prefix}${i}`] = {
+        hash: `${prefix}${i}`,
+        name: `t${i}`,
+        state: "uploading",
+        size: 1,
+        ratio: 1,
+      }
+    }
+    return { rid: 1, fullUpdate: true, torrents } as unknown as DeltaSyncResponse
+  }
+
+  it("accepts an update inside the cap", () => {
+    applyMaindataUpdate(BASE_URL, bulk(50, "a"))
+    expect(getStoredTorrents(BASE_URL)).toHaveLength(50)
+  })
+
+  it("refuses an update that would exceed the cap, keeping the last good state", () => {
+    applyMaindataUpdate(BASE_URL, bulk(10, "a"))
+    const huge = bulk(2, "b") as unknown as { torrents: Record<string, unknown> }
+    for (let i = 0; i < 100_001; i++) {
+      huge.torrents[`flood${i}`] = { hash: `flood${i}`, name: "x", state: "up", size: 1, ratio: 1 }
+    }
+
+    applyMaindataUpdate(BASE_URL, huge as unknown as DeltaSyncResponse)
+
+    // The previous ten survive; nothing from the refused update landed.
+    expect(getStoredTorrents(BASE_URL)).toHaveLength(10)
+  })
+})

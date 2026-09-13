@@ -8,6 +8,7 @@ import {
   clearAllSessions,
   clearAuthBlocks,
   getSession,
+  getTorrents,
   invalidateSession,
   login,
 } from "@/lib/download-clients/qbt/transport"
@@ -175,5 +176,41 @@ describe("qBittorrent session cache keying", () => {
     vi.stubGlobal("fetch", after)
     await getSession("qbt.local", 8080, false, "alice", "pw-a")
     expect(after).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe("getTorrents validates the body it was handed", () => {
+  // syncMaindata already shape-checks. getTorrents used to cast straight to
+  // QbtTorrent[], so an object, or entries of the wrong shape, reached
+  // mapQbtTorrent and then the store unchecked.
+  const AUTH = { mode: "apikey", key: "k" } as const
+
+  function respondWith(body: unknown) {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        json: async () => body,
+      } as unknown as Response)
+    )
+  }
+
+  it("refuses a body that is not an array", async () => {
+    respondWith({ not: "an array" })
+    await expect(getTorrents(BASE, AUTH)).rejects.toThrow("was not an array")
+  })
+
+  it("drops entries that fail the shape check and keeps the rest", async () => {
+    respondWith([
+      { hash: "a", name: "ok", state: "uploading", size: 1, ratio: 1 },
+      { hash: "b", name: 42, state: "uploading", size: 1, ratio: 1 },
+      "not an object",
+    ])
+
+    const torrents = await getTorrents(BASE, AUTH)
+    expect(torrents).toHaveLength(1)
+    expect(torrents[0].hash).toBe("a")
   })
 })

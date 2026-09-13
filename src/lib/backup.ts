@@ -26,6 +26,7 @@ import {
 import { log } from "@/lib/logger"
 import { isUnsafeNetworkHost } from "@/lib/network"
 import { VALID_NOTIFICATION_TYPES } from "@/lib/notifications/types"
+import { PROXY_HOST_PATTERN } from "@/lib/tunnel"
 import { HEX_64_RE, ISO_8601_RE, isValidHex, isValidPort } from "@/lib/validators"
 import packageJson from "../../package.json"
 
@@ -504,6 +505,12 @@ export function validateBackupJson(payload: unknown): asserts payload is BackupP
     const prefix = `downloadClients[${i}]`
 
     assertString(c.host, `${prefix}.host`)
+    // Restore is the third writer of downloadClients.host. Both API routes
+    // gate it on PROXY_HOST_PATTERN; without the same gate here a restored
+    // backup could seed a host the routes would have refused.
+    if (!PROXY_HOST_PATTERN.test(c.host as string)) {
+      throw new Error(`Backup validation: ${prefix}.host contains invalid characters`)
+    }
 
     assertNumber(c.port, `${prefix}.port`)
     if (!isValidPort(c.port)) {
