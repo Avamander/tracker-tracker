@@ -5,6 +5,7 @@
 
 import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
 import { sanitizeNetworkError } from "@/lib/error-utils"
+import { log } from "@/lib/logger"
 import type {
   DebugApiCall,
   DigitalCorePlatformMeta,
@@ -387,9 +388,10 @@ export class DigitalCoreAdapter implements TrackerAdapter {
       if (err instanceof SessionExpiredError) {
         throw err
       }
-      const msg = err instanceof Error ? err.message : "unknown"
-      // Other enrichment failures are non-fatal, core stats + baseMeta from /status are still valid
-      console.warn(`[digitalcore] Enrichment failed: ${msg}`)
+      // Other enrichment failures are non-fatal, core stats + baseMeta from
+      // /status are still valid. Through log, not console: the in-app event
+      // feed is built by parsing pino output, so console is invisible there.
+      log.warn({ err }, "digitalcore: enrichment failed, core stats kept")
     }
 
     return stats

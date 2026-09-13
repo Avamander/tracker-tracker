@@ -1,6 +1,7 @@
 // src/lib/tracker-platforms/__tests__/digitalcore.test.ts
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { sanitizeNetworkError } from "@/lib/error-utils"
+import { log } from "@/lib/logger"
 import { DigitalCoreAdapter, parseDigitalCoreCredentials } from "../adapters/digitalcore"
 import type { DigitalCorePlatformMeta } from "../contract"
 
@@ -801,7 +802,9 @@ describe("DigitalCoreAdapter.fetchStats - enrichment failure fallback", () => {
   })
 
   it("logs a warning (does not throw) when enrichment fails", async () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined)
+    // Through log, not console: the in-app event feed is built by parsing pino
+    // output, so a console.warn failure is invisible to the operator.
+    const warnSpy = vi.spyOn(log, "warn").mockImplementation(() => undefined)
 
     vi.spyOn(global, "fetch")
       .mockResolvedValueOnce(mockResponse(mockStatusResponse()))
@@ -810,7 +813,7 @@ describe("DigitalCoreAdapter.fetchStats - enrichment failure fallback", () => {
     await adapter.fetchStats("https://digitalcore.club", validToken, "")
 
     expect(warnSpy).toHaveBeenCalledOnce()
-    expect(warnSpy.mock.calls[0][0]).toMatch(/\[digitalcore\].*Enrichment failed/i)
+    expect(String(warnSpy.mock.calls[0][1])).toMatch(/digitalcore: enrichment failed/i)
   })
 
   it("still returns stats when enrichment returns a non-ok HTTP response", async () => {

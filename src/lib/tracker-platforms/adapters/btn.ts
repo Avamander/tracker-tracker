@@ -49,6 +49,13 @@ interface BtnJsonRpcResponse {
   error?: { code: number; message: string }
 }
 
+/** A BTN count, or null when absent or unparseable. Never a fabricated zero. */
+function parseCountOrNull(raw: string | undefined | null): number | null {
+  if (raw == null) return null
+  const n = parseInt(raw, 10)
+  return Number.isNaN(n) ? null : n
+}
+
 /** Parse a byte counter from the API, rejecting anything non-numeric. */
 function parseBtnBytes(raw: string | undefined, field: string): bigint {
   const value = (raw ?? "").trim()
@@ -90,7 +97,7 @@ function mapBtnResult(result: BtnUserInfoResult): TrackerStats {
     // `HnR` is undocumented. BTN has a separate getUserSnatchlist endpoint for
     // hit-and-runs, so this key may not exist. Report unknown rather than a
     // fabricated 0.
-    hitAndRuns: result.HnR == null ? null : parseInt(result.HnR, 10) || 0,
+    hitAndRuns: parseCountOrNull(result.HnR),
     // `Lumens` and `Bonus` are undocumented, meanings unconfirmed. `Bonus` is
     // fractional, which doesn't fit a token count. Unmapped pending verification.
     seedbonus: null,

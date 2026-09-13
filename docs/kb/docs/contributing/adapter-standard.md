@@ -316,33 +316,24 @@ dashes.
 
 ## 6. Known outstanding work
 
-Short and current. Everything else the audit found has been fixed.
+Short and current. Everything else the audit found is fixed, and most of what was here is now
+enforced by section 7 rather than remembered.
 
 1. **`btn.ts` records an absent byte counter as a measured zero.** `parseBtnBytes` returns `0n`
-   for a blank value despite its docstring saying it rejects non-numeric input. That figure flows
-   into `computeRatio` and `computeBufferBytes`. Deciding the fix means deciding whether a blank
+   for a blank value despite its docstring saying it rejects non-numeric input, and that figure
+   flows into `computeRatio` and `computeBufferBytes`. Fixing it means deciding whether a blank
    `Upload` should throw, since `uploadedBytes` is a non-nullable `bigint` and cannot hold
-   unknown.
-2. **`avistaz.ts` still derives permission flags by negative match.** The absent row is guarded,
-   but `!== "no"` means a site renaming the value to "Disabled" would report a revoked right as
-   granted. Match both spellings positively.
-3. **Adapters emit three different date shapes.** The scheduler no longer corrupts a bare date,
-   but the shapes should converge.
-4. **`filelist.ts:197` and `retrotoon.ts` guard `platformMeta` on emptiness**, so a field that
-   disappears upstream never clears. See 2.2.
-5. **`helpers/html-fetch.ts` does not pass `timeoutMs` to `proxyFetch`.** Not a missing timeout:
-   `tunnel.ts:86` defaults to 15000 and `ADAPTER_FETCH_TIMEOUT_MS` is 15000. The risk is that the
-   two constants drift apart silently. Pass it explicitly.
-6. **The `Functions:` headers are wrong in 4 of 10 files** (`avistaz`, `gazelle`, `torrentleech`, `unit3d`). See section 4.
-7. **15 em dashes in adapter test files**, none in adapter or helper source.
-8. **The audit's cookie-injection guard check can be satisfied by a variable name.**
-   `INJECTION_GUARD_PATTERNS` in `scripts/security-audit.ts` includes `/unsafeChars/`, and it is
-   tested against the whole file, so declaring `const unsafeChars = /nothing/` passes the check
-   with no real validation. Verified by neutering the guard in `qbt/transport.ts` and watching
-   the check still pass. Require a character class that actually contains the injection
-   characters.
-
----
+   unknown. Needs a decision, not just an edit.
+2. **Adapters still emit three different date shapes.** The scheduler no longer corrupts a bare
+   date, so this is now consistency rather than correctness. Pick one shape and say which.
+3. **The security audit's cookie-injection guard check can be satisfied by a variable name.**
+   `INJECTION_GUARD_PATTERNS` in `scripts/security-audit.ts` includes `/unsafeChars/` and is
+   tested against the whole file, so declaring `const unsafeChars = /nothing/` passes with no real
+   validation. Verified by neutering the guard in `qbt/transport.ts` and watching the check still
+   pass. Require a character class that actually contains the injection characters.
+4. **`digitalcore.ts` still hand-rolls its credential parser.** Allowlisted in the conformance
+   test with its reason: its messages and cookie-injection guards differ deliberately from
+   `parseCredentialJson`. Reconciling the wording would let the allowlist entry go.
 
 ## 7. What can be enforced mechanically
 
@@ -362,10 +353,11 @@ Ordered by value per unit of effort.
 | `platformMeta?: PlatformMeta` instead of restating the ten-member union | A new meta type can no longer be added to one list and missed in the other. |
 | `PlatformMetaMap` keyed `Partial<Record<PlatformType, ...>>` | An unknown platform key fails to compile, where today it is silent. |
 
-**Done:** `GazelleCommunity`'s comment counts are now optional, so no type forces a fabricated
-zero any more.
+**Done.** `fetchRaw` is required, the ten-member union is declared once, a compile-time assertion
+rejects a meta registered under a platform that does not exist, and `GazelleCommunity`'s comment
+counts are optional, so no type forces a fabricated zero.
 
-### 7.2 A shared behavioural contract test
+### 7.2 A shared behavioural contract test (done)
 
 One file iterating `VALID_PLATFORM_TYPES` minus `custom` through `getAdapter`. Per adapter:
 
@@ -377,11 +369,13 @@ One file iterating `VALID_PLATFORM_TYPES` minus `custom` through `getAdapter`. P
 | **Title Case label** | `/^[A-Z]/` on every label. | Future repeats. |
 | **Bad credentials throw** | Pass a malformed blob to `fetchRaw`, assert it rejects rather than resolving with a call list. | The "parse outside the try" rule, currently unanimous and unprotected. |
 
-This needs a small per-adapter fixture registry supplying a plausible credential and mock
-response. That registry is itself useful: it is the one place a contributor declares what their
-adapter needs to be driven.
+**Done**, in `__tests__/adapters.contract.test.ts`. It iterates `VALID_PLATFORM_TYPES` through
+`getAdapter`, so a new adapter inherits every rule without anyone remembering to write these cases
+again. Adding an adapter without adding a credential to its fixture registry fails the first case,
+which is deliberate: that registry is the one place a contributor declares what their adapter needs
+to be driven. It found two BTN divergences on its first run.
 
-### 7.3 A source-text conformance test
+### 7.3 A source-text conformance test (done)
 
 Same shape as `tracker-registry.test.ts`, over `src/lib/tracker-platforms/`:
 
@@ -396,7 +390,10 @@ Same shape as `tracker-registry.test.ts`, over `src/lib/tracker-platforms/`:
 | Each `<name>.test.ts` contains `describe("<Class>.fetchRaw"` | 2 (btn, torrentleech). |
 | Every logic-bearing file in `helpers/` has a colocated test | 0. `constants.ts`, `errors.ts` and `types.ts` are declaration-only. |
 
-Report file, line and matched text so the failure teaches the rule rather than just failing.
+**Done**, in `__tests__/conformance.test.ts`. Failures name the file and the matched text so the
+message teaches the rule. Two allowlist entries survive, each with its reason written next to it:
+DigitalCore's hand-rolled credential parser, and MAM's category sum. Adding a third means writing
+down why, which is the whole point.
 
 ### 7.4 A null-contract test generated from the source
 
@@ -406,7 +403,7 @@ adapters already comply, so it starts mostly green, and it makes "a contributor 
 `requiredRatio: null` to `requiredRatio: 0` and the suite stays green" impossible. Regex over both
 files, no AST needed.
 
-### 7.5 Biome rules
+### 7.5 Biome rules (done)
 
 `biome.json` already uses `overrides` with `includes`, so scoping is a two-block edit.
 
@@ -417,8 +414,9 @@ files, no AST needed.
   for its login POST, so it needs its own override entry. That exception being visible in
   `biome.json` is itself the documentation.
 
-The installed Biome is 2.5.10 while `biome.json`'s `$schema` still points at 2.5.8. Bump it with
-these edits.
+**Done.** `noConsole` is an error across the module, and `noRestrictedImports` bans a direct
+`@/lib/tunnel` import from `adapters/*.ts` with `torrentleech.ts` declared as its own override. The
+`$schema` is bumped to 2.5.10 to match the installed version.
 
 ### 7.6 Targeted helper tests
 

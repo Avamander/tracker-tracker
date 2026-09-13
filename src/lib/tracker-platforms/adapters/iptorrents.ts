@@ -144,8 +144,8 @@ export function parseIptProfile(html: string): TrackerStats {
     } else if (label === "Active Torrents") {
       const nums = value.match(/\d+/g)
       if (nums && nums.length >= 2) {
-        seedingCount = parseInt(nums[0], 10) || 0
-        leechingCount = parseInt(nums[1], 10) || 0
+        seedingCount = parseInt(nums[0], 10)
+        leechingCount = parseInt(nums[1], 10)
       }
     } else if (label === "Bonus Points") {
       const match = value.match(/[\d,.]+/)

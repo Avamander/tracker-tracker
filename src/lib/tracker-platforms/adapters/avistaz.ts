@@ -234,7 +234,7 @@ export function parseAvistazProfile(html: string, username: string): TrackerStat
   if (leechingCount === null) leechingCount = ratioBarNumber(items, /Leeching:\s*([\d,]+)/)
   if (seedbonus === null) seedbonus = ratioBarNumber(items, /Bonus:\s*([\d,.]+)/)
   const hitAndRuns = ratioBarNumber(items, /Hit\s*&\s*Run:\s*([\d,]+)/)
-  const reseedRequests = parseInt(extractRatioBarValue(items, /Reseed:\s*([\d,]+)/), 10) || 0
+  const reseedRequests = count(extractRatioBarValue(items, /Reseed:\s*([\d,]+)/))
 
   // ── Profile table rows ─────────────────────────────────────────────────────
   const allRows = Array.from(

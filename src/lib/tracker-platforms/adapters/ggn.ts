@@ -177,7 +177,7 @@ export class GGnAdapter implements TrackerAdapter {
       seedbonus: resp.stats.gold ?? null,
       hitAndRuns: resp.personal?.hnrs ?? null,
       requiredRatio: typeof resp.stats.requiredRatio === "number" ? resp.stats.requiredRatio : null,
-      warned: resp.personal?.warned ?? false,
+      warned: typeof resp.personal?.warned === "boolean" ? resp.personal.warned : null,
       freeleechTokens: null,
       joinedDate: resp.stats.joinedDate ?? undefined,
       lastAccessDate: resp.stats.lastAccess ?? undefined,

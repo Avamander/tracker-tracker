@@ -8,6 +8,7 @@ import {
   floatBytesToBigInt,
   signedFloatBytesToBigInt,
 } from "@/lib/data-transforms"
+import { log } from "@/lib/logger"
 import type {
   DebugApiCall,
   FetchOptions,
@@ -208,10 +209,9 @@ export class GazelleAdapter implements TrackerAdapter {
             stats.platformMeta = enriched.platformMeta
           }
         } catch (err) {
-          // security-audit-ignore: enrichment failure is non-fatal and core stats from index are still valid
-          console.warn(
-            `[${hostname}] Enrichment failed: ${err instanceof Error ? err.message : "unknown"}`
-          )
+          // Enrichment failure is non-fatal; core stats from index still
+          // stand. Through log, not console, so the in-app event feed sees it.
+          log.warn({ err, hostname }, "gazelle: enrichment failed, core stats kept")
         }
       }
     }
@@ -304,7 +304,9 @@ export class GazelleAdapter implements TrackerAdapter {
     hostname: string,
     options?: FetchOptions
   ): Promise<{
-    warned: boolean
+    // null, not false: an enrichment that did not carry the flag must not
+    // overwrite the honest null the first call set.
+    warned: boolean | null
     joinedDate?: string
     lastAccessDate?: string
     bufferBytes?: bigint
@@ -366,7 +368,7 @@ export class GazelleAdapter implements TrackerAdapter {
     }
 
     return {
-      warned: resp.personal?.warned ?? false,
+      warned: typeof resp.personal?.warned === "boolean" ? resp.personal.warned : null,
       joinedDate: resp.stats?.joinedDate ?? undefined,
       lastAccessDate: resp.stats?.lastAccess ?? undefined,
       // Gazelle's buffer value is signed. It overwrites the derived value in
