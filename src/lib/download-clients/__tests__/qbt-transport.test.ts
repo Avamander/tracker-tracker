@@ -12,6 +12,7 @@ import {
   invalidateSession,
   login,
 } from "@/lib/download-clients/qbt/transport"
+import { QBT_RESPONSE_MAX_BYTES } from "@/lib/limits"
 
 const BASE = "http://qbt.local:8080"
 
@@ -212,5 +213,73 @@ describe("getTorrents validates the body it was handed", () => {
     const torrents = await getTorrents(BASE, AUTH)
     expect(torrents).toHaveLength(1)
     expect(torrents[0].hash).toBe("a")
+  })
+})
+
+describe("the response body cap", () => {
+  // A real ReadableStream, not the plain-object mocks above: those carry no
+  // `body`, so they take the response.json() fallback and never reach the
+  // reader loop where the cap lives.
+  const AUTH = { mode: "apikey", key: "k" } as const
+
+  /** A 200 whose body arrives in chunks, the way a real host sends one. */
+  function streamResponse(chunks: Iterable<Uint8Array>) {
+    const stream = new ReadableStream({
+      start(controller) {
+        for (const chunk of chunks) controller.enqueue(chunk)
+        controller.close()
+      },
+    })
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(stream)))
+  }
+
+  it("refuses a body that runs past the cap", async () => {
+    // One 8 MiB chunk enqueued nine times: 72 MiB against a 64 MiB cap, with
+    // only 8 MiB allocated. The refusal fires before the concat.
+    const chunk = new Uint8Array(8 * 1024 * 1024)
+    const oversized = { *[Symbol.iterator]() { for (let i = 0; i < 9; i++) yield chunk } }
+
+    streamResponse(oversized)
+
+    // One rejection, both assertions: a stream is consumed once, so a second
+    // call would drain an empty body and fail for the wrong reason.
+    const err = await getTorrents(BASE, AUTH)
+      .then(() => null)
+      .catch((e: unknown) => (e instanceof Error ? e : null))
+
+    expect(err).not.toBeNull()
+    // Matched whole because only the cap branch builds this string, so an exact
+    // match proves the cap refused it and not a parse error further down. It
+    // names the host so the operator can tell which client sent the body.
+    //
+    // It does not pin the cap's value: both sides interpolate the same
+    // constant. Only the 72 MiB fixture bounds it, and only from above.
+    expect(err?.message).toBe(
+      `Response from qbt.local exceeded ${QBT_RESPONSE_MAX_BYTES} bytes and was refused`
+    )
+  })
+
+  it("reads a body that stays under the cap", async () => {
+    // A cap that refused everything would pass the case above.
+    const body = JSON.stringify([{ hash: "a", name: "ok", state: "uploading", size: 1, ratio: 1 }])
+    streamResponse([new TextEncoder().encode(body)])
+
+    const torrents = await getTorrents(BASE, AUTH)
+    expect(torrents).toHaveLength(1)
+    expect(torrents[0].hash).toBe("a")
+  })
+
+  it("reassembles a body split across chunks", async () => {
+    // The concat path, with the split inside a multibyte character.
+    const body = JSON.stringify([
+      { hash: "b", name: "café ok", state: "uploading", size: 1, ratio: 1 },
+    ])
+    const encoded = new TextEncoder().encode(body)
+    const split = encoded.indexOf(0xc3) + 1
+    streamResponse([encoded.subarray(0, split), encoded.subarray(split)])
+
+    const torrents = await getTorrents(BASE, AUTH)
+    expect(torrents).toHaveLength(1)
+    expect(torrents[0].name).toBe("café ok")
   })
 })
