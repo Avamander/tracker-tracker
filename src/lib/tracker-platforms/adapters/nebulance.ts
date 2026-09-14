@@ -196,7 +196,21 @@ export class NebulanceAdapter implements TrackerAdapter {
       }
       const data = await result.json()
 
-      return [{ label: "User Info", endpoint, data, error: null }]
+      // fetchStats rejects on a body-level error too, not just a bad status.
+      // Checking only the status here left a 200 carrying an error body looking
+      // healthy in the debug view.
+      const bodyError =
+        data !== null && typeof data === "object" && "error" in data
+          ? (data as { error?: unknown }).error
+          : undefined
+      const errText =
+        bodyError === undefined
+          ? null
+          : typeof bodyError === "object" && bodyError !== null && "message" in bodyError
+            ? String((bodyError as { message: unknown }).message)
+            : String(bodyError)
+
+      return [{ label: "User Info", endpoint, data, error: errText }]
     } catch (err) {
       return [
         {

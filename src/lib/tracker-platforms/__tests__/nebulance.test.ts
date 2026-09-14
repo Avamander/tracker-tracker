@@ -542,3 +542,42 @@ describe("NebulanceAdapter.fetchRaw", () => {
     expect(calls[0].data).not.toBeNull()
   })
 })
+
+describe("NebulanceAdapter.fetchRaw body-level errors", () => {
+  // fetchStats rejects on `!ok || "error" in data`. fetchRaw checked only the
+  // status, so a 200 carrying an error body rendered in the debug view as a
+  // healthy call, which is the opposite of what that tab is opened to find.
+  const adapter = new NebulanceAdapter()
+
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it("reports an error object carried in a 200 as a failed call", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      json: async () => ({ error: { code: 401, message: "bad api key" } }),
+    } as unknown as Response)
+
+    const calls = await adapter.fetchRaw("https://nebulance.io", "key", "/api.php")
+
+    expect(calls).toHaveLength(1)
+    expect(calls[0].error).toContain("bad api key")
+    // The offending body is kept so the tab can still show what arrived.
+    expect(calls[0].data).not.toBeNull()
+  })
+
+  it("still reports a healthy call as healthy", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      json: async () => ({ Username: "someone", ID: 1 }),
+    } as unknown as Response)
+
+    const calls = await adapter.fetchRaw("https://nebulance.io", "key", "/api.php")
+    expect(calls[0].error).toBeNull()
+  })
+})

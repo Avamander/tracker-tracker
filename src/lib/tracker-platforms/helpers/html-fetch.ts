@@ -1,6 +1,6 @@
 // src/lib/tracker-platforms/helpers/html-fetch.ts
 //
-// Functions: buildHtmlHeaders, fetchFailure, fetchViaProxy, getHtml, isRedirect,
+// Functions: buildHtmlHeaders, fetchFailure, getHtmlViaProxy, getHtml, isRedirect,
 //            followRedirectChain, fetchTrackerHtml
 
 import { classifyFetchError, sanitizeNetworkError } from "@/lib/error-utils"

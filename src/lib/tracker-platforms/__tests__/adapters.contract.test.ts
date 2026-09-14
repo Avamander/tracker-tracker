@@ -167,6 +167,33 @@ describe("every registered adapter", () => {
         }
       })
 
+
+      it("does not leak a malformed credential through undici header validation", async () => {
+        // A token carrying a control character makes undici throw a TypeError
+        // whose message quotes the whole header, credential included.
+        // classifyFetchError refuses to trust that message (error-utils.ts),
+        // but only a test says so for all thirteen at once.
+        const dirty = CREDENTIALS[platform].replace(CANARY, `${CANARY}\\r\\nX: 1`)
+        vi.spyOn(global, "fetch").mockImplementation(((...args: unknown[]) => {
+          const init = args[1] as { headers?: Record<string, string> } | undefined
+          const quoted = JSON.stringify(init?.headers ?? {})
+          // What undici actually does: name the offending header value.
+          return Promise.reject(new TypeError(`Headers.append: "${quoted}" is invalid`))
+        }) as unknown as typeof fetch)
+
+        const adapter = getAdapter(platform)
+        const surfaces: string[] = []
+        await adapter
+          .fetchStats(BASE_URL, dirty, pathFor(platform))
+          .then((s) => surfaces.push(surfaceOf(s)))
+          .catch((e: unknown) => surfaces.push(surfaceOf(e)))
+        await adapter
+          .fetchRaw(BASE_URL, dirty, pathFor(platform))
+          .then((c) => surfaces.push(surfaceOf(c)))
+          .catch((e: unknown) => surfaces.push(surfaceOf(e)))
+
+        expect(surfaces.join("\n")).not.toContain(CANARY)
+      })
       if (JSON_BLOB_PLATFORMS.has(platform)) {
         it("throws on a malformed credential blob rather than reporting it as a call", async () => {
           vi.spyOn(global, "fetch").mockResolvedValue({

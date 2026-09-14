@@ -270,6 +270,10 @@ export class GazelleAdapter implements TrackerAdapter {
     const indexResponse = indexData?.response as { id?: number } | undefined
     const userId = options?.remoteUserId ?? indexResponse?.id
     if (userId) {
+      // The same pause fetchStats takes. The debug route runs both methods in
+      // one request, so skipping it here means one press issues every call back
+      // to back against a site strict enough to need the pause.
+      await new Promise((r) => setTimeout(r, 1500))
       const userUrl = new URL(apiPath, baseUrl)
       userUrl.searchParams.set("action", "user")
       userUrl.searchParams.set("id", String(userId))

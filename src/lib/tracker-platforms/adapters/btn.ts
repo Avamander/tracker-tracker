@@ -1,11 +1,11 @@
 // src/lib/tracker-platforms/adapters/btn.ts
 //
-// Functions: parseBtnBytes, mapBtnResult, translateBtnError, callBtnUserInfo, BtnAdapter
+// Functions: parseCountOrNull, parseBtnBytes, mapBtnResult, callBtnUserInfo, BtnAdapter
 
 import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
 import { localDateStr } from "@/lib/formatters"
 import type { DebugApiCall, FetchOptions, TrackerAdapter, TrackerStats } from "../contract"
-import { adapterFetch } from "../helpers/adapter-fetch"
+import { adapterRequest } from "../helpers/adapter-fetch"
 
 /**
  * BTN serves its API from a different host than its site, and every BTN user
@@ -107,25 +107,19 @@ function mapBtnResult(result: BtnUserInfoResult): TrackerStats {
   }
 }
 
-/** Restore BTN-specific wording for the status codes adapterFetch reports generically. */
-function translateBtnError(err: unknown): Error {
-  const message = err instanceof Error ? err.message : "BTN request failed"
-  if (/\b401\b/.test(message)) return new Error("Invalid BTN API key")
-  if (/\b503\b/.test(message)) return new Error("BTN API rate limited (150 calls/hour)")
-  return err instanceof Error ? err : new Error(message)
-}
-
 async function callBtnUserInfo(
   apiUrl: string,
   apiKey: string,
   hostname: string,
   options?: FetchOptions
 ): Promise<BtnJsonRpcResponse> {
-  let data: BtnJsonRpcResponse
+  // adapterRequest rather than adapterFetch, so BTN's own wording for 401 and
+  // 503 comes from the status rather than from matching digits in a message.
+  // The message is not ours to read: a tracker-supplied string containing
+  // "401" would have been classified as a rejected key.
+  let response: Awaited<ReturnType<typeof adapterRequest>>
   try {
-    // Routed through adapterFetch so BTN honours a configured proxy and the
-    // shared request timeout, like every other JSON adapter.
-    data = await adapterFetch<BtnJsonRpcResponse>(
+    response = await adapterRequest(
       apiUrl,
       hostname,
       options,
@@ -136,8 +130,16 @@ async function callBtnUserInfo(
       }
     )
   } catch (err) {
-    throw translateBtnError(err)
+    throw err instanceof Error ? err : new Error("BTN request failed")
   }
+
+  if (response.status === 401) throw new Error("Invalid BTN API key")
+  if (response.status === 503) throw new Error("BTN API rate limited (150 calls/hour)")
+  if (!response.ok) {
+    throw new Error(`Tracker API error: ${response.status} ${response.statusText}`)
+  }
+
+  const data = await response.json<BtnJsonRpcResponse>()
 
   if (data.error) {
     throw new Error(data.error.message)

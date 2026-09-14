@@ -396,3 +396,50 @@ describe("BtnAdapter - documented vs observed field names", () => {
     })
   })
 })
+
+describe("BtnAdapter status classification", () => {
+  // The wording used to come from matching digits in the error message, which
+  // meant a tracker-supplied string containing "401" would have been read as a
+  // rejected key. It comes from response.status now.
+  const adapter = new BtnAdapter()
+
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  function respondWith(status: number, body: unknown = {}) {
+    vi.spyOn(global, "fetch").mockResolvedValue({
+      ok: status >= 200 && status < 300,
+      status,
+      statusText: status === 401 ? "Unauthorized" : "Error",
+      json: async () => body,
+      text: async () => JSON.stringify(body),
+    } as unknown as Response)
+  }
+
+  it("reads a 401 as a rejected key", async () => {
+    respondWith(401)
+    await expect(adapter.fetchStats("https://broadcasthe.net", "key", "/")).rejects.toThrow(
+      "Invalid BTN API key"
+    )
+  })
+
+  it("reads a 503 as the documented rate limit", async () => {
+    respondWith(503)
+    await expect(adapter.fetchStats("https://broadcasthe.net", "key", "/")).rejects.toThrow(
+      "rate limited"
+    )
+  })
+
+  it("does not read a 401 out of a body the tracker wrote", async () => {
+    // A 200 whose body mentions 401 is not a rejected key.
+    respondWith(200, { error: { code: 1, message: "torrent 401 Unauthorized Mixtape not found" } })
+    const err = await adapter
+      .fetchStats("https://broadcasthe.net", "key", "/")
+      .then(() => null)
+      .catch((e: unknown) => (e instanceof Error ? e : null))
+
+    expect(err).not.toBeNull()
+    expect(err?.message).not.toContain("Invalid BTN API key")
+  })
+})

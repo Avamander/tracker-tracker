@@ -132,6 +132,33 @@ describe("tracker-platforms source conformance", () => {
     expect(missing).toEqual([])
   })
 
+
+  it("keeps the Functions: header honest wherever a file carries one", () => {
+    // A manifest that is wrong is worse than none: a contributor trusts it and
+    // writes a duplicate helper. Either it is verified or it should be dropped.
+    const wrong: string[] = []
+    for (const file of SOURCE) {
+      const body = read(file)
+      const header: string[] = []
+      let inHeader = false
+      for (const line of body.split("\n")) {
+        if (/^\/\/\s*(?:Available functions|Functions):/.test(line)) inHeader = true
+        else if (inHeader && !line.startsWith("//")) break
+        if (inHeader) header.push(line)
+      }
+      if (!header.length) continue
+      const listed = new Set(header.join(" ").match(/[A-Za-z_][A-Za-z0-9_]*/g) ?? [])
+      const declared = [
+        ...(body.match(/^(?:export )?(?:async )?function (\w+)/gm) ?? []).map((m) =>
+          m.replace(/^(?:export )?(?:async )?function /, "")
+        ),
+        ...(body.match(/^export class (\w+)/gm) ?? []).map((m) => m.replace("export class ", "")),
+      ]
+      const missing = declared.filter((d) => !listed.has(d))
+      if (missing.length) wrong.push(`${repoPath(file)}: omits ${missing.join(", ")}`)
+    }
+    expect(wrong).toEqual([])
+  })
   it("keeps the adapters folder holding only adapters", () => {
     // The layout rule itself. adapters/ is the crowdsourced surface; shared
     // code belongs in helpers/ and the contract at the module root.
