@@ -60,7 +60,7 @@ Seven `TrackerStats` fields are nullable for exactly this reason (`types.ts:15-2
 |---|---|---|
 | `field: value ?? 0` | Absent becomes a measured zero | `value ?? null` |
 | `warned: x?.warned ?? false` | Absent becomes a reassurance the user is not warned | `typeof x === "boolean" ? x : null` |
-| `parseInt(text, 10) \|\| 0` on scraped text | An absent row parses as `NaN`, which `\|\| 0` turns into zero | a null-returning parse helper |
+| `parseInt(text, 10) \|\| 0` on scraped text | An absent row parses as `NaN`, which `\|\| 0` turns into zero | `tryParseCount(text) ?? null` |
 | `parseFloat(x) \|\| 0` for a ratio | See 2.3 | `computeRatio(uploaded, downloaded)` |
 | `x ?? 0` in a second call | Overwrites the honest `null` the first call set | `if (typeof x === "number") stats.f = x` |
 
@@ -198,6 +198,7 @@ it. Import it rather than writing it again.
 | `envelopeError` | `helpers/envelope.ts` | `fetchRaw`, on every body that arrived with HTTP 200. Returns the failure a tracker signalled inside a success, or null. Covers `{status, error}` and `{success, message}`. | Your own `status !== "success"` unwrap inside `fetchRaw` |
 | `normalizeWhitespace` | `helpers/html-parse.ts` | Any text you compare against a literal label. Labels carry U+00A0, which an exact match will not survive. | `value.replace(/\s+/g, " ").trim()` |
 | `datePrefix` | `helpers/html-parse.ts` | Slicing `YYYY-MM-DD` off a site-printed datetime | Your own date regex |
+| `tryParseCount` | `helpers/html-parse.ts` | Any site-printed count. The first number in the text, commas stripped, decimals and sign kept, `undefined` when there is none. | `parseInt(text, 10)` with your own `NaN` test |
 | `tryParseSiteBytes` | `helpers/html-parse.ts` | Site-printed byte totals. Strips grouping commas and canonicalises the unit, so both `1,024 kB` and `1 GiB` parse. Returns `undefined` rather than throwing. | A private `parseBytes` wrapper with its own tolerances |
 | `computeRatio`, `computeBufferBytes` | `@/lib/data-transforms` | `ratio` and `bufferBytes` | Reading the tracker's ratio with no `computeRatio` fallback |
 | `parseCredentialJson` | `helpers/cookie-credentials.ts` | Any credential arriving as a JSON blob | `JSON.parse(apiToken)`, shape checks, and above all the error wording |
@@ -210,11 +211,27 @@ it. Import it rather than writing it again.
 The interface an adapter implements is `contract.ts` at the module root. Adapters import it as
 `../contract`; helpers import it the same way.
 
-**Two helpers that do not exist yet.** If you need one, promote it into `helpers/html-parse.ts`
+**The count parser is settled.** `tryParseCount` returns `undefined`, not `null`, because
+`platformMeta` is `JSON.stringify`ed into the trackers row: an undefined member is dropped, a null
+one is stored. A null-returning parser would write the key back on every poll and defeat
+omit-when-absent (2.2). `TrackerStats` fields coalesce with `?? null` where they are assigned.
+
+Four private number parsers remain. Each reads a different input shape, so folding them in would
+break them:
+
+- `ratioBarNumber` (`avistaz.ts`) scans ratio-bar items with a label regex.
+- `parenCount` (`torrentleech.ts`) reads the number inside parentheses.
+- `trailingCount` (`torrentleech.ts`) reads the **last** number in a cell; `tryParseCount` takes
+  the first.
+- `toNumber` (`unit3d.ts`) reads a JSON field that may already be a number. Passing one to
+  `tryParseCount` throws.
+
+All four return `null` because each value goes straight into a `TrackerStats` field (2.1). Reach
+for `tryParseCount` unless you are in one of those four shapes.
+
+**One helper that does not exist yet.** If you need it, promote it into `helpers/html-parse.ts`
 rather than adding another private copy:
 
-- A null-returning **count** parser. Five private ones exist across three files and they disagree
-  on the return type. Settle that when you promote it.
 - The **Cloudflare challenge predicate**. The same three-condition test is copied in all five
   scrapers, and three of them already throw the identical message.
 

@@ -1,11 +1,12 @@
 // src/lib/tracker-platforms/adapters/btn.ts
 //
-// Functions: parseCountOrNull, parseBtnBytes, mapBtnResult, callBtnUserInfo, BtnAdapter
+// Functions: parseBtnBytes, mapBtnResult, callBtnUserInfo, BtnAdapter
 
 import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
 import { localDateStr } from "@/lib/formatters"
 import type { DebugApiCall, FetchOptions, TrackerAdapter, TrackerStats } from "../contract"
 import { adapterRequest } from "../helpers/adapter-fetch"
+import { tryParseCount } from "../helpers/html-parse"
 
 /**
  * BTN serves its API from a different host than its site, and every BTN user
@@ -49,13 +50,6 @@ interface BtnJsonRpcResponse {
   error?: { code: number; message: string }
 }
 
-/** A BTN count, or null when absent or unparseable. Never a fabricated zero. */
-function parseCountOrNull(raw: string | undefined | null): number | null {
-  if (raw == null) return null
-  const n = parseInt(raw, 10)
-  return Number.isNaN(n) ? null : n
-}
-
 /** Parse a byte counter from the API, rejecting anything non-numeric. */
 function parseBtnBytes(raw: string | undefined, field: string): bigint {
   const value = (raw ?? "").trim()
@@ -97,7 +91,7 @@ function mapBtnResult(result: BtnUserInfoResult): TrackerStats {
     // `HnR` is undocumented. BTN has a separate getUserSnatchlist endpoint for
     // hit-and-runs, so this key may not exist. Report unknown rather than a
     // fabricated 0.
-    hitAndRuns: parseCountOrNull(result.HnR),
+    hitAndRuns: tryParseCount(result.HnR) ?? null,
     // `Lumens` and `Bonus` are undocumented, meanings unconfirmed. `Bonus` is
     // fractional, which doesn't fit a token count. Unmapped pending verification.
     seedbonus: null,

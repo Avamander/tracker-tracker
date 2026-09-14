@@ -1,7 +1,7 @@
 // src/lib/tracker-platforms/adapters/avistaz.ts
 //
-// Functions: parseAvistazCredentials, yesNo, count, strictParseBytes, textAfterLabel,
-//            textFromDatagrid, toCount, ratioBarNumber, extractRatioBarValue,
+// Functions: parseAvistazCredentials, yesNo, strictParseBytes, textAfterLabel,
+//            textFromDatagrid, ratioBarNumber, extractRatioBarValue,
 //            parseAvistazProfile, fetchHtml, AvistazAdapter
 
 import { type HTMLElement as ParsedElement, parse as parseHtml } from "node-html-parser"
@@ -19,6 +19,7 @@ import type {
 import { parseCredentialJson } from "../helpers/cookie-credentials"
 import { SessionExpiredError } from "../helpers/errors"
 import { fetchTrackerHtml } from "../helpers/html-fetch"
+import { tryParseCount } from "../helpers/html-parse"
 
 // ---------------------------------------------------------------------------
 // Credential handling
@@ -63,12 +64,6 @@ function yesNo(text: string): boolean | undefined {
   if (/^(yes|true|enabled|allowed|on)\b/.test(value)) return true
   if (/^(no|false|disabled|denied|off|never)\b/.test(value)) return false
   return undefined
-}
-
-/** A site-printed count, or undefined when the row was absent or unparseable. */
-function count(text: string): number | undefined {
-  const n = parseInt(text.replace(/,/g, ""), 10)
-  return Number.isNaN(n) ? undefined : n
 }
 
 function strictParseBytes(text: string, field: string): bigint {
@@ -117,12 +112,6 @@ function ratioBarNumber(items: ParsedElement[], labelRegex: RegExp): number | nu
   const raw = extractRatioBarValue(items, labelRegex)
   if (!raw) return null
   const value = Number.parseFloat(raw)
-  return Number.isFinite(value) ? value : null
-}
-
-/** A count from an item's own text, or null when it holds no number. */
-function toCount(text: string): number | null {
-  const value = Number.parseInt(text.replace(/,/g, ""), 10)
   return Number.isFinite(value) ? value : null
 }
 
@@ -206,9 +195,9 @@ export function parseAvistazProfile(html: string, username: string): TrackerStat
     } else if (title === "Download" || title === "Downloaded") {
       downloadedBytes = strictParseBytes(text, "download")
     } else if (title === "Active Seeds") {
-      seedingCount = toCount(text)
+      seedingCount = tryParseCount(text) ?? null
     } else if (title === "Active Leeches") {
-      leechingCount = toCount(text)
+      leechingCount = tryParseCount(text) ?? null
     } else if (title === "Bonus Points") {
       const numMatch = text.match(/([\d,.]+)/)
       seedbonus = numMatch ? Number.parseFloat(numMatch[1].replace(/,/g, "")) : null
@@ -234,7 +223,7 @@ export function parseAvistazProfile(html: string, username: string): TrackerStat
   if (leechingCount === null) leechingCount = ratioBarNumber(items, /Leeching:\s*([\d,]+)/)
   if (seedbonus === null) seedbonus = ratioBarNumber(items, /Bonus:\s*([\d,.]+)/)
   const hitAndRuns = ratioBarNumber(items, /Hit\s*&\s*Run:\s*([\d,]+)/)
-  const reseedRequests = count(extractRatioBarValue(items, /Reseed:\s*([\d,]+)/))
+  const reseedRequests = tryParseCount(extractRatioBarValue(items, /Reseed:\s*([\d,]+)/))
 
   // ── Profile table rows ─────────────────────────────────────────────────────
   const allRows = Array.from(
@@ -309,9 +298,9 @@ export function parseAvistazProfile(html: string, username: string): TrackerStat
     const text = li.textContent?.trim() ?? ""
     const strong = li.querySelector("strong")?.textContent?.trim() ?? ""
     if (text.includes("Total Uploads")) {
-      totalUploads = count(strong)
+      totalUploads = tryParseCount(strong)
     } else if (text.includes("Downloads")) {
-      totalDownloads = count(strong)
+      totalDownloads = tryParseCount(strong)
     }
   }
 
@@ -324,7 +313,7 @@ export function parseAvistazProfile(html: string, username: string): TrackerStat
   const platformMeta: AvistazPlatformMeta = {
     donor: yesNo(donorText),
     vipExpiry: vipExpiryText === "-" ? null : vipExpiryText || null,
-    invites: count(invitesText),
+    invites: tryParseCount(invitesText),
     canDownload: yesNo(canDownloadText),
     canUpload: yesNo(canUploadText),
     totalUploads,

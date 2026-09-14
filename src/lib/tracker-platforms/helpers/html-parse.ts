@@ -1,6 +1,6 @@
 // src/lib/tracker-platforms/helpers/html-parse.ts
 //
-// Functions: normalizeWhitespace, datePrefix, tryParseSiteBytes
+// Functions: normalizeWhitespace, datePrefix, tryParseCount, tryParseSiteBytes
 
 import { parseBytes } from "@/lib/parser"
 
@@ -20,6 +20,22 @@ export function normalizeWhitespace(value: string): string {
 /** `2026-08-20 19:05:17 (1 week ago)` -> `2026-08-20`. */
 export function datePrefix(value: string): string | undefined {
   return value.match(/^(\d{4}-\d{2}-\d{2})/)?.[1]
+}
+
+/**
+ * The first number in site text ("0", "1,234", "12.5"), or undefined when there
+ * is none. Commas are stripped; a leading minus and decimals are kept.
+ *
+ * Undefined rather than null: platformMeta is JSON.stringify'd into the
+ * trackers row, which drops an undefined member and stores a null one, so a
+ * null here would write the key back on every poll. TrackerStats fields
+ * coalesce with `?? null` where they are assigned.
+ */
+export function tryParseCount(value: string | null | undefined): number | undefined {
+  const match = value?.match(/-?[\d,]+(?:\.\d+)?/)
+  if (!match) return undefined
+  const parsed = Number.parseFloat(match[0].replace(/,/g, ""))
+  return Number.isFinite(parsed) ? parsed : undefined
 }
 
 /**

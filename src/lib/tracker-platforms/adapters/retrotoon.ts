@@ -1,6 +1,6 @@
 // src/lib/tracker-platforms/adapters/retrotoon.ts
 //
-// Functions: parseRetrotoonCredentials, tryParseCount, assertAuthenticated,
+// Functions: parseRetrotoonCredentials, assertAuthenticated,
 //            extractOwnUserId, extractUsername, parseRetrotoonProfile,
 //            parseRetrotoonBonus, parseRetrotoonHitAndRuns,
 //            parseRetrotoonHnrTokens, fetchHtml, RetrotoonAdapter
@@ -19,7 +19,12 @@ import type {
 import { parseCredentialJson } from "../helpers/cookie-credentials"
 import { SessionExpiredError } from "../helpers/errors"
 import { fetchTrackerHtml } from "../helpers/html-fetch"
-import { datePrefix, normalizeWhitespace, tryParseSiteBytes } from "../helpers/html-parse"
+import {
+  datePrefix,
+  normalizeWhitespace,
+  tryParseCount,
+  tryParseSiteBytes,
+} from "../helpers/html-parse"
 
 // ---------------------------------------------------------------------------
 // Credential handling
@@ -55,14 +60,6 @@ export function parseRetrotoonCredentials(apiToken: string): RetrotoonCredential
 // TBDev: userdetails.php is a table of <td class="rowhead">Label</td><td>value
 // pairs, with U+00A0 inside the labels, so normalize whitespace before matching.
 // ---------------------------------------------------------------------------
-
-/** First number in a cell ("0", "1,234", "12.5") as a Number, or undefined. */
-function tryParseCount(value: string): number | undefined {
-  const match = value.match(/-?[\d,]+(?:\.\d+)?/)
-  if (!match) return undefined
-  const parsed = Number.parseFloat(match[0].replace(/,/g, ""))
-  return Number.isFinite(parsed) ? parsed : undefined
-}
 
 /**
  * Authenticated pages carry the header's [Logout] link. Anonymous requests 302

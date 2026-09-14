@@ -6,7 +6,12 @@
 
 import { describe, expect, it } from "vitest"
 import { parseBytes } from "@/lib/parser"
-import { datePrefix, normalizeWhitespace, tryParseSiteBytes } from "../helpers/html-parse"
+import {
+  datePrefix,
+  normalizeWhitespace,
+  tryParseCount,
+  tryParseSiteBytes,
+} from "../helpers/html-parse"
 
 describe("tryParseSiteBytes", () => {
   it("parses the decimal units, whatever case the site prints", () => {
@@ -56,5 +61,56 @@ describe("datePrefix", () => {
   it("returns undefined when the value does not start with a date", () => {
     expect(datePrefix("never")).toBeUndefined()
     expect(datePrefix("20-08-2026")).toBeUndefined()
+  })
+})
+
+describe("tryParseCount", () => {
+  it("reads a zero the site printed as a zero", () => {
+    // A real 0 has to survive, or it cannot be told from a row that was absent.
+    expect(tryParseCount("0")).toBe(0)
+  })
+
+  it("strips grouping commas", () => {
+    expect(tryParseCount("1,234")).toBe(1234)
+    expect(tryParseCount("1,234,567")).toBe(1234567)
+  })
+
+  it("keeps a fractional value, because a bonus rate is one", () => {
+    expect(tryParseCount("12.5")).toBe(12.5)
+    expect(tryParseCount("1,234.56")).toBe(1234.56)
+  })
+
+  it("keeps a negative, which a buffer-style figure can be", () => {
+    expect(tryParseCount("-5")).toBe(-5)
+  })
+
+  it("takes the first number in the text, wherever it sits", () => {
+    // A label in front of the number does not hide it.
+    expect(tryParseCount("Seeding: 42")).toBe(42)
+    expect(tryParseCount("42 torrents")).toBe(42)
+    expect(tryParseCount(" 7 ")).toBe(7)
+  })
+
+  it("returns undefined, not a zero, when the text carries no number", () => {
+    // Returning 0 here is the bug the null versus zero rule exists for.
+    expect(tryParseCount("")).toBeUndefined()
+    expect(tryParseCount("N/A")).toBeUndefined()
+    expect(tryParseCount("never")).toBeUndefined()
+    expect(tryParseCount("-")).toBeUndefined()
+    // A lone separator matches the digit-or-comma class but parses to nothing.
+    expect(tryParseCount(",")).toBeUndefined()
+  })
+
+  it("treats an absent value the same as an unparseable one", () => {
+    // BTN hands it an optional API field rather than scraped text.
+    expect(tryParseCount(undefined)).toBeUndefined()
+    expect(tryParseCount(null)).toBeUndefined()
+  })
+
+  it("returns undefined rather than null, so platformMeta drops the key", () => {
+    // platformMeta is stringified into the trackers row, so a null here would
+    // write the key back on every poll.
+    expect(JSON.stringify({ invites: tryParseCount("N/A") })).toBe("{}")
+    expect(JSON.stringify({ invites: tryParseCount("3") })).toBe('{"invites":3}')
   })
 })
