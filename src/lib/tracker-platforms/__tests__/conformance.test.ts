@@ -67,11 +67,9 @@ describe("tracker-platforms source conformance", () => {
     expect(hits).toEqual([])
   })
 
-  it("logs through the logger, never console", () => {
-    // The in-app event feed is built by parsing pino output, so a console
-    // failure is invisible to the operator.
-    expect(findAll(/console\.\w+/, SOURCE)).toEqual([])
-  })
+  // No console case here: Biome owns that rule. noConsole is an error across
+  // src/lib/tracker-platforms/**, test files included, which is wider than this
+  // file reaches. Two enforcers means the weaker one gets edited when it fires.
 
   it("parses credential blobs with the shared helper", () => {
     const ALLOWED = new Set([

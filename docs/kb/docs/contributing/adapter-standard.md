@@ -420,16 +420,24 @@ to be driven. It found two BTN divergences on its first run.
 
 Same shape as `tracker-registry.test.ts`, over `src/lib/tracker-platforms/`:
 
-| Assertion | Current violations |
+No counts here on purpose. `__tests__/conformance.test.ts` computes them on every run, and a
+number written down goes stale the moment someone fixes something, telling the next contributor a
+rule is aspirational when it is already green.
+
+| Assertion | Notes |
 |---|---|
-| Line 1 equals `// ` plus the file's own path | 0. Locks in a unanimous convention. |
-| No U+2014 | 15, all in test files. |
-| No banned word | 0. Locks it in at zero cost. |
-| No `console.` | 2 (`digitalcore.ts`, `gazelle.ts`). |
-| No `JSON.parse(apiToken` outside `helpers/` | 1 (`digitalcore.ts`). |
+| Line 1 equals `// ` plus the file's own path | A unanimous convention, locked in. |
+| No U+2014 | Prose review cannot see an em dash reliably. Covers the test files too. |
+| No banned word | Locked in at zero cost. |
+| No `JSON.parse(apiToken` outside `helpers/` | Scoped to `adapters/`, where `parseCredentialJson` is the only sanctioned route. |
 | `/\?\?\s*(0\|false\|true)\b/` against a small allowlist | The null versus zero rule. The allowlist is the point: adding a coalescing default means adding a line with a reason, which turns a silent choice into a reviewable one. Keep `?? 0n` out of scope. |
-| Each `<name>.test.ts` contains `describe("<Class>.fetchRaw"` | 2 (btn, torrentleech). |
-| Every logic-bearing file in `helpers/` has a colocated test | 0. `constants.ts`, `errors.ts` and `types.ts` are declaration-only. |
+| Each `<name>.test.ts` calls `.fetchRaw(` | Every adapter's debug path is exercised somewhere. |
+| Every logic-bearing file in `helpers/` has a colocated test | `errors.ts` is declaration-only and exempt. |
+| The `Functions:` header lists every function the file declares | Closes 7.7 for the files that carry a header. |
+| `adapters/` holds adapters and nothing else | The layout rule itself. |
+
+`console.` is not in the list. Biome owns it (7.5), at error level across the module including the
+test files. Two enforcers means the weaker one gets edited when it fires.
 
 **Done**, in `__tests__/conformance.test.ts`. Failures name the file and the matched text so the
 message teaches the rule. Two allowlist entries survive, each with its reason written next to it:
@@ -467,11 +475,13 @@ files, no AST needed.
 - Add an assertion to `helpers/html-fetch.test.ts` that `proxyFetch` receives
   `timeoutMs: ADAPTER_FETCH_TIMEOUT_MS`, so the two transports cannot drift.
 
-### 7.7 Generate the `Functions:` header, or drop it
+### 7.7 Verify the `Functions:` header, or drop it
 
-Extract `^(export )?(async )?function (\w+)` plus `^export class (\w+)` and compare against the
-header list. Four of ten currently fail. If nobody owns the generator, delete the header from all
-ten and keep only the path comment.
+**Done**, in `__tests__/conformance.test.ts`. It fails on any function the header omits. A file
+with no header is left alone, so dropping the header still complies.
+
+It only catches omissions. A name left in the header after its function is deleted passes, so that
+edit is still by hand.
 
 ### 7.8 What still needs a human
 
