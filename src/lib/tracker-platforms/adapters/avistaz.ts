@@ -73,7 +73,7 @@ function count(text: string): number | undefined {
 
 function strictParseBytes(text: string, field: string): bigint {
   const trimmed = text.trim()
-  if (!trimmed) throw new Error(`AvistaZ: empty ${field} byte string`)
+  if (!trimmed) throw new Error(`Unexpected response from AvistaZ: empty ${field} byte string`)
   return parseBytes(trimmed)
 }
 

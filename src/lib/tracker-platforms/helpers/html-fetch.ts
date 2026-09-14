@@ -90,10 +90,22 @@ async function getHtmlViaProxy(
   // Passed rather than inherited. tunnel.ts defaults to 15000, which happens to
   // equal ADAPTER_FETCH_TIMEOUT_MS today, so the direct and proxied paths would
   // drift apart silently the moment either number changed.
-  const result = await proxyFetch(url, proxyAgent, {
-    headers,
-    timeoutMs: ADAPTER_FETCH_TIMEOUT_MS,
-  })
+  const hostname = new URL(url).hostname
+  let result: Awaited<ReturnType<typeof proxyFetch>>
+  try {
+    result = await proxyFetch(url, proxyAgent, {
+      headers,
+      timeoutMs: ADAPTER_FETCH_TIMEOUT_MS,
+    })
+  } catch (err) {
+    // Worded exactly as adapter-fetch words it, so one sanitizer rule covers
+    // both transports instead of the HTML one falling through to "Poll failed".
+    if (err instanceof Error && err.message.includes("timed out")) {
+      throw new Error(`Request to ${hostname} timed out (via proxy)`)
+    }
+    const detail = err instanceof Error ? err.message : "Unknown"
+    throw new Error(`Failed to connect to ${hostname} via proxy: ${detail}`)
+  }
   return {
     ok: result.ok,
     status: result.status,

@@ -1,5 +1,6 @@
 // src/lib/tracker-platforms/__tests__/nebulance.test.ts
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { sanitizeNetworkError } from "@/lib/error-utils"
 import { NebulanceAdapter } from "../adapters/nebulance"
 
 function mockNebulanceResponse(
@@ -579,5 +580,57 @@ describe("NebulanceAdapter.fetchRaw body-level errors", () => {
 
     const calls = await adapter.fetchRaw("https://nebulance.io", "key", "/api.php")
     expect(calls[0].error).toBeNull()
+  })
+})
+
+describe("NebulanceAdapter error wording is an interface", () => {
+  // sanitizeNetworkError picks a rule by matching the raw message. The old
+  // `<host> API error: <message>` shape matched nothing of its own, so it was
+  // classified only when the tracker happened to use a word a rule looked for.
+  // A tracker wording its rejection differently fell through to "Poll failed",
+  // which reads the same as a host that never answered.
+  const adapter = new NebulanceAdapter()
+
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it("classifies a 401 whatever words the tracker chose", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      statusText: "Unauthorized",
+      json: async () => ({ error: { code: 401, message: "key not recognised" } }),
+    } as Response)
+
+    const err = await adapter
+      .fetchStats("https://nebulance.io", "bad-key", "/api.php")
+      .then(() => null)
+      .catch((e: unknown) => (e instanceof Error ? e : null))
+
+    expect(err).not.toBeNull()
+    // The tracker never said "invalid", so the old shape would have landed here
+    // as the catch-all.
+    expect(sanitizeNetworkError(err?.message ?? "")).toBe("Authentication failed")
+    // And the tracker message survives for the log line.
+    expect(err?.message).toContain("key not recognised")
+  })
+
+  it("classifies a body-level error on a 200 as a shape problem", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      json: async () => ({ error: { code: 9, message: "account parked" } }),
+    } as Response)
+
+    const err = await adapter
+      .fetchStats("https://nebulance.io", "key", "/api.php")
+      .then(() => null)
+      .catch((e: unknown) => (e instanceof Error ? e : null))
+
+    expect(sanitizeNetworkError(err?.message ?? "")).toBe(
+      "Tracker returned an unexpected response"
+    )
   })
 })

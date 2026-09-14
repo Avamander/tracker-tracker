@@ -63,7 +63,7 @@ function parseBtnBytes(raw: string | undefined, field: string): bigint {
   try {
     return BigInt(value)
   } catch {
-    throw new Error(`BTN returned a non-numeric ${field} value`)
+    throw new Error(`Unexpected response from BTN: non-numeric ${field} value`)
   }
 }
 

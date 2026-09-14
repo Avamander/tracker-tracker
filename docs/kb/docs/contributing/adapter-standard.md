@@ -335,6 +335,30 @@ enforced by section 7 rather than remembered.
    test with its reason: its messages and cookie-injection guards differ deliberately from
    `parseCredentialJson`. Reconciling the wording would let the allowlist entry go.
 
+## 6a. Calls made without documented intent
+
+Most of the rules above were recovered from comments the original authors left at the site that
+invented them. Where a reason was written down it was followed, and where a deviation was
+deliberate it was declared rather than removed: DigitalCore's hand-rolled credential parser is
+allowlisted in the conformance test, BTN's fixed API host is declared in the contract test's
+registry, AvistaZ's `strictParseBytes` still throws where its siblings return undefined, and MAM's
+`?? 0` inside a guarded sum is allowlisted.
+
+These, by contrast, were changed on a consistency argument with no evidence either way. They are
+recorded here so the next person inherits the reasoning instead of re-deriving it, and so anyone
+who knows the original intent can say so.
+
+| Change | What was inferred | The tradeoff |
+|---|---|---|
+| Gazelle takes the 1500ms pause in `fetchRaw` too | That its absence was an oversight | The debug route runs `fetchRaw` and `fetchStats` in one request, so one press issued four calls back to back at a site strict enough to need a pause between two of them. The cost is 1.5s of extra latency on an interactive screen, and a fast debug view may have been the point. |
+| GGn's `enabled` is `undefined` when absent, not `true` | That defaulting in two directions from one missing object was incoherent | `enabled ?? true` may have been deliberate optimism: better to assume an account works than to show a false disabled badge on a response that merely omitted the field. |
+| FileList and RetroToon return `platformMeta` even when empty | That the guard was an oversight | `unit3d.ts` documents the always-return choice and its reason; these two carried no comment. But it is a tradeoff, not a pure fix: a page that parses yet yields no meta now clears the stored values instead of keeping the last known good. |
+| DigitalCore's enrichment guards `leechingCount` | That it should match Gazelle's identical guard | Unresolved contradiction: the comment at the first call says DigitalCore reports no leeching count at all, while the enrichment reads one from the profile endpoint. One of the two is wrong and the code does not say which. `peersLeecher` may mean peers leeching from your seeds rather than torrents you are leeching. |
+| BTN's `HnR` is `null` when unparseable, not `0` | That a present-but-unparseable count is a tracker fault | Marginal. The field was already null-guarded for absence; this only changes the case where BTN sends something that is not a number. |
+
+The pattern worth remembering: where a decision was written down it was found, and where it was
+not, intent was inferred from consistency. Consistency is a weaker signal than it looks. If you
+make a call like these, leave the comment.
 ## 7. What can be enforced mechanically
 
 This is the part that matters for a crowdsourced surface. Review attention does not scale, and

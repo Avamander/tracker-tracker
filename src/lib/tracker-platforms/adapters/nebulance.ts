@@ -118,7 +118,15 @@ export class NebulanceAdapter implements TrackerAdapter {
           : typeof err === "string"
             ? err
             : `HTTP ${status}`
-      throw new Error(`${hostname} API error: ${errMsg}`)
+      // Two recognised shapes rather than a third of its own, and the
+      // tracker's own message kept in both: it is what makes a log line worth
+      // reading. The old `${hostname} API error:` prefix matched a sanitizer
+      // rule only by accident, through the word "invalid" appearing inside
+      // whatever the tracker happened to say.
+      if (!ok) {
+        throw new Error(`Tracker API error: ${status} ${errMsg}`)
+      }
+      throw new Error(`Unexpected response from ${hostname}: ${errMsg}`)
     }
 
     // Handle both wrapped {"status":"success","response":{...}} and flat response
