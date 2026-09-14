@@ -8,6 +8,8 @@
 // DebugApiCall" except adapter discipline, and discipline does not survive a
 // crowdsourced surface.
 
+import fs from "node:fs"
+import path from "node:path"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { DEFAULT_API_PATHS, VALID_PLATFORM_TYPES } from "@/data/platform-types"
 import { getAdapter } from "@/lib/tracker-platforms"
@@ -40,31 +42,45 @@ const CREDENTIALS: Record<string, string> = {
   digitalcore: JSON.stringify({ uid: "54321", pass: CANARY }),
 }
 
-/** Platforms whose credential is a JSON blob, so a malformed one must throw. */
-const JSON_BLOB_PLATFORMS = new Set([
-  "avistaz",
-  "filelist",
-  "iptorrents",
-  "retrotoon",
-  "torrentleech",
-  "digitalcore",
-])
-
 /**
- * Adapters whose API lives at a fixed host rather than at the configured
- * baseUrl, so their errors name that host instead. Declared rather than
- * excused: an adapter added here is asserting the host is part of the
- * protocol, not that it forgot to use baseUrl.
+ * BTN serves its API from a fixed host, not the configured baseUrl, so its
+ * errors name that host. Declaring it is a claim that the host is part of the
+ * protocol. A second adapter like this wants a lookup, not a second const.
  */
-const FIXED_API_HOST: Record<string, string> = {
-  btn: "api.broadcasthe.net",
-}
+const BTN_API_HOST = "api.broadcasthe.net"
 
 const HOST = "tracker.example"
 const BASE_URL = `https://${HOST}`
 const PLATFORMS = VALID_PLATFORM_TYPES.filter((p) => p !== "custom")
 
+const ADAPTERS_DIR = path.resolve(process.cwd(), "src/lib/tracker-platforms/adapters")
+const adapterSource = (platform: string) =>
+  fs.readFileSync(path.join(ADAPTERS_DIR, `${platform}.ts`), "utf8")
+
+/**
+ * Platforms whose credential is a JSON blob, so a malformed one must throw.
+ *
+ * Read from the adapter sources, not hand-listed: the case below sits inside an
+ * `if`, so a blob adapter missing from the set skips it silently, and a skipped
+ * case reads like a passing one.
+ *
+ * Two spellings, because `digitalcore.ts` hand-rolls its parser instead of
+ * calling `parseCredentialJson`.
+ */
+const JSON_BLOB_PLATFORMS = new Set(
+  PLATFORMS.filter((p) => /parseCredentialJson|JSON\.parse\(apiToken/.test(adapterSource(p)))
+)
+
 const pathFor = (platform: string) => DEFAULT_API_PATHS[platform] ?? "/"
+
+/** Whether a platform's own fixture is a JSON blob rather than a plain token. */
+function isJsonObject(platform: string): boolean {
+  try {
+    return typeof JSON.parse(CREDENTIALS[platform]) === "object"
+  } catch {
+    return false
+  }
+}
 
 /** Everything an adapter could put in front of a user, as one string. */
 function surfaceOf(value: unknown): string {
@@ -99,6 +115,16 @@ describe("every registered adapter", () => {
   it("has a credential fixture, so the rules below actually run against it", () => {
     const missing = PLATFORMS.filter((p) => !CREDENTIALS[p])
     expect(missing).toEqual([])
+  })
+
+  it("agrees with the fixtures about which credentials are JSON blobs", () => {
+    // The one way the derivation fails quietly. A wrong ADAPTERS_DIR throws
+    // ENOENT and takes the file with it; the pattern matching one adapter fewer
+    // is silent, and puts that adapter back in the skipped state. The fixtures
+    // are the second opinion: a platform the pattern calls a blob must have a
+    // fixture that parses as JSON, and the rest must not.
+    const disagree = PLATFORMS.filter((p) => JSON_BLOB_PLATFORMS.has(p) !== isJsonObject(p))
+    expect(disagree).toEqual([])
   })
 
   for (const platform of PLATFORMS) {
@@ -138,7 +164,7 @@ describe("every registered adapter", () => {
 
         expect(err).not.toBeNull()
         // Without a host the card cannot say which tracker went quiet.
-        expect(err?.message).toContain(FIXED_API_HOST[platform] ?? HOST)
+        expect(err?.message).toContain(platform === "btn" ? BTN_API_HOST : HOST)
       })
 
       it("returns debug calls with the declared shape and a Title Case label", async () => {

@@ -263,14 +263,17 @@ export interface PlatformMetaMap {
   retrotoon: RetrotoonPlatformMeta
 }
 
-type Assert<T extends true> = T
-
 /**
- * Fails to compile if a PlatformMetaMap key is not a real platform. Without it
- * a meta could be registered under a platform that does not exist in
- * VALID_PLATFORM_TYPES, and nothing would say so.
+ * Fails to compile if a PlatformMetaMap key is not a real platform.
+ *
+ * The constraint on `Assert` is what makes it fire: a bare conditional type
+ * would evaluate to `false` and compile. `extends Partial<Record<PlatformType,
+ * ...>>` does not work either, since an extra property is assignable to it.
+ *
+ * Nothing imports this; the underscore says so to the linter.
  */
-export type PlatformMetaMapKeysAreValid = Assert<
+type Assert<T extends true> = T
+type _PlatformMetaMapKeysAreValid = Assert<
   keyof PlatformMetaMap extends PlatformType ? true : false
 >
 
