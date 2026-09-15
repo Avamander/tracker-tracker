@@ -336,19 +336,14 @@ dashes.
 Short and current. Everything else the audit found is fixed, and most of what was here is now
 enforced by section 7 rather than remembered.
 
-1. **`btn.ts` records an absent byte counter as a measured zero.** `parseBtnBytes` returns `0n`
-   for a blank value despite its docstring saying it rejects non-numeric input, and that figure
-   flows into `computeRatio` and `computeBufferBytes`. Fixing it means deciding whether a blank
-   `Upload` should throw, since `uploadedBytes` is a non-nullable `bigint` and cannot hold
-   unknown. Needs a decision, not just an edit.
-2. **Adapters still emit three different date shapes.** The scheduler no longer corrupts a bare
+1. **Adapters still emit three different date shapes.** The scheduler no longer corrupts a bare
    date, so this is now consistency rather than correctness. Pick one shape and say which.
-3. **The security audit's cookie-injection guard check can be satisfied by a variable name.**
+2. **The security audit's cookie-injection guard check can be satisfied by a variable name.**
    `INJECTION_GUARD_PATTERNS` in `scripts/security-audit.ts` includes `/unsafeChars/` and is
    tested against the whole file, so declaring `const unsafeChars = /nothing/` passes with no real
    validation. Verified by neutering the guard in `qbt/transport.ts` and watching the check still
    pass. Require a character class that actually contains the injection characters.
-4. **`digitalcore.ts` still hand-rolls its credential parser.** Allowlisted in the conformance
+3. **`digitalcore.ts` still hand-rolls its credential parser.** Allowlisted in the conformance
    test with its reason: its messages and cookie-injection guards differ deliberately from
    `parseCredentialJson`. Reconciling the wording would let the allowlist entry go.
 

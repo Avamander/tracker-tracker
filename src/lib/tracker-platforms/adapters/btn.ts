@@ -50,14 +50,22 @@ interface BtnJsonRpcResponse {
   error?: { code: number; message: string }
 }
 
-/** Parse a byte counter from the API, rejecting anything non-numeric. */
+/**
+ * A byte counter from the API. Both totals are non-nullable `bigint`, so an
+ * absent one cannot be reported as unknown and must not become a measured zero:
+ * that reads as a real 0.00 ratio, fires the ratio-danger alert, and persists
+ * into snapshot history. `Upload` and `Download` are documented required
+ * fields, so a blank one is a payload this adapter cannot read (2.1).
+ */
 function parseBtnBytes(raw: string | undefined, field: string): bigint {
   const value = (raw ?? "").trim()
-  if (!value) return 0n
+  if (!value) {
+    throw new Error(`Unexpected response from ${BTN_API_HOSTNAME}: blank ${field} value`)
+  }
   try {
     return BigInt(value)
   } catch {
-    throw new Error(`Unexpected response from BTN: non-numeric ${field} value`)
+    throw new Error(`Unexpected response from ${BTN_API_HOSTNAME}: non-numeric ${field} value`)
   }
 }
 

@@ -144,6 +144,49 @@ describe("BtnAdapter", () => {
     expect(stats.ratio).toBe(0)
   })
 
+  // Upload and Download are documented required fields. A blank one is BTN
+  // breaking its own contract, and it cannot be reported as unknown: both byte
+  // totals are non-nullable bigint. Reading it as 0 would show a real ratio of
+  // 0.00, fire the ratio-danger alert, and write that zero into snapshot
+  // history, where it cannot be told from an account that stopped seeding.
+  for (const field of ["Upload", "Download"] as const) {
+    it(`refuses a blank ${field} rather than reading it as zero`, async () => {
+      vi.spyOn(global, "fetch").mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          id: 1,
+          result: {
+            UserID: "1",
+            Username: "testuser",
+            Upload: "1000",
+            Download: "500",
+            [field]: "   ",
+          },
+        }),
+      } as Response)
+
+      const attempt = adapter.fetchStats("https://broadcasthe.net", "fake-api-key", API_PATH)
+      await expect(attempt).rejects.toThrow(
+        `Unexpected response from api.broadcasthe.net: blank ${field} value`
+      )
+    })
+  }
+
+  it("refuses a missing byte total, not just a blank one", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        id: 1,
+        result: { UserID: "1", Username: "testuser", Download: "500" },
+      }),
+    } as Response)
+
+    const attempt = adapter.fetchStats("https://broadcasthe.net", "fake-api-key", API_PATH)
+    await expect(attempt).rejects.toThrow("blank Upload value")
+  })
+
   it("returns Infinity for ratio when downloaded is zero and uploaded is positive", async () => {
     const mockResponse = {
       id: 1,
