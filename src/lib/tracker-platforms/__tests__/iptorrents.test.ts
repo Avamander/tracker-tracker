@@ -111,6 +111,30 @@ describe("parseIptProfile", () => {
     expect(stats.seedbonus).toBe(10.5)
   })
 
+  it("reports an unreadable bonus figure as unknown rather than NaN", () => {
+    // Both bonus sites used to parseFloat a match that could hold punctuation
+    // and no digits. NaN is not a figure and not null, so it reached the
+    // snapshot and compared false against every guard on the way.
+    const tTipPage = `<!doctype html><html><body><div class="stats">
+      <span class="uname">testuser</span>
+      <div class="tTipWrap"><span class="tTip">Uploaded</span> 1.00 GB</div>
+      <div class="tTipWrap"><span class="tTip">Downloaded</span> 500 MB</div>
+      <div class="tTipWrap"><span class="tTip">Bonus Points</span> ...</div>
+    </div></body></html>`
+    expect(parseIptProfile(tTipPage).seedbonus).toBeNull()
+
+    // The .up-stat fallback carries its own copy of the same parse.
+    const upStatPage = `<!doctype html><html><head></head><body>
+      <div class="stats">
+        <a class="uname" href="/u/1">carduser</a>
+        <div class="up-stat"><div class="up-stat-label">Uploaded</div><div class="up-stat-value">2.0 GB</div></div>
+        <div class="up-stat"><div class="up-stat-label">Downloaded</div><div class="up-stat-value">1.0 GB</div></div>
+        <div class="up-stat"><div class="up-stat-label">Balance</div><div class="up-stat-value">...</div></div>
+      </div>
+    </body></html>`
+    expect(parseIptProfile(upStatPage).seedbonus).toBeNull()
+  })
+
   it("returns Infinity for ratio when downloaded is zero and uploaded is positive", () => {
     const noDownloadsPage = `<!doctype html><html><head></head><body>
       <div class="stats">

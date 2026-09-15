@@ -215,6 +215,38 @@ describe("parseAvistazProfile", () => {
     expect(stats.hitAndRuns).toBeNull()
   })
 
+  it("falls back to the text item when the bonus tooltip carries no number", () => {
+    // A tooltip rendering a placeholder used to parse as NaN, which is neither
+    // a figure nor null, so the `seedbonus === null` fallback below it never
+    // ran and the bar's own Bonus item was discarded.
+    const placeholderBonus = `<!doctype html><html><head></head><body>
+      <div class="ratio-bar"><div class="container"><ul class="list-inline">
+        <li data-toggle="tooltip" title="Upload"><i></i> 10.00 GB</li>
+        <li data-toggle="tooltip" title="Download"><i></i> 5.00 GB</li>
+        <li data-toggle="tooltip" title="Bonus Points"><i></i> ...</li>
+        <li><a href="#">Bonus:</a> 100.00</li>
+      </ul></div></div>
+    </body></html>`
+
+    const stats = parseAvistazProfile(placeholderBonus, "testuser")
+    expect(stats.seedbonus).toBe(100)
+  })
+
+  it("reports an unreadable bonus as unknown rather than NaN", () => {
+    // NaN survives JSON.stringify as null but compares false against every
+    // guard on the way there, so it has to not exist in the first place.
+    const noBonusFallback = `<!doctype html><html><head></head><body>
+      <div class="ratio-bar"><div class="container"><ul class="list-inline">
+        <li data-toggle="tooltip" title="Upload"><i></i> 10.00 GB</li>
+        <li data-toggle="tooltip" title="Download"><i></i> 5.00 GB</li>
+        <li data-toggle="tooltip" title="Bonus Points"><i></i> ...</li>
+      </ul></div></div>
+    </body></html>`
+
+    const stats = parseAvistazProfile(noBonusFallback, "testuser")
+    expect(stats.seedbonus).toBeNull()
+  })
+
   it("reports an infinite ratio for a zero-download account", () => {
     const noDownloadsPage = `<!doctype html><html><head></head><body>
       <div class="ratio-bar"><div class="container"><ul class="list-inline">

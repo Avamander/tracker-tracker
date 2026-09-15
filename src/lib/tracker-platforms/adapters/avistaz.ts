@@ -199,8 +199,7 @@ export function parseAvistazProfile(html: string, username: string): TrackerStat
     } else if (title === "Active Leeches") {
       leechingCount = tryParseCount(text) ?? null
     } else if (title === "Bonus Points") {
-      const numMatch = text.match(/([\d,.]+)/)
-      seedbonus = numMatch ? Number.parseFloat(numMatch[1].replace(/,/g, "")) : null
+      seedbonus = tryParseCount(text) ?? null
     }
   }
 

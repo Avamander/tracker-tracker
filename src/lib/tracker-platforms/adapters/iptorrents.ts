@@ -11,6 +11,7 @@ import type { DebugApiCall, FetchOptions, TrackerAdapter, TrackerStats } from ".
 import { parseCredentialJson } from "../helpers/cookie-credentials"
 import { SessionExpiredError } from "../helpers/errors"
 import { fetchTrackerHtml } from "../helpers/html-fetch"
+import { tryParseCount } from "../helpers/html-parse"
 
 // ---------------------------------------------------------------------------
 // Credential handling
@@ -85,8 +86,7 @@ function parseUpStatCards(doc: ParsedElement): {
     } else if (/downloaded/i.test(label)) {
       result.downloadedBytes = tryParseBytes(value) ?? result.downloadedBytes
     } else if (/balance/i.test(label)) {
-      const match = value.match(/[\d,.]+/)
-      if (match) result.seedbonus = parseFloat(match[0].replace(/,/g, ""))
+      result.seedbonus = tryParseCount(value) ?? result.seedbonus
     }
   }
 
@@ -148,8 +148,7 @@ export function parseIptProfile(html: string): TrackerStats {
         leechingCount = parseInt(nums[1], 10)
       }
     } else if (label === "Bonus Points") {
-      const match = value.match(/[\d,.]+/)
-      if (match) seedbonus = parseFloat(match[0].replace(/,/g, ""))
+      seedbonus = tryParseCount(value) ?? seedbonus
     }
   }
 

@@ -283,6 +283,18 @@ describe("parseFilelistProfile", () => {
     expect(stats.bufferBytes).toBe(0n)
   })
 
+  it("reports an unreadable coin figure as unknown rather than NaN", () => {
+    // The coins link used to parseFloat a match that could hold punctuation and
+    // no digits. NaN is neither a figure nor null, so it reached the snapshot
+    // and compared false against every guard on the way.
+    const placeholderCoins = editFixture(
+      FULL_PAGE,
+      'style="position:relative;bottom:1px;"> 0.0</a>',
+      'style="position:relative;bottom:1px;"> ...</a>'
+    )
+    expect(parseFilelistProfile(placeholderCoins).seedbonus).toBeNull()
+  })
+
   it("derives ratio from byte totals even when the header strip disagrees", () => {
     const stats = parseFilelistProfile(POPULATED_PAGE)
     expect(stats.uploadedBytes).toBe(12_530_000_000_000n) // synthetic-fixture

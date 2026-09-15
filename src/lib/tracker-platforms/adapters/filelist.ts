@@ -17,7 +17,12 @@ import type {
 import { parseCredentialJson } from "../helpers/cookie-credentials"
 import { SessionExpiredError } from "../helpers/errors"
 import { fetchTrackerHtml } from "../helpers/html-fetch"
-import { datePrefix, normalizeWhitespace, tryParseSiteBytes } from "../helpers/html-parse"
+import {
+  datePrefix,
+  normalizeWhitespace,
+  tryParseCount,
+  tryParseSiteBytes,
+} from "../helpers/html-parse"
 
 // ---------------------------------------------------------------------------
 // Credential handling
@@ -149,10 +154,8 @@ export function parseFilelistProfile(html: string): TrackerStats {
   // the table's "Seed bonus" row does not hold a bonus number. The strip's
   // own Ratio text ("---" on a fresh account) is ignored; ratio is derived
   // from the byte totals below.
-  let seedbonus: number | null = null
   const coinsText = normalizeWhitespace(doc.querySelector('a[href*="shop.php"]')?.textContent ?? "")
-  const coinsMatch = coinsText.match(/[\d,.]+/)
-  if (coinsMatch) seedbonus = Number.parseFloat(coinsMatch[0].replace(/,/g, ""))
+  const seedbonus = tryParseCount(coinsText) ?? null
 
   let freeleechTokens: number | null = null
   const tokensText = normalizeWhitespace(
