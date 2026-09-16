@@ -5,7 +5,6 @@
 import {
   computeBufferBytes,
   computeRatio,
-  floatBytesToBigInt,
   signedFloatBytesToBigInt,
 } from "@/lib/data-transforms"
 import { log } from "@/lib/logger"
@@ -17,6 +16,7 @@ import type {
   TrackerStats,
 } from "../contract"
 import { adapterFetch } from "../helpers/adapter-fetch"
+import { requireBytes } from "../helpers/bytes"
 import { envelopeError } from "../helpers/envelope"
 
 interface GazelleUserStats {
@@ -147,8 +147,8 @@ export class GazelleAdapter implements TrackerAdapter {
       throw new Error(`Unexpected response from ${hostname}: missing userstats`)
     }
 
-    const uploaded = floatBytesToBigInt(userStats.uploaded)
-    const downloaded = floatBytesToBigInt(userStats.downloaded)
+    const uploaded = requireBytes(userStats.uploaded, "uploaded", hostname)
+    const downloaded = requireBytes(userStats.downloaded, "downloaded", hostname)
 
     const stats: TrackerStats = {
       username: response.username,

@@ -73,7 +73,8 @@ Seven `TrackerStats` fields are nullable for exactly this reason (`types.ts:15-2
 
 - `uploadedBytes ?? 0n`. Both byte totals are non-nullable `bigint`, so there is no null to
   return (`filelist.ts:144-145`). Only safe because the adapter already threw if **both** totals
-  were missing (`filelist.ts:138-143`). If you can parse one but not the other, throw.
+  were missing (`filelist.ts:138-143`). If you can parse one but not the other, throw. A JSON
+  adapter gets that from `requireBytes` (3); a scraper does it the way FileList does.
 - `|| 0` on a value that came out of a `\d+` capture. Unreachable. Delete it rather than explain
   it.
 
@@ -200,6 +201,7 @@ it. Import it rather than writing it again.
 | `datePrefix` | `helpers/html-parse.ts` | Slicing `YYYY-MM-DD` off a site-printed datetime | Your own date regex |
 | `tryParseCount` | `helpers/html-parse.ts` | Any site-printed count. The first number in the text, commas stripped, decimals and sign kept, `undefined` when there is none. | `parseInt(text, 10)` with your own `NaN` test |
 | `tryParseSiteBytes` | `helpers/html-parse.ts` | Site-printed byte totals. Strips grouping commas and canonicalises the unit, so both `1,024 kB` and `1 GiB` parse. Returns `undefined` rather than throwing. | A private `parseBytes` wrapper with its own tolerances |
+| `requireBytes` | `helpers/bytes.ts` | A byte total a JSON API is contracted to send. Throws naming the host and the field when it is absent or not a number, because both byte totals are non-nullable `bigint` and cannot hold unknown. | `floatBytesToBigInt` straight off the wire, which answers `0n` for an absent field |
 | `computeRatio`, `computeBufferBytes` | `@/lib/data-transforms` | `ratio` and `bufferBytes` | Reading the tracker's ratio with no `computeRatio` fallback |
 | `parseCredentialJson` | `helpers/cookie-credentials.ts` | Any credential arriving as a JSON blob | `JSON.parse(apiToken)`, shape checks, and above all the error wording |
 | `validateCookieHeader` | `helpers/cookie-credentials.ts` | A credential that is a pasted Cookie header | Prefix stripping, control-character and non-ASCII guards |

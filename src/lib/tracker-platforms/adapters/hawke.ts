@@ -5,7 +5,6 @@
 import {
   computeBufferBytes,
   computeRatio,
-  floatBytesToBigInt,
   signedFloatBytesToBigInt,
 } from "@/lib/data-transforms"
 import type {
@@ -16,6 +15,7 @@ import type {
   TrackerStats,
 } from "../contract"
 import { adapterFetch } from "../helpers/adapter-fetch"
+import { requireBytes } from "../helpers/bytes"
 import { envelopeError } from "../helpers/envelope"
 
 // ---------------------------------------------------------------------------
@@ -100,8 +100,8 @@ export class HawkeAdapter implements TrackerAdapter {
 
     const data = unwrapEnvelope(body, hostname)
 
-    const uploadedBytes = floatBytesToBigInt(data.uploaded)
-    const downloadedBytes = floatBytesToBigInt(data.downloaded)
+    const uploadedBytes = requireBytes(data.uploaded, "uploaded", hostname)
+    const downloadedBytes = requireBytes(data.downloaded, "downloaded", hostname)
 
     // All optional on HawkePlatformMeta. `warnings` in particular must not
     // default: TrackerStats.warned is deliberately null here because a count

@@ -61,6 +61,22 @@ describe("MamAdapter - parsing", () => {
     vi.restoreAllMocks()
   })
 
+  it("refuses a byte total the response omitted rather than reading it as zero", async () => {
+    // The adapter applies the all-categories-missing reasoning to seedingCount
+    // but handed the byte totals straight to the converter, which answers 0n.
+    for (const field of ["uploaded_bytes", "downloaded_bytes"] as const) {
+      mockFetch({ [field]: undefined })
+
+      await expect(
+        adapter.fetchStats(
+          "https://www.myanonamouse.net",
+          "a1b2c3a1b2c3a1b2c3a1b2c3a1b2c3a1",
+          "/jsonLoad.php"
+        )
+      ).rejects.toThrow(`Unexpected response from www.myanonamouse.net: missing ${field}`)
+    }
+  })
+
   it("parses a valid response into TrackerStats", async () => {
     mockFetch()
 

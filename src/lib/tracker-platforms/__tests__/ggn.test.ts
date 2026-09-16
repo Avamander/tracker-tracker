@@ -75,6 +75,18 @@ describe("GGnAdapter", () => {
     vi.restoreAllMocks()
   })
 
+  it("refuses a byte total the user call omitted rather than reading it as zero", async () => {
+    // The adapter already guards its ratio field against a non-finite parse.
+    // The byte totals it derives that ratio from were handed straight through.
+    for (const field of ["uploaded", "downloaded"] as const) {
+      mockBothCalls({ stats: { [field]: undefined } })
+
+      await expect(
+        adapter.fetchStats("https://gazellegames.net", "fake-key", "/api.php")
+      ).rejects.toThrow(`Unexpected response from gazellegames.net: missing ${field}`)
+    }
+  })
+
   it("parses a valid two-step GGn response into TrackerStats", async () => {
     mockBothCalls()
 

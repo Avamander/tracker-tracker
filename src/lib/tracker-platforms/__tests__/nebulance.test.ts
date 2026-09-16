@@ -50,6 +50,21 @@ describe("NebulanceAdapter", () => {
     vi.restoreAllMocks()
   })
 
+  it("refuses a byte total the response omitted rather than reading it as zero", async () => {
+    // The shape check above this only looks at Username, so a body missing the
+    // totals reached the mapper and read as an account that stopped seeding.
+    for (const field of ["Uploaded", "Downloaded"] as const) {
+      vi.spyOn(global, "fetch").mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockNebulanceResponse({ [field]: undefined }),
+      } as Response)
+
+      await expect(
+        adapter.fetchStats("https://nebulance.io", "fake-api-key", "/api.php")
+      ).rejects.toThrow(`Unexpected response from nebulance.io: missing ${field}`)
+    }
+  })
+
   it("parses a valid Nebulance API response into TrackerStats", async () => {
     vi.spyOn(global, "fetch").mockResolvedValueOnce({
       ok: true,

@@ -1,6 +1,6 @@
 // src/lib/tracker-platforms/adapters/mam.ts
 
-import { computeBufferBytes, computeRatio, floatBytesToBigInt } from "@/lib/data-transforms"
+import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
 import type {
   DebugApiCall,
   FetchOptions,
@@ -9,6 +9,7 @@ import type {
   TrackerStats,
 } from "../contract"
 import { adapterFetch } from "../helpers/adapter-fetch"
+import { requireBytes } from "../helpers/bytes"
 
 interface MamSnatchCategory {
   name: string
@@ -123,8 +124,8 @@ export class MamAdapter implements TrackerAdapter {
       throw new Error(`Unexpected response from ${hostname}: missing username`)
     }
 
-    const uploaded = floatBytesToBigInt(data.uploaded_bytes)
-    const downloaded = floatBytesToBigInt(data.downloaded_bytes)
+    const uploaded = requireBytes(data.uploaded_bytes, "uploaded_bytes", hostname)
+    const downloaded = requireBytes(data.downloaded_bytes, "downloaded_bytes", hostname)
 
     // A missing category really is none in that category, but every category
     // missing means the summary block never arrived, which is unknown rather

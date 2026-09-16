@@ -173,6 +173,38 @@ describe("BtnAdapter", () => {
     })
   }
 
+  it("keeps a UserID of zero rather than dropping it", async () => {
+    // `|| undefined` treated 0 as absent. BTN is unlikely to issue that id, but
+    // remoteUserId is the key a secondary call is made with, so the difference
+    // between "the tracker said 0" and "the tracker said nothing" is the same
+    // one the null versus zero rule is about.
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        id: 1,
+        result: { UserID: "0", Username: "testuser", Upload: "1000", Download: "500" },
+      }),
+    } as Response)
+
+    const stats = await adapter.fetchStats("https://broadcasthe.net", "fake-api-key", API_PATH)
+    expect(stats.remoteUserId).toBe(0)
+  })
+
+  it("reports a non-numeric UserID as absent", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        id: 1,
+        result: { UserID: "n/a", Username: "testuser", Upload: "1000", Download: "500" },
+      }),
+    } as Response)
+
+    const stats = await adapter.fetchStats("https://broadcasthe.net", "fake-api-key", API_PATH)
+    expect(stats.remoteUserId).toBeUndefined()
+  })
+
   it("refuses a missing byte total, not just a blank one", async () => {
     vi.spyOn(global, "fetch").mockResolvedValueOnce({
       ok: true,

@@ -1,6 +1,6 @@
 // src/lib/tracker-platforms/adapters/ggn.ts
 
-import { computeBufferBytes, computeRatio, floatBytesToBigInt } from "@/lib/data-transforms"
+import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
 import type {
   DebugApiCall,
   FetchOptions,
@@ -9,6 +9,7 @@ import type {
   TrackerStats,
 } from "../contract"
 import { adapterFetch } from "../helpers/adapter-fetch"
+import { requireBytes } from "../helpers/bytes"
 import { envelopeError } from "../helpers/envelope"
 
 interface GGnQuickUserResponse {
@@ -134,8 +135,8 @@ export class GGnAdapter implements TrackerAdapter {
       throw new Error(`Unexpected response from ${hostname}: missing stats`)
     }
 
-    const uploaded = floatBytesToBigInt(resp.stats.uploaded)
-    const downloaded = floatBytesToBigInt(resp.stats.downloaded)
+    const uploaded = requireBytes(resp.stats.uploaded, "uploaded", hostname)
+    const downloaded = requireBytes(resp.stats.downloaded, "downloaded", hostname)
     // GGn types its ratio as string | number. A string that does not parse fell
     // to 0, the worst ratio the app can hold, and that figure is stored in the
     // snapshot and fed to the ratio_danger alert (tracker-scheduler.ts:336).

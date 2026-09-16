@@ -46,6 +46,19 @@ describe("HawkeAdapter", () => {
     vi.restoreAllMocks()
   })
 
+  it("refuses a byte total the profile omitted rather than reading it as zero", async () => {
+    // A measured 0 reads as an account that stopped seeding, fires the
+    // ratio-danger alert, and is written into snapshot history as if real.
+    for (const field of ["uploaded", "downloaded"] as const) {
+      const { [field]: _dropped, ...data } = LIVE_RESPONSE.data
+      vi.spyOn(global, "fetch").mockResolvedValueOnce(okResponse({ success: true, data }))
+
+      await expect(
+        adapter.fetchStats("https://hawke.uno", "fake-token", "/api/profile")
+      ).rejects.toThrow(`Unexpected response from hawke.uno: missing ${field}`)
+    }
+  })
+
   it("maps the live /api/profile response into TrackerStats", async () => {
     vi.spyOn(global, "fetch").mockResolvedValueOnce(okResponse(LIVE_RESPONSE))
 

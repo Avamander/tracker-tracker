@@ -32,6 +32,22 @@ describe("GazelleAdapter", () => {
     vi.restoreAllMocks()
   })
 
+  it("refuses a byte total the index omitted rather than reading it as zero", async () => {
+    // A measured 0 here reads as an account that stopped seeding: computeRatio
+    // returns 0, the ratio-danger alert and the no-seeds badge fire, and the
+    // zero lands in snapshot history indistinguishable from a real one.
+    for (const field of ["uploaded", "downloaded"] as const) {
+      vi.spyOn(global, "fetch").mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockGazelleResponse({ [field]: undefined }),
+      } as Response)
+
+      await expect(
+        adapter.fetchStats("https://redacted.sh", "fake-token", "/ajax.php")
+      ).rejects.toThrow(`Unexpected response from redacted.sh: missing ${field}`)
+    }
+  })
+
   it("parses a valid Gazelle API response into TrackerStats", async () => {
     vi.spyOn(global, "fetch").mockResolvedValueOnce({
       ok: true,

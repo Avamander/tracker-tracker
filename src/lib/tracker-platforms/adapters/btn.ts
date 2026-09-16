@@ -104,7 +104,7 @@ function mapBtnResult(result: BtnUserInfoResult): TrackerStats {
     // fractional, which doesn't fit a token count. Unmapped pending verification.
     seedbonus: null,
     freeleechTokens: null,
-    remoteUserId: parseInt(result.UserID, 10) || undefined,
+    remoteUserId: tryParseCount(result.UserID) ?? undefined,
     joinedDate,
   }
 }

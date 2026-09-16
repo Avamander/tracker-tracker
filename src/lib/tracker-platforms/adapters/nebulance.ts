@@ -6,7 +6,7 @@
 //   - HnR field: present on Nebulance, absent on Anthelion
 //   - Response may be wrapped {"status":"success","response":{...}} or flat
 
-import { computeBufferBytes, computeRatio, floatBytesToBigInt } from "@/lib/data-transforms"
+import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
 import { classifyFetchError } from "@/lib/error-utils"
 import type {
   DebugApiCall,
@@ -16,6 +16,7 @@ import type {
   TrackerStats,
 } from "../contract"
 import { adapterRequest } from "../helpers/adapter-fetch"
+import { requireBytes } from "../helpers/bytes"
 
 interface NebulanceUserData {
   ID: number
@@ -139,8 +140,8 @@ export class NebulanceAdapter implements TrackerAdapter {
       throw new Error(`Unexpected response from ${hostname}: missing user data`)
     }
 
-    const uploaded = floatBytesToBigInt(resp.Uploaded)
-    const downloaded = floatBytesToBigInt(resp.Downloaded)
+    const uploaded = requireBytes(resp.Uploaded, "Uploaded", hostname)
+    const downloaded = requireBytes(resp.Downloaded, "Downloaded", hostname)
 
     // Shared derivation, but Nebulance keeps its historical 2dp rounding for
     // finite ratios. Infinity passes through untouched.
