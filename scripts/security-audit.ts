@@ -2448,20 +2448,28 @@ function checkAdapterCookieInjection(): CheckResult {
   // Matches: Cookie: `...${...}...`  (template literal with interpolation)
   const COOKIE_INTERPOLATION_RE = /Cookie:\s*`[^`]*\$\{/
 
-  // Matches evidence that the file validates cookie values before interpolation.
+  // Evidence that the file validates cookie values before interpolation. Every
+  // entry has to match a regex character class that actually holds the
+  // characters it claims to reject or allow.
+  //
+  // A variable name, a function name and a comment are all deliberately absent.
+  // This list used to carry /unsafeChars/, /validateMam/, /injection.*guard/i
+  // and /header.*injection/i, and because the test runs against the whole file,
+  // `const unsafeChars = /nothing/` satisfied the check with no validation
+  // behind it. A guard that is named rather than written is not a guard.
+  //
   // Two approaches are valid:
-  //   1. Blocklist: reject specific injection chars like [;\r\n]
-  //   2. Allowlist: only permit safe characters like [a-fA-F0-9]
+  //   1. Blocklist: a class holding ";" and at least one control-character
+  //      escape. The semicolon is what splits one cookie into two; CR and LF
+  //      are what split one header into two.
+  //   2. Allowlist: a class narrow enough that nothing in it can break a
+  //      header, which is stricter than any blocklist.
   const INJECTION_GUARD_PATTERNS = [
-    /\[;\\r\\n\]/, // blocklist regex literal [;\r\n]
-    /\[;\\r\\n]/, // alternate escaping
-    /unsafeChars/, // variable name convention from DC adapter
-    /\[\^a-fA-F0-9\]/, // hex-only allowlist (stricter than blocklist)
+    /\[[^\]]*;[^\]]*(?:\\r|\\n|\\x00)[^\]]*\]/, // blocklist, semicolon first
+    /\[[^\]]*(?:\\r|\\n|\\x00)[^\]]*;[^\]]*\]/, // blocklist, control char first
+    /\[\^a-fA-F0-9\]/, // hex-only allowlist
     /\[\^a-f0-9\]/i, // hex-only allowlist variant
     /\[\^\\w\]/, // word-char-only allowlist
-    /injection.*guard/i, // explicit labeling
-    /header.*injection/i, // explicit labeling
-    /validateMam/, // MAM-specific validation function
   ]
 
   for (const file of adapterFiles) {

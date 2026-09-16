@@ -338,12 +338,7 @@ enforced by section 7 rather than remembered.
 
 1. **Adapters still emit three different date shapes.** The scheduler no longer corrupts a bare
    date, so this is now consistency rather than correctness. Pick one shape and say which.
-2. **The security audit's cookie-injection guard check can be satisfied by a variable name.**
-   `INJECTION_GUARD_PATTERNS` in `scripts/security-audit.ts` includes `/unsafeChars/` and is
-   tested against the whole file, so declaring `const unsafeChars = /nothing/` passes with no real
-   validation. Verified by neutering the guard in `qbt/transport.ts` and watching the check still
-   pass. Require a character class that actually contains the injection characters.
-3. **`digitalcore.ts` still hand-rolls its credential parser.** Allowlisted in the conformance
+2. **`digitalcore.ts` still hand-rolls its credential parser.** Allowlisted in the conformance
    test with its reason: its messages and cookie-injection guards differ deliberately from
    `parseCredentialJson`. Reconciling the wording would let the allowlist entry go.
 
