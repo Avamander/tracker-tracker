@@ -10,6 +10,7 @@ import cron, { type ScheduledTask } from "node-cron"
 import { pruneDismissedAlerts } from "@/lib/alert-pruning"
 import { pruneCoverageGaps } from "@/lib/app-liveness"
 import { decrypt } from "@/lib/crypto"
+import { withCycleDeadline } from "@/lib/cycle-deadline"
 import { db } from "@/lib/db"
 import type { NotificationTargetRow, TrackerRow } from "@/lib/db/schema"
 import {
@@ -22,7 +23,7 @@ import {
 } from "@/lib/db/schema"
 import { errMsg, sanitizeNetworkError } from "@/lib/error-utils"
 import { localDateStr, trackerDateStr } from "@/lib/formatters"
-import { POLL_INTERVAL_DEFAULT } from "@/lib/limits"
+import { POLL_CYCLE_DEADLINE_MS, POLL_INTERVAL_DEFAULT } from "@/lib/limits"
 import { log } from "@/lib/logger"
 import { dispatchNotifications } from "@/lib/notifications/dispatch"
 import { maskUsername } from "@/lib/privacy"
@@ -747,12 +748,14 @@ export function startTrackerPolling(encryptionKey: Buffer): void {
     log.error(error, "Initial poll error")
   })
 
-  // Then check every 5 minutes for overdue trackers
+  // Then check every 5 minutes for overdue trackers. The latch below is only
+  // released by the finally, so the await is bounded: a cycle whose promise
+  // never settles must not lock every later tick out.
   const task = cron.schedule("*/5 * * * *", async () => {
     if (getPollInFlight()) return
     setPollInFlight(true)
     try {
-      await pollAllTrackers(encryptionKey)
+      await withCycleDeadline(pollAllTrackers(encryptionKey), POLL_CYCLE_DEADLINE_MS, "poll cycle")
     } catch (error) {
       log.error(error, "Scheduler error")
     } finally {

@@ -171,3 +171,11 @@ export const EVENTS_LIMIT_CAP = 1000
 // ─── Time ─────────────────────────────────────────────────────────────────────
 export const MS_PER_DAY = 24 * 60 * 60 * 1000
 export const ADAPTER_FETCH_TIMEOUT_MS = 15_000
+
+/**
+ * Upper bound on one scheduled poll cycle. Every adapter call is bounded by
+ * ADAPTER_FETCH_TIMEOUT_MS and a tracker makes at most a handful of calls, so
+ * a cycle that is still running after two cron ticks is stuck, not slow. The
+ * cron callback releases its in-flight latch at this point instead of waiting.
+ */
+export const POLL_CYCLE_DEADLINE_MS = 10 * 60 * 1000
