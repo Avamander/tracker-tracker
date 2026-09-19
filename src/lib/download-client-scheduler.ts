@@ -18,9 +18,10 @@
 //   - Writes one clientSnapshots row per successful poll, and only per successful
 //     poll. A snapshot is an observation: it is inserted before the
 //     downloadClients status update, never alongside it, and never at all when
-//     the sync store could not be proven initialised. A row of zeros from a
-//     half-applied delta would be indistinguishable from a genuinely idle
-//     client, which is worse than the gap it would fill.
+//     the sync store could not be proven initialised or refused the update it
+//     was given. A row of zeros from a half-applied delta, or last poll's
+//     figures from a store that refused this one, would be indistinguishable
+//     from a genuinely idle client, which is worse than the gap it would fill.
 //
 // Retention: the hourly prune below deletes clientSnapshots and
 // clientUptimeBuckets ONLY when app_settings.snapshot_retention_days holds a
@@ -254,6 +255,18 @@ async function heartbeatAllClients(encryptionKey: Buffer): Promise<void> {
 // Deep poll
 // ---------------------------------------------------------------------------
 
+/**
+ * The sync store refused a whole update, so it still holds the previous poll.
+ * A class rather than a recognisable message because the catch below has to
+ * tell this verdict of ours apart from a fault the host reported.
+ */
+class SyncStoreRefusedError extends Error {
+  constructor(cap: number) {
+    super(`Sync store limit reached: this client would hold more than ${cap} torrents`)
+    this.name = "SyncStoreRefusedError"
+  }
+}
+
 export async function deepPollClient(
   clientId: number,
   encryptionKey: Buffer,
@@ -310,7 +323,11 @@ export async function deepPollClient(
       // subsequent calls return only changed fields.
       const rid = getStoreRevision(adapter.baseUrl)
       let data = await adapter.getDeltaSync(rid)
-      applyMaindataUpdate(adapter.baseUrl, data)
+      // A refusal means the store applied nothing and still holds the previous
+      // poll, so the poll fails here rather than reading stale figures out of
+      // it and filing them as this poll's observation.
+      const refused = applyMaindataUpdate(adapter.baseUrl, data)
+      if (refused) throw new SyncStoreRefusedError(refused.cap)
 
       // The store can be wiped underneath this await: a heartbeat that takes a
       // 403 calls invalidateSession, which also calls resetStore. This clears the
@@ -327,7 +344,8 @@ export async function deepPollClient(
           `[deep-poll] client=${clientId} → sync store was reset mid-poll, re-syncing from rid 0 before recording a snapshot`
         )
         data = await adapter.getDeltaSync(0)
-        applyMaindataUpdate(adapter.baseUrl, data)
+        const refusedResync = applyMaindataUpdate(adapter.baseUrl, data)
+        if (refusedResync) throw new SyncStoreRefusedError(refusedResync.cap)
         if (!isStoreInitialized(adapter.baseUrl)) {
           throw new Error("Sync store failed to initialise after a full re-sync")
         }
@@ -479,7 +497,10 @@ export async function deepPollClient(
     }
   } catch (error) {
     const raw = error instanceof Error ? error.message : "Unknown error"
-    const message = sanitizeNetworkError(raw)
+    // A refusal is our own verdict on the payload rather than a fault the host
+    // reported, and it names the cap the operator has to act on. The sanitizer
+    // has no rule for it, and its fallback means the host never answered.
+    const message = error instanceof SyncStoreRefusedError ? raw : sanitizeNetworkError(raw)
     // Keyed on the clientId parameter, which is always defined. The row lookup
     // itself may be what failed.
     const verdict = noteFailure(clientId, "deep-poll", raw)

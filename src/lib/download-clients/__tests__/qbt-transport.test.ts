@@ -11,7 +11,9 @@ import {
   getTorrents,
   invalidateSession,
   login,
+  withSessionRetry,
 } from "@/lib/download-clients/qbt/transport"
+import { sanitizeNetworkError } from "@/lib/error-utils"
 import { QBT_RESPONSE_MAX_BYTES } from "@/lib/limits"
 
 const BASE = "http://qbt.local:8080"
@@ -281,5 +283,159 @@ describe("the response body cap", () => {
     const torrents = await getTorrents(BASE, AUTH)
     expect(torrents).toHaveLength(1)
     expect(torrents[0].name).toBe("café ok")
+  })
+
+  it("reads a body that opens with a byte order mark", async () => {
+    // A host or reverse proxy that prefixes EF BB BF. response.json() runs the
+    // Fetch spec's decode, which drops it; the reader decodes the bytes itself.
+    const body = JSON.stringify([
+      { hash: "c", name: "bom ok", state: "uploading", size: 1, ratio: 1 },
+    ])
+    streamResponse([new Uint8Array([0xef, 0xbb, 0xbf]), new TextEncoder().encode(body)])
+
+    const torrents = await getTorrents(BASE, AUTH)
+    expect(torrents).toHaveLength(1)
+    expect(torrents[0].name).toBe("bom ok")
+  })
+})
+
+describe("the caller's deadline on a login", () => {
+  // The first request a password client with no cached SID makes is the login,
+  // which is exactly the state a stalling host presents on every cold start.
+  function loginResponse(sid = "abc123") {
+    return {
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      text: async () => "Ok.",
+      headers: { getSetCookie: () => [`SID=${sid}; Path=/`] },
+    } as unknown as Response
+  }
+
+  it("aborts the login fetch when the caller's signal aborts", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(loginResponse())
+    vi.stubGlobal("fetch", fetchMock)
+    const caller = new AbortController()
+
+    await login("qbt.local", 8080, false, "admin", "pw", caller.signal)
+
+    const sent = (fetchMock.mock.calls[0][1] as RequestInit).signal as AbortSignal
+    expect(sent.aborted).toBe(false)
+    caller.abort()
+    expect(sent.aborted).toBe(true)
+  })
+
+  it("aborts a login reached through withSessionRetry when the caller's signal aborts", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(loginResponse("session-a"))
+    vi.stubGlobal("fetch", fetchMock)
+    const caller = new AbortController()
+
+    await withSessionRetry(
+      "qbt.local",
+      8080,
+      false,
+      "admin",
+      "pw",
+      async () => "polled",
+      caller.signal
+    )
+
+    const sent = (fetchMock.mock.calls[0][1] as RequestInit).signal as AbortSignal
+    caller.abort()
+    expect(sent.aborted).toBe(true)
+  })
+})
+
+describe("the response body cap on the plain-text reads", () => {
+  const REFUSAL = `Response from qbt.local exceeded ${QBT_RESPONSE_MAX_BYTES} bytes and was refused`
+
+  /** 72 MiB against a 64 MiB cap, from one 8 MiB chunk enqueued nine times. */
+  function oversizedStream() {
+    const chunk = new Uint8Array(8 * 1024 * 1024)
+    return new ReadableStream({
+      start(controller) {
+        for (let i = 0; i < 9; i++) controller.enqueue(chunk)
+        controller.close()
+      },
+    })
+  }
+
+  function respondWith(status: number) {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(oversizedStream(), { status }))
+    )
+  }
+
+  it("refuses a login body that runs past the cap", async () => {
+    respondWith(200)
+    await expect(login("qbt.local", 8080, false, "admin", "pw")).rejects.toThrow(REFUSAL)
+  })
+
+  it("refuses a ban notice that runs past the cap", async () => {
+    respondWith(403)
+    await expect(login("qbt.local", 8080, false, "admin", "pw")).rejects.toThrow(REFUSAL)
+  })
+
+  it("refuses a ban notice on a key client that runs past the cap", async () => {
+    respondWith(403)
+    // A refused read decides nothing, so the key must not be latched either.
+    await expect(getTorrents(BASE, { mode: "apikey", key: "k" })).rejects.toThrow(REFUSAL)
+  })
+})
+
+describe("what the user sees when the transport refuses a response", () => {
+  // Each refusal reaches a card through sanitizeNetworkError. Without a rule
+  // they all read "Connection failed", which this codebase reserves for a host
+  // that never answered.
+  it("tells the user the body was oversized rather than that the host went quiet", async () => {
+    const chunk = new Uint8Array(8 * 1024 * 1024)
+    const stream = new ReadableStream({
+      start(controller) {
+        for (let i = 0; i < 9; i++) controller.enqueue(chunk)
+        controller.close()
+      },
+    })
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(stream)))
+
+    const err = await login("qbt.local", 8080, false, "admin", "pw")
+      .then(() => null)
+      .catch((e: unknown) => (e instanceof Error ? e : null))
+
+    expect(sanitizeNetworkError(err?.message ?? "")).toBe("qBittorrent returned an oversized response")
+  })
+
+  it("tells the user the session cookie was unsafe rather than that the host went quiet", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        text: async () => "Ok.",
+        headers: { getSetCookie: () => ["SID=abc\r\nX-Injected: 1; Path=/"] },
+      } as unknown as Response)
+    )
+
+    const err = await login("qbt.local", 8080, false, "admin", "pw")
+      .then(() => null)
+      .catch((e: unknown) => (e instanceof Error ? e : null))
+
+    expect(sanitizeNetworkError(err?.message ?? "")).toBe("qBittorrent sent an unsafe session cookie")
+  })
+
+  it("tells the user the request was redirected rather than that the host went quiet", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(null, { status: 307, headers: { Location: "http://elsewhere.example/" } })
+      )
+    )
+
+    const err = await login("qbt.local", 8080, false, "admin", "pw")
+      .then(() => null)
+      .catch((e: unknown) => (e instanceof Error ? e : null))
+
+    expect(sanitizeNetworkError(err?.message ?? "")).toBe("qBittorrent redirected the request")
   })
 })

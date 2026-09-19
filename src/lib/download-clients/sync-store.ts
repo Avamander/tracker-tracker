@@ -1,7 +1,8 @@
 // src/lib/download-clients/sync-store.ts
 //
 // Functions:
-//   applyMaindataUpdate    - Merge a maindata delta (or full update) into the store
+//   applyMaindataUpdate    - Merge a maindata delta (or full update) into the store,
+//                            reporting a refusal when the update would exceed the cap
 //   getStoredTorrents      - Return a snapshot array of all torrents for a client
 //   getFilteredTorrents    - Copy + filter in one pass (avoids copying irrelevant torrents)
 //   getStoreRevision       - Return the current rid for a client (0 if uninitialized)
@@ -13,7 +14,7 @@
 
 import { SYNC_STORE_MAX_TORRENTS } from "@/lib/limits"
 import { log } from "@/lib/logger"
-import { coerceRequiredNumeric, coerceRequiredString } from "./field-map"
+import { coerceRequiredNumeric, coerceRequiredString, dropMistypedDeltaFields } from "./field-map"
 import type { DeltaSyncResponse, TorrentRecord } from "./types"
 
 /** How long a sync store entry is considered fresh */
@@ -55,24 +56,50 @@ function isTorrentRecord(value: unknown): value is TorrentRecord {
   )
 }
 
-export function applyMaindataUpdate(baseUrl: string, data: DeltaSyncResponse): void {
+/** Reported by applyMaindataUpdate when the cap refused the whole update. */
+export interface MaindataUpdateRefusal {
+  held: number
+  projected: number
+  cap: number
+}
+
+/**
+ * The size the store would end at, counting only what changes it: a hash it
+ * already holds cannot grow it however often the delta names it, and a removal
+ * shrinks it only for a hash it holds, once, however often the host repeats it.
+ */
+function projectedSize(store: TorrentStore, data: DeltaSyncResponse): number {
+  // A fullUpdate clears the store before merging, so nothing it holds counts.
+  if (data.fullUpdate) return Object.keys(data.torrents ?? {}).length
+
+  let size = store.torrents.size
+  for (const hash of Object.keys(data.torrents ?? {})) {
+    if (!store.torrents.has(hash)) size++
+  }
+  for (const hash of new Set(data.torrentsRemoved)) {
+    if (store.torrents.has(hash)) size--
+  }
+  return size
+}
+
+export function applyMaindataUpdate(
+  baseUrl: string,
+  data: DeltaSyncResponse
+): MaindataUpdateRefusal | undefined {
   const store = getOrCreateStore(baseUrl)
 
-  // Checked before anything is mutated, and in particular before a fullUpdate
-  // clears the store. The store is keyed by hashes the host chooses and is
-  // never aged out, so a host naming fresh ones each poll grew it without
-  // bound. Refusing the whole update leaves the last good snapshot in place;
-  // clearing first and then refusing would hand the host a way to empty it.
-  if (data.torrents) {
-    const held = data.fullUpdate ? 0 : store.torrents.size
-    const incoming = Object.keys(data.torrents).length
-    if (held + incoming > SYNC_STORE_MAX_TORRENTS) {
-      log.warn(
-        { baseUrl, held, incoming, cap: SYNC_STORE_MAX_TORRENTS },
-        "sync-store: refused an update that would exceed the torrent cap"
-      )
-      return
-    }
+  // Counted before anything is mutated, and before a fullUpdate clears the
+  // store: clearing first and then refusing would hand the host a way to empty
+  // it. Returned rather than swallowed, because the store still holds the
+  // previous poll and a caller that reads it now files stale figures as fresh.
+  const projected = projectedSize(store, data)
+  if (projected > SYNC_STORE_MAX_TORRENTS) {
+    const refusal = { held: store.torrents.size, projected, cap: SYNC_STORE_MAX_TORRENTS }
+    log.warn(
+      { baseUrl, ...refusal },
+      "sync-store: refused an update that would exceed the torrent cap"
+    )
+    return refusal
   }
 
   if (data.fullUpdate) {
@@ -84,12 +111,15 @@ export function applyMaindataUpdate(baseUrl: string, data: DeltaSyncResponse): v
     for (const [hash, partial] of Object.entries(data.torrents)) {
       const existing = store.torrents.get(hash)
       if (existing) {
-        // A delta for a hash already in the store used to be Object.assigned
-        // straight on, so any type could reach any field once the torrent had
-        // been seen once. The store outlives the poll and is serialized into
-        // cachedTorrents, so one bad value stayed. Validate the merge exactly
-        // as the insert below does, and keep the previous record if it fails.
-        const merged: Record<string, unknown> = { ...existing, ...partial, hash }
+        // The store outlives the poll and is serialized into cachedTorrents,
+        // so a bad value merged here stays. A mistyped field is dropped and the
+        // stored one kept; the merge is then validated like an insert, and the
+        // previous record survives a failure.
+        const merged: Record<string, unknown> = {
+          ...existing,
+          ...dropMistypedDeltaFields(partial),
+          hash,
+        }
         coerceRequiredNumeric(merged)
         coerceRequiredString(merged)
         if (isTorrentRecord(merged)) {

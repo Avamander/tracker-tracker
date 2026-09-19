@@ -163,6 +163,41 @@ describe("sanitizeNetworkError", () => {
     ).toBe("Banned by qBittorrent after too many failed logins. It will clear on its own")
   })
 
+  // The three refusals the qBittorrent transport raises on a host that did
+  // answer. Each fell to the fallback, which isUnreachableMessage reads as a
+  // host that never answered, so the card blamed the network.
+  it("maps an oversized response body to its own message", () => {
+    expect(
+      sanitizeNetworkError("Response from qbt.local exceeded 67108864 bytes and was refused")
+    ).toBe("qBittorrent returned an oversized response")
+  })
+
+  it("maps a session cookie carrying a control character to its own message", () => {
+    expect(
+      sanitizeNetworkError("Authentication failed. Session cookie contained an unsafe character")
+    ).toBe("qBittorrent sent an unsafe session cookie")
+  })
+
+  it("maps a refused redirect to its own message", () => {
+    expect(sanitizeNetworkError("qBittorrent API error: 307 Temporary Redirect")).toBe(
+      "qBittorrent redirected the request"
+    )
+  })
+
+  // The tracker proxy transport has a cap of its own, worded differently.
+  // Through the proxy branch it arrives wrapped as a proxy failure, which the
+  // proxy rule below would otherwise turn into a connection failure.
+  it("maps the proxy transport's oversized body to its own message", () => {
+    expect(sanitizeNetworkError("Response exceeded 65536 byte limit")).toBe(
+      "Tracker returned an oversized response"
+    )
+    expect(
+      sanitizeNetworkError(
+        "Failed to connect to tracker.example via proxy: Response exceeded 65536 byte limit"
+      )
+    ).toBe("Tracker returned an oversized response")
+  })
+
   it("maps 'rate-limit' to IP ban message", () => {
     expect(sanitizeNetworkError("rate-limit exceeded")).toBe("IP temporarily banned by tracker")
   })
@@ -385,6 +420,10 @@ describe("isUnreachableMessage", () => {
     "IP temporarily banned by tracker",
     "API returned 500",
     "Unknown error",
+    "qBittorrent returned an oversized response",
+    "qBittorrent sent an unsafe session cookie",
+    "qBittorrent redirected the request",
+    "Tracker returned an oversized response",
   ])("is false for %j", (message) => {
     expect(isUnreachableMessage(message)).toBe(false)
   })

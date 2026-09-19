@@ -2,6 +2,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest"
 import type { DeltaSyncResponse } from "@/lib/download-clients"
+import { SYNC_STORE_MAX_TORRENTS } from "@/lib/limits"
 import {
   applyMaindataUpdate,
   clearAllStores,
@@ -350,7 +351,7 @@ describe("applyMaindataUpdate validates a delta for a torrent it already holds",
     },
   } as unknown as DeltaSyncResponse
 
-  it("keeps tags a string when a delta sends a number", () => {
+  it("keeps the stored tags when a delta sends a number", () => {
     applyMaindataUpdate(BASE_URL, seed)
     applyMaindataUpdate(BASE_URL, {
       rid: 2,
@@ -359,12 +360,13 @@ describe("applyMaindataUpdate validates a delta for a torrent it already holds",
 
     const [torrent] = getStoredTorrents(BASE_URL)
     expect(typeof torrent.tags).toBe("string")
+    expect(torrent.tags).toBe("aither, cross-seed")
     // parseTorrentTags does rawTags.split(","), so a number used to throw here
     // and take the whole aggregation with it.
     expect(() => torrent.tags.split(",")).not.toThrow()
   })
 
-  it("keeps a required number numeric when a delta sends a string", () => {
+  it("keeps the stored number when a delta sends a string", () => {
     applyMaindataUpdate(BASE_URL, seed)
     applyMaindataUpdate(BASE_URL, {
       rid: 2,
@@ -373,6 +375,20 @@ describe("applyMaindataUpdate validates a delta for a torrent it already holds",
 
     const [torrent] = getStoredTorrents(BASE_URL)
     expect(typeof torrent.ratio).toBe("number")
+    expect(torrent.ratio).toBe(1.5)
+  })
+
+  it("defaults a non-string to empty when a full update carries it", () => {
+    applyMaindataUpdate(BASE_URL, {
+      rid: 1,
+      fullUpdate: true,
+      torrents: {
+        abc: { hash: "abc", name: "Example", state: "uploading", size: 100, ratio: 1.5, tags: 123 },
+      },
+    } as unknown as DeltaSyncResponse)
+
+    const [torrent] = getStoredTorrents(BASE_URL)
+    expect(torrent.tags).toBe("")
   })
 
   it("still applies an ordinary delta", () => {
@@ -402,29 +418,31 @@ describe("applyMaindataUpdate validates a delta for a torrent it already holds",
 describe("applyMaindataUpdate torrent cap", () => {
   // The store is keyed by hashes the host chooses and is never aged out, so
   // without a ceiling a host naming fresh hashes each poll grows it forever.
-  function bulk(count: number, prefix: string) {
+  const CAP = SYNC_STORE_MAX_TORRENTS
+
+  // Complete records, so a bulk fixture large enough to reach the cap does not
+  // spend the test run in coerceRequiredNumeric's per-field warning.
+  function bulkTorrents(count: number, prefix: string, overrides: Record<string, unknown> = {}) {
     const torrents: Record<string, unknown> = {}
     for (let i = 0; i < count; i++) {
-      torrents[`${prefix}${i}`] = {
-        hash: `${prefix}${i}`,
-        name: `t${i}`,
-        state: "uploading",
-        size: 1,
-        ratio: 1,
-      }
+      torrents[`${prefix}${i}`] = makeTorrent(`${prefix}${i}`, overrides)
     }
-    return { rid: 1, fullUpdate: true, torrents } as unknown as DeltaSyncResponse
+    return torrents
+  }
+
+  function bulk(count: number, prefix: string) {
+    return { rid: 1, fullUpdate: true, torrents: bulkTorrents(count, prefix) } as DeltaSyncResponse
   }
 
   it("accepts an update inside the cap", () => {
-    applyMaindataUpdate(BASE_URL, bulk(50, "a"))
+    expect(applyMaindataUpdate(BASE_URL, bulk(50, "a"))).toBeUndefined()
     expect(getStoredTorrents(BASE_URL)).toHaveLength(50)
   })
 
   it("refuses an update that would exceed the cap, keeping the last good state", () => {
     applyMaindataUpdate(BASE_URL, bulk(10, "a"))
     const huge = bulk(2, "b") as unknown as { torrents: Record<string, unknown> }
-    for (let i = 0; i < 100_001; i++) {
+    for (let i = 0; i < CAP + 1; i++) {
       huge.torrents[`flood${i}`] = { hash: `flood${i}`, name: "x", state: "up", size: 1, ratio: 1 }
     }
 
@@ -432,5 +450,76 @@ describe("applyMaindataUpdate torrent cap", () => {
 
     // The previous ten survive; nothing from the refused update landed.
     expect(getStoredTorrents(BASE_URL)).toHaveLength(10)
+  })
+
+  it("reports the refusal and leaves the revision where it was", () => {
+    applyMaindataUpdate(BASE_URL, bulk(10, "a"))
+
+    const refusal = applyMaindataUpdate(BASE_URL, {
+      rid: 99,
+      fullUpdate: true,
+      torrents: bulkTorrents(CAP + 1, "b"),
+    } as DeltaSyncResponse)
+
+    expect(refusal).toMatchObject({ cap: CAP, projected: CAP + 1 })
+    // A refused update is not a new revision. Advancing the rid would make the
+    // next poll ask for a delta the store never applied.
+    expect(getStoreRevision(BASE_URL)).toBe(1)
+  })
+
+  it("accepts a delta that only updates hashes it already holds", () => {
+    applyMaindataUpdate(BASE_URL, bulk(60_000, "a"))
+
+    const refusal = applyMaindataUpdate(BASE_URL, {
+      rid: 2,
+      torrents: bulkTorrents(60_000, "a", { ratio: 3 }),
+    } as DeltaSyncResponse)
+
+    expect(refusal).toBeUndefined()
+    expect(getStoredTorrents(BASE_URL)).toHaveLength(60_000)
+    expect(getStoredTorrents(BASE_URL)[0].ratio).toBe(3)
+    expect(getStoreRevision(BASE_URL)).toBe(2)
+  })
+
+  it("refuses a delta whose new hashes would cross the cap", () => {
+    applyMaindataUpdate(BASE_URL, bulk(50_000, "a"))
+
+    const refusal = applyMaindataUpdate(BASE_URL, {
+      rid: 2,
+      torrents: bulkTorrents(50_001, "b"),
+    } as DeltaSyncResponse)
+
+    expect(refusal).toMatchObject({ cap: CAP })
+    expect(getStoredTorrents(BASE_URL)).toHaveLength(50_000)
+    expect(getStoreRevision(BASE_URL)).toBe(1)
+  })
+
+  it("counts what a delta removes against what it adds", () => {
+    applyMaindataUpdate(BASE_URL, bulk(CAP, "a"))
+
+    const refusal = applyMaindataUpdate(BASE_URL, {
+      rid: 2,
+      torrents: bulkTorrents(10, "b"),
+      torrentsRemoved: Array.from({ length: 10 }, (_, i) => `a${i}`),
+    } as DeltaSyncResponse)
+
+    expect(refusal).toBeUndefined()
+    expect(getStoredTorrents(BASE_URL)).toHaveLength(CAP)
+    expect(getStoreRevision(BASE_URL)).toBe(2)
+  })
+
+  it("credits a removal once, and only for a hash it holds", () => {
+    applyMaindataUpdate(BASE_URL, bulk(50_000, "a"))
+
+    // Removing a hash the store never held, or naming the same hash twice,
+    // would buy 50,002 new torrents room under the cap if either counted.
+    const refusal = applyMaindataUpdate(BASE_URL, {
+      rid: 2,
+      torrents: bulkTorrents(50_002, "b"),
+      torrentsRemoved: ["a0", "a0", "never-held"],
+    } as DeltaSyncResponse)
+
+    expect(refusal).toMatchObject({ cap: CAP })
+    expect(getStoredTorrents(BASE_URL)).toHaveLength(50_000)
   })
 })

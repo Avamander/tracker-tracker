@@ -27,6 +27,7 @@ import {
   getStoreRevision,
   isStoreInitialized,
 } from "@/lib/download-clients"
+import type { MaindataUpdateRefusal } from "@/lib/download-clients/sync-store"
 import { clearFailureLogGate } from "@/lib/failure-log-gate"
 import { log } from "@/lib/logger"
 import { createTrackedTorrentPredicate } from "@/lib/tracker-matching"
@@ -1321,6 +1322,40 @@ describe("deepPollClient durability", () => {
     expect(mockAdapter.getDeltaSync).toHaveBeenNthCalledWith(2, 0)
     // The snapshot is written from the re-synced store, not the empty one.
     expect(mockValues).toHaveBeenCalledOnce()
+  })
+
+  // A refused update leaves the store holding the previous poll. Writing a
+  // snapshot from it republishes those figures as a fresh observation, with
+  // lastError cleared, so the operator sees a healthy client whose numbers
+  // have quietly stopped moving.
+  it("records a poll failure instead of a snapshot when the store refuses an update", async () => {
+    setupFullHappyPathMocks()
+    const refusal: MaindataUpdateRefusal = { held: 60_000, projected: 120_000, cap: 100_000 }
+    ;(applyMaindataUpdate as ReturnType<typeof vi.fn>).mockReturnValue(refusal)
+    const mockValues = mockDbInsertSnapshot()
+    const { mockSet } = mockDbUpdateClient()
+
+    await expect(deepPollClient(1, makeEncryptionKey(), ["aither"])).resolves.toBeUndefined()
+
+    expect(mockValues).not.toHaveBeenCalled()
+    const setCalls = mockSet.mock.calls.map((c: unknown[]) => c[0] as Record<string, unknown>)
+    expect(setCalls.some((s) => "lastPolledAt" in s)).toBe(false)
+    // The cap is what the operator has to act on, so it survives into the card.
+    expect(setCalls.some((s) => typeof s.lastError === "string")).toBe(true)
+    expect(setCalls.map((s) => String(s.lastError)).join(" ")).toContain("100000")
+  })
+
+  it("does not re-sync from rid 0 after the store refuses an update", async () => {
+    setupFullHappyPathMocks()
+    const refusal: MaindataUpdateRefusal = { held: 60_000, projected: 120_000, cap: 100_000 }
+    ;(applyMaindataUpdate as ReturnType<typeof vi.fn>).mockReturnValue(refusal)
+    // A refusal is not the mid-poll reset: the store is intact and holds the
+    // previous poll, so asking for everything again would only be refused too.
+    vi.mocked(isStoreInitialized).mockReturnValue(true)
+
+    await deepPollClient(1, makeEncryptionKey(), ["aither"])
+
+    expect(mockAdapter.getDeltaSync).toHaveBeenCalledOnce()
   })
 
   it("writes no snapshot when the store cannot be re-initialised", async () => {

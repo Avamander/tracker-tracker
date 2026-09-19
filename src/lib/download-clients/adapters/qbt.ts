@@ -47,13 +47,24 @@ export class QbtClientAdapter implements ClientAdapter {
    * through withSessionRetry so an expired SID is refreshed once; key clients
    * call straight through.
    */
-  private withAuth<T>(op: (baseUrl: string, auth: QbtAuth) => Promise<T>): Promise<T> {
+  private withAuth<T>(
+    op: (baseUrl: string, auth: QbtAuth) => Promise<T>,
+    signal?: AbortSignal
+  ): Promise<T> {
     if (this.creds.authMethod === "apikey") {
       return op(this.baseUrl, { mode: "apikey", key: this.creds.apiKey })
     }
     const { username, password } = this.creds
-    return withSessionRetry(this.host, this.port, this.ssl, username, password, (baseUrl, sid) =>
-      op(baseUrl, { mode: "session", sid })
+    // The signal reaches the login the wrapper may have to perform, so a
+    // password client with no cached SID shares the caller's deadline too.
+    return withSessionRetry(
+      this.host,
+      this.port,
+      this.ssl,
+      username,
+      password,
+      (baseUrl, sid) => op(baseUrl, { mode: "session", sid }),
+      signal
     )
   }
 
@@ -79,8 +90,10 @@ export class QbtClientAdapter implements ClientAdapter {
     filter?: string
     signal?: AbortSignal
   }): Promise<TorrentRecord[]> {
-    const raw = await this.withAuth((baseUrl, auth) =>
-      qbtGetTorrents(baseUrl, auth, options?.tag, options?.filter, options?.signal)
+    const raw = await this.withAuth(
+      (baseUrl, auth) =>
+        qbtGetTorrents(baseUrl, auth, options?.tag, options?.filter, options?.signal),
+      options?.signal
     )
     return raw.map((t) => mapQbtTorrent(t as unknown as Record<string, unknown>))
   }

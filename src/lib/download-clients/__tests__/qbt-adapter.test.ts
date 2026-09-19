@@ -153,6 +153,13 @@ describe("QbtClientAdapter", () => {
     )
   })
 
+  it("hands the caller's signal to the session wrapper so the login shares the deadline", async () => {
+    vi.mocked(withSessionRetry).mockClear()
+    const controller = new AbortController()
+    await adapter.getTorrents({ tag: "aither", signal: controller.signal })
+    expect(vi.mocked(withSessionRetry).mock.calls[0]?.[6]).toBe(controller.signal)
+  })
+
   it("returns normalized TransferStats from getTransferInfo", async () => {
     const stats = await adapter.getTransferInfo()
     expect(getTransferInfo).toHaveBeenCalled()

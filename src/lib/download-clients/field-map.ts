@@ -65,8 +65,11 @@ const REQUIRED_STRING = new Set(["tags", "category", "tracker", "contentPath", "
 export function coerceRequiredString(result: Record<string, unknown>): void {
   for (const field of REQUIRED_STRING) {
     if (field in result && typeof result[field] !== "string") {
+      // The name and the type, never the value: tracker, contentPath and
+      // savePath carry passkeys and server paths, which is why fetch.ts strips
+      // all three before a torrent leaves this module.
       log.warn(
-        { hash: result.hash, field, value: result[field] },
+        { hash: result.hash, field, received: typeof result[field] },
         "coerceRequiredString: non-string field, defaulting to empty"
       )
       result[field] = ""
@@ -112,4 +115,29 @@ export function mapQbtDelta(partial: Record<string, unknown>): Partial<TorrentRe
     result[mapped] = value
   }
   return result as Partial<TorrentRecord>
+}
+
+/**
+ * Returns a partial with every required field whose type is wrong removed, or
+ * the same object when they all match. A delta merges over values the client
+ * reported in an earlier poll, so coercing here would write a 0 or an empty
+ * string over a figure it did report. mapQbtDelta applies the same rule to
+ * numerics before a qBittorrent delta ever reaches the store.
+ */
+export function dropMistypedDeltaFields(partial: Partial<TorrentRecord>): Partial<TorrentRecord> {
+  const source = partial as Record<string, unknown>
+  let pruned: Record<string, unknown> | null = null
+  for (const field of Object.keys(source)) {
+    const received = typeof source[field]
+    const mistyped =
+      (REQUIRED_STRING.has(field) && received !== "string") ||
+      (REQUIRED_NUMERIC.has(field) && received !== "number")
+    if (!mistyped) continue
+    pruned ??= { ...source }
+    delete pruned[field]
+    // Debug, not warn: a client that mistypes one field across a large library
+    // would flood the log with one line per torrent per poll.
+    log.debug({ field, received }, "dropMistypedDeltaFields: dropped a field of the wrong type")
+  }
+  return (pruned ?? partial) as Partial<TorrentRecord>
 }
