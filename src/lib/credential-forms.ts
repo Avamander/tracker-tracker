@@ -324,6 +324,8 @@ const UID_COOKIE = /(?:^|;\s*)uid=([^;]+)/
 const PASS_COOKIE = /(?:^|;\s*)pass=([^;]+)/
 // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional control-char check
 const CONTROL_CHAR = /[\x00-\x1F\x7F]/
+// biome-ignore lint/suspicious/noControlCharactersInRegex: intentional byte-range check
+const NON_LATIN1 = /[^\x00-\xFF]/
 
 /** Same normalization the adapters apply, so the stored value round-trips. */
 function cleanCookies(cookies: string): string {
@@ -352,8 +354,17 @@ export function validateCredentialValues(
   values: CredentialValues
 ): string | null {
   switch (form.kind) {
-    case "token":
-      return values.token.trim() ? null : "API token is required"
+    case "token": {
+      const token = values.token.trim()
+      if (!token) return "API token is required"
+      // The token goes into a request header, where a control character makes
+      // undici throw a TypeError naming the whole header, which
+      // classifyFetchError flattens to something the user cannot act on.
+      if (CONTROL_CHAR.test(token)) {
+        return "API token contains a control character. Re-copy the token with no surrounding text."
+      }
+      return null
+    }
     case "cookies":
       return checkCookies(form, values.cookies)
     case "cookies-username":
@@ -368,9 +379,14 @@ export function validateCredentialValues(
       if (!PASS_COOKIE.test(trimmed)) {
         return "Cookie string is missing pass value. Paste the full Cookie header from DevTools."
       }
-      // Same guard the adapter applies before it builds the Cookie header.
+      // What the DigitalCore adapter rejects once uid and pass are split out.
+      // Its third guard, the semicolon, cannot fire here: UID_COOKIE and
+      // PASS_COOKIE stop at the first one.
       if (CONTROL_CHAR.test(trimmed)) {
         return "Cookie values contain a control character. Paste the full Cookie header from DevTools."
+      }
+      if (NON_LATIN1.test(trimmed)) {
+        return "Cookie values contain a non-ASCII character, usually a truncation mark. Re-copy the full Cookie header from DevTools."
       }
       return null
     }

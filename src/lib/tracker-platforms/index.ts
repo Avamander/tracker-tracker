@@ -6,7 +6,7 @@
 // this makes fail at build time rather than at runtime.
 import "server-only"
 import type { Agent as HttpAgent } from "node:http"
-import { findRegistryEntry } from "@/data/tracker-registry"
+import { findRegistryEntryByHostname } from "@/data/tracker-registry"
 import { AvistazAdapter } from "./adapters/avistaz"
 import { BtnAdapter } from "./adapters/btn"
 import { DigitalCoreAdapter } from "./adapters/digitalcore"
@@ -55,7 +55,9 @@ export function buildFetchOptions(
   if (opts?.proxyAgent) fetchOptions.proxyAgent = opts.proxyAgent
   if (opts?.remoteUserId) fetchOptions.remoteUserId = opts.remoteUserId
 
-  const entry = findRegistryEntry(baseUrl)
+  // Matched on hostname, not on the stored spelling: an Anthelion row saved as
+  // http:// or with a www prefix would otherwise send api_key instead of apikey.
+  const entry = findRegistryEntryByHostname(baseUrl)
   if (entry?.gazelleAuthStyle) fetchOptions.authStyle = entry.gazelleAuthStyle
   if (entry?.gazelleEnrich) fetchOptions.enrich = true
   if (entry?.unit3dAuthStyle) fetchOptions.unit3dAuthStyle = entry.unit3dAuthStyle

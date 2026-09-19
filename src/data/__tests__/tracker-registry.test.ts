@@ -14,6 +14,7 @@ import { afterAll, describe, expect, it } from "vitest"
 import { DEFAULT_API_PATHS, VALID_PLATFORM_TYPES } from "@/data/platform-types"
 import {
   getTrackerBySlug,
+  registryHostname,
   TRACKER_REGISTRY,
   type TrackerRegistryEntry,
 } from "@/data/tracker-registry"
@@ -67,6 +68,14 @@ describe("tracker registry", () => {
     const urls = ALL_TRACKERS.map((t: TrackerRegistryEntry) => normalizeTrackerUrl(t.url))
     const dupes = urls.filter((u: string, i: number) => urls.indexOf(u) !== i)
     expect(dupes, `Duplicate URLs: ${dupes.join(", ")}`).toEqual([])
+  })
+
+  it("has no two entries sharing a hostname", () => {
+    // findRegistryEntryByHostname returns the first match, so two entries on
+    // one hostname would hand a tracker the other one's auth spelling.
+    const hosts = TRACKER_REGISTRY.map((t) => registryHostname(t.url))
+    const dupes = hosts.filter((h, i) => h !== undefined && hosts.indexOf(h) !== i)
+    expect(dupes, `Shared hostnames: ${dupes.join(", ")}`).toEqual([])
   })
 
   it("every tracker has an explicit draft field (true or false)", () => {

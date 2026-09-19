@@ -152,3 +152,30 @@ export function findRegistryEntry(baseUrl: string): TrackerRegistryEntry | undef
   const normalized = normalizeUrl(baseUrl)
   return TRACKER_REGISTRY.find((r) => normalizeUrl(r.url) === normalized)
 }
+
+/**
+ * The key both sides of a hostname lookup are reduced to. A `www.` prefix is
+ * dropped because the registry spells MAM and TorrentLeech with one while a
+ * stored row usually has not. Undefined for anything `new URL` refuses, which
+ * a restored backup can carry because it never passed the create route's
+ * validateHttpUrl.
+ */
+export function registryHostname(url: string): string | undefined {
+  try {
+    return new URL(url.trim().toLowerCase()).hostname.replace(/^www\./, "")
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * The registry entry for the site a base URL points at. Unlike
+ * `findRegistryEntry`, which its callers use to compare stored URLs as typed, this
+ * ignores scheme, path and a `www.` prefix, so a row saved with another
+ * spelling still gets the tracker's own auth options.
+ */
+export function findRegistryEntryByHostname(baseUrl: string): TrackerRegistryEntry | undefined {
+  const host = registryHostname(baseUrl)
+  if (!host) return undefined
+  return TRACKER_REGISTRY.find((r) => registryHostname(r.url) === host)
+}

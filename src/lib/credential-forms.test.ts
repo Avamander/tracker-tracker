@@ -219,6 +219,17 @@ describe("validateCredentialValues cookie hygiene", () => {
     ).toContain("non-ASCII")
   })
 
+  it("rejects a truncated digitalcore uid or pass before submit", () => {
+    expect(
+      validateCredentialValues(
+        CREDENTIAL_FORMS.digitalcore,
+        values({ cookies: "uid=56954; pass=abc123…" })
+      )
+    ).toBe(
+      "Cookie values contain a non-ASCII character, usually a truncation mark. Re-copy the full Cookie header from DevTools."
+    )
+  })
+
   it("rejects a control character inside a digitalcore uid or pass before submit", () => {
     expect(
       validateCredentialValues(
@@ -226,5 +237,19 @@ describe("validateCredentialValues cookie hygiene", () => {
         values({ cookies: "uid=54\u000021; pass=abc" })
       )
     ).toBe("Cookie values contain a control character. Paste the full Cookie header from DevTools.")
+  })
+})
+
+describe("validateCredentialValues token hygiene", () => {
+  it("rejects a token carrying a line break inside it", () => {
+    expect(
+      validateCredentialValues(CREDENTIAL_FORMS.unit3d, values({ token: "abc\n123" }))
+    ).toBe("API token contains a control character. Re-copy the token with no surrounding text.")
+  })
+
+  it("accepts a token pasted with surrounding whitespace", () => {
+    expect(
+      validateCredentialValues(CREDENTIAL_FORMS.unit3d, values({ token: "  abc123\n" }))
+    ).toBeNull()
   })
 })
