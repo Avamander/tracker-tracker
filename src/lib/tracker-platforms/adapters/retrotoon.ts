@@ -3,7 +3,8 @@
 // Functions: parseRetrotoonCredentials, assertAuthenticated,
 //            extractOwnUserId, extractUsername, parseRetrotoonProfile,
 //            parseRetrotoonBonus, parseRetrotoonHitAndRuns,
-//            parseRetrotoonHnrTokens, fetchHtml, RetrotoonAdapter
+//            parseRetrotoonHnrTokens, fetchHtml, bootstrapError,
+//            RetrotoonAdapter
 
 import { parse as parseHtml } from "node-html-parser"
 import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
@@ -112,7 +113,7 @@ function extractUsername(html: string, doc: ReturnType<typeof parseHtml>): strin
 // always comes from the header greeting.
 // ---------------------------------------------------------------------------
 
-export function parseRetrotoonProfile(html: string): TrackerStats {
+export function parseRetrotoonProfile(html: string, hostname: string): TrackerStats {
   assertAuthenticated(html, "profile")
 
   const doc = parseHtml(html)
@@ -173,21 +174,27 @@ export function parseRetrotoonProfile(html: string): TrackerStats {
   // page without the profile table is not the owner's profile at all.
   if (uploadedBytes === undefined && downloadedBytes === undefined) {
     throw new Error(
-      "Could not find profile stats on the RetroToon page. The page may not be authenticated"
+      `Unexpected response from ${hostname}: Could not find profile stats on the RetroToon page. The page may not be authenticated`
     )
   }
-
-  const uploaded = uploadedBytes ?? 0n
-  const downloaded = downloadedBytes ?? 0n
+  // One side readable and the other not is a page-shape change, not an account
+  // with nothing on that side, and both fields are non-nullable bigint, so a 0n
+  // here would be stored as a measured zero (standard 2.1).
+  if (uploadedBytes === undefined) {
+    throw new Error(`Unexpected response from ${hostname}: unreadable uploaded byte total`)
+  }
+  if (downloadedBytes === undefined) {
+    throw new Error(`Unexpected response from ${hostname}: unreadable downloaded byte total`)
+  }
 
   const stats: TrackerStats = {
     username: extractUsername(html, doc),
     group,
-    uploadedBytes: uploaded,
-    downloadedBytes: downloaded,
+    uploadedBytes,
+    downloadedBytes,
     // From the byte totals: the header's own "Ratio:" reads "∞" and parses to 0.
-    ratio: computeRatio(uploaded, downloaded),
-    bufferBytes: computeBufferBytes(uploaded, downloaded),
+    ratio: computeRatio(uploadedBytes, downloadedBytes),
+    bufferBytes: computeBufferBytes(uploadedBytes, downloadedBytes),
     // Filled in from bonus.php below; null keeps a failed call distinct from 0.
     seedingCount: null,
     // Not reported on any page, so null means "unknown", not 0.
@@ -299,8 +306,10 @@ function fetchHtml(
 // Adapter class
 // ---------------------------------------------------------------------------
 
-const BOOTSTRAP_ERROR =
-  "Could not find the account greeting on the RetroToon page. The page may not be authenticated"
+/** The sanitizer keys on the prefix; without it the card reads "Poll failed". */
+function bootstrapError(hostname: string): string {
+  return `Unexpected response from ${hostname}: Could not find the account greeting on the RetroToon page. The page may not be authenticated`
+}
 
 const BONUS_PATH = "/bonus.php"
 const HNR_PATH = "/myhr.php"
@@ -315,40 +324,42 @@ export class RetrotoonAdapter implements TrackerAdapter {
     options?: FetchOptions
   ): Promise<TrackerStats> {
     const creds = parseRetrotoonCredentials(apiToken)
+    const hostname = new URL(baseUrl).hostname
 
     // bonus.php needs no id and carries the greeting, so it doubles as the
     // first-poll id lookup and costs no extra request.
     const bonusHtml = await fetchHtml(`${baseUrl}${BONUS_PATH}`, creds, options?.proxyAgent)
+    // Parsed before the id is read off it: a login page served with 200 carries
+    // no greeting either, and that is a session problem, not a missing id.
+    const bonus = parseRetrotoonBonus(bonusHtml)
     const uid = options?.remoteUserId ?? extractOwnUserId(bonusHtml)
-    if (uid === undefined) throw new Error(BOOTSTRAP_ERROR)
+    if (uid === undefined) throw new Error(bootstrapError(hostname))
 
     const profileHtml = await fetchHtml(
       `${baseUrl}/userdetails.php?id=${uid}`,
       creds,
       options?.proxyAgent
     )
-    const stats = parseRetrotoonProfile(profileHtml)
+    const stats = parseRetrotoonProfile(profileHtml, hostname)
 
-    const bonus = parseRetrotoonBonus(bonusHtml)
     stats.seedingCount = bonus.seedingCount
     const meta: RetrotoonPlatformMeta = {
       ...((stats.platformMeta as RetrotoonPlatformMeta | undefined) ?? {}),
     }
     if (bonus.bonusPerHour !== undefined) meta.bonusPerHour = bonus.bonusPerHour
 
-    // Non-fatal: the profile above has every core figure, so a myhr.php failure
-    // must not cost the poll. hitAndRuns stays null, meaning "unknown".
+    // Non-fatal apart from the session check below: the profile above has every
+    // core figure, so hitAndRuns simply stays null, meaning "unknown".
     try {
       const hnrHtml = await fetchHtml(`${baseUrl}${HNR_PATH}`, creds, options?.proxyAgent)
       stats.hitAndRuns = parseRetrotoonHitAndRuns(hnrHtml)
       const tokens = parseRetrotoonHnrTokens(hnrHtml)
       if (tokens !== undefined) meta.hnrCleanupTokens = tokens
     } catch (err) {
-      log.warn(
-        `[RetroToon World] Hit-and-run lookup failed, core stats kept: ${
-          err instanceof Error ? err.message : "unknown"
-        }`
-      )
+      // A session that died mid-poll is not a hit-and-run failure: standard 2.4
+      // aborts the poll on one, so swallowing it would report healthy stats.
+      if (err instanceof SessionExpiredError) throw err
+      log.warn({ err }, "retrotoon: hit-and-run lookup failed, core stats kept")
     }
 
     stats.platformMeta = meta
@@ -366,6 +377,7 @@ export class RetrotoonAdapter implements TrackerAdapter {
     const calls: DebugApiCall[] = []
     // Outside any try: bad credentials are a caller error, not a call entry.
     const creds = parseRetrotoonCredentials(apiToken)
+    const hostname = new URL(baseUrl).hostname
 
     let uid = options?.remoteUserId
     let bonus: RetrotoonBonusSummary | null = null
@@ -394,13 +406,13 @@ export class RetrotoonAdapter implements TrackerAdapter {
         label: "User Details Page",
         endpoint: "/userdetails.php",
         data: null,
-        error: BOOTSTRAP_ERROR,
+        error: bootstrapError(hostname),
       })
     } else {
       const endpoint = `/userdetails.php?id=${uid}`
       try {
         const html = await fetchHtml(`${baseUrl}${endpoint}`, creds, options?.proxyAgent)
-        const stats = parseRetrotoonProfile(html)
+        const stats = parseRetrotoonProfile(html, hostname)
         stats.seedingCount = bonus?.seedingCount ?? null
         calls.push({ label: "User Details Page", endpoint, data: stats, error: null })
       } catch (err) {

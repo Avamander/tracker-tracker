@@ -37,7 +37,10 @@ export const retrotoon: TrackerRegistryEntry = {
   // ── Community ───────────────────────────────────────────────────────
   // Thresholds from faq.php. The starting class is "Toon" in the live header
   // and statistics.php, not "Sketch" as the FAQ still calls it. Silver Star and
-  // The Creator are omitted: awarded ranks with no published requirements.
+  // The Creator are awarded, so they carry no threshold and sit above the
+  // ladder rather than on a rung of it.
+  // Owner decision 2026-09-19: both listed above the ladder with the
+  // requirements text noting that the site publishes none.
   userClasses: [
     { name: "Toon", requirements: "Starting class" },
     {
@@ -51,6 +54,16 @@ export const retrotoon: TrackerRegistryEntry = {
     {
       name: "Toon Superstar",
       requirements: "360 days registered, 1500 GB uploaded, ratio 2.05 or higher",
+    },
+    {
+      name: "Silver Star",
+      requirements: "Awarded rank. Requirements not published",
+      outsideLadder: "above",
+    },
+    {
+      name: "The Creator",
+      requirements: "Awarded rank. Requirements not published",
+      outsideLadder: "above",
     },
   ],
   releaseGroups: [],

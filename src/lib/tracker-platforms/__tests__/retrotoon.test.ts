@@ -12,6 +12,9 @@ import {
   RetrotoonAdapter,
 } from "../adapters/retrotoon"
 import type { RetrotoonPlatformMeta } from "../contract"
+import { SessionExpiredError } from "../helpers/errors"
+
+const HOST = "retrotoon.world"
 
 const VALID_TOKEN = JSON.stringify({
   cookies: "PHPSESSID=0123456789abcdef0123456789abcdef",
@@ -347,7 +350,7 @@ describe("extractOwnUserId", () => {
 
 describe("parseRetrotoonProfile", () => {
   it("parses every field off a fresh account's profile", () => {
-    const stats = parseRetrotoonProfile(PROFILE_PAGE)
+    const stats = parseRetrotoonProfile(PROFILE_PAGE, HOST)
 
     expect(stats.username).toBe("ToonCollector")
     expect(stats.group).toBe("Toon")
@@ -361,11 +364,11 @@ describe("parseRetrotoonProfile", () => {
   })
 
   it("derives an infinite ratio from the byte totals rather than the header's ∞", () => {
-    expect(parseRetrotoonProfile(PROFILE_PAGE).ratio).toBe(Number.POSITIVE_INFINITY)
+    expect(parseRetrotoonProfile(PROFILE_PAGE, HOST).ratio).toBe(Number.POSITIVE_INFINITY)
   })
 
   it("reports every unpublished figure as null, never as a measured zero", () => {
-    const stats = parseRetrotoonProfile(PROFILE_PAGE)
+    const stats = parseRetrotoonProfile(PROFILE_PAGE, HOST)
 
     // Filled in from bonus.php by the adapter, not by this parser.
     expect(stats.seedingCount).toBeNull()
@@ -378,7 +381,7 @@ describe("parseRetrotoonProfile", () => {
   })
 
   it("keeps the byte row and the torrent-count row apart despite near-identical labels", () => {
-    const stats = parseRetrotoonProfile(PROFILE_PAGE)
+    const stats = parseRetrotoonProfile(PROFILE_PAGE, HOST)
     const meta = stats.platformMeta as RetrotoonPlatformMeta
 
     // "Uploaded" is 2.10 GB; "Uploaded (0)" is a torrent count. Reading the
@@ -389,7 +392,7 @@ describe("parseRetrotoonProfile", () => {
   })
 
   it("collects the community counts into platformMeta", () => {
-    const meta = parseRetrotoonProfile(PROFILE_PAGE).platformMeta as RetrotoonPlatformMeta
+    const meta = parseRetrotoonProfile(PROFILE_PAGE, HOST).platformMeta as RetrotoonPlatformMeta
     expect(meta).toEqual({
       snatched: 0,
       uploadedTorrents: 0,
@@ -399,7 +402,7 @@ describe("parseRetrotoonProfile", () => {
   })
 
   it("handles grouping commas, a finite ratio, and a promoted class", () => {
-    const stats = parseRetrotoonProfile(ACTIVE_PROFILE_PAGE)
+    const stats = parseRetrotoonProfile(ACTIVE_PROFILE_PAGE, HOST)
     const meta = stats.platformMeta as RetrotoonPlatformMeta
 
     expect(stats.group).toBe("Toon Hero")
@@ -416,21 +419,39 @@ describe("parseRetrotoonProfile", () => {
 
   it("parses the site's lower-case kB unit", () => {
     // parseBytes' decimal table is case-sensitive (KB), the site prints kB.
-    expect(parseRetrotoonProfile(PROFILE_PAGE).downloadedBytes).toBe(0n)
+    expect(parseRetrotoonProfile(PROFILE_PAGE, HOST).downloadedBytes).toBe(0n)
     const page = PROFILE_PAGE.replace(">0.00 kB<", ">512.00 kB<")
-    expect(parseRetrotoonProfile(page).downloadedBytes).toBe(512_000n)
+    expect(parseRetrotoonProfile(page, HOST).downloadedBytes).toBe(512_000n)
   })
 
   it("throws session-expired on a page with no logout link", () => {
-    expect(() => parseRetrotoonProfile(LOGIN_PAGE)).toThrow(/Session expired/)
+    expect(() => parseRetrotoonProfile(LOGIN_PAGE, HOST)).toThrow(/Session expired/)
   })
 
   it("prefers the Cloudflare message over the generic session one", () => {
-    expect(() => parseRetrotoonProfile(CLOUDFLARE_PAGE)).toThrow(/Cloudflare challenge detected/)
+    expect(() => parseRetrotoonProfile(CLOUDFLARE_PAGE, HOST)).toThrow(/Cloudflare challenge detected/)
   })
 
   it("throws when an authenticated page carries no profile table", () => {
-    expect(() => parseRetrotoonProfile(STAFF_PAGE)).toThrow(/Could not find profile stats/)
+    expect(() => parseRetrotoonProfile(STAFF_PAGE, HOST)).toThrow(
+      "Unexpected response from retrotoon.world: Could not find profile stats on the RetroToon page. The page may not be authenticated"
+    )
+  })
+
+  it("throws naming the uploaded total when only the Downloaded row can be read", () => {
+    // A petabyte cell sits outside tryParseSiteBytes' unit table, so the row is
+    // present and still unreadable.
+    const page = PROFILE_PAGE.replace(">2.10 GB<", ">2.10 PB<")
+    expect(() => parseRetrotoonProfile(page, HOST)).toThrow(
+      "Unexpected response from retrotoon.world: unreadable uploaded byte total"
+    )
+  })
+
+  it("throws naming the downloaded total when only the Uploaded row can be read", () => {
+    const page = PROFILE_PAGE.replace(">0.00 kB<", ">1.50 PB<")
+    expect(() => parseRetrotoonProfile(page, HOST)).toThrow(
+      "Unexpected response from retrotoon.world: unreadable downloaded byte total"
+    )
   })
 })
 
@@ -564,14 +585,34 @@ describe("RetrotoonAdapter.fetchStats", () => {
     expect(stats.hitAndRuns).toBeNull()
   })
 
+  it("fails the poll when the hit-and-run page is a login page served with 200", async () => {
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(okPage(ACTIVE_BONUS_PAGE))
+      .mockResolvedValueOnce(okPage(PROFILE_PAGE))
+      .mockResolvedValueOnce(okPage(LOGIN_PAGE))
+
+    await expect(
+      adapter.fetchStats("https://retrotoon.world", VALID_TOKEN, "")
+    ).rejects.toBeInstanceOf(SessionExpiredError)
+  })
+
   it("throws without fetching the profile when the greeting is missing", async () => {
     // Authenticated (the logout link is there) but with no "Hello:" greeting.
     const noGreeting = `${PAGE_HEAD}<tr><td class=clear><a href="logout.php">Logout</a></td></tr>${PAGE_FOOT}`
     const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValueOnce(okPage(noGreeting))
 
     await expect(adapter.fetchStats("https://retrotoon.world", VALID_TOKEN, "")).rejects.toThrow(
-      /Could not find the account greeting/
+      "Unexpected response from retrotoon.world: Could not find the account greeting on the RetroToon page. The page may not be authenticated"
     )
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it("reports a session problem when the bonus page is a login page served with 200", async () => {
+    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValueOnce(okPage(LOGIN_PAGE))
+
+    await expect(
+      adapter.fetchStats("https://retrotoon.world", VALID_TOKEN, "")
+    ).rejects.toBeInstanceOf(SessionExpiredError)
     expect(fetchSpy).toHaveBeenCalledTimes(1)
   })
 
