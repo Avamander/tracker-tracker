@@ -157,6 +157,24 @@ function validate(slugFilter?: string[]): TrackerResult[] {
     if (dupeCats.length > 0)
       errors.push(`Duplicate categories: ${[...new Set(dupeCats)].join(", ")}`)
 
+    // ── User class ladder (mirrors tracker-registry.test.ts) ──────────
+    // tsx does not type check, so a contributor entry that omits the field
+    // reaches this loop as undefined.
+    const userClasses = tracker.userClasses ?? []
+    const seenClasses = new Set<string>()
+    const dupeClasses = new Set<string>()
+    for (const cls of userClasses) {
+      const key = cls.name.toLowerCase()
+      if (seenClasses.has(key)) dupeClasses.add(cls.name)
+      else seenClasses.add(key)
+    }
+    if (dupeClasses.size > 0) errors.push(`Duplicate user classes: ${[...dupeClasses].join(", ")}`)
+    // A ladder whose every class is flagged drops the tracker out of the Ranks
+    // section with no signal on the page.
+    if (userClasses.length > 0 && !userClasses.some((c) => !c.outsideLadder)) {
+      errors.push("userClasses must include at least one class without outsideLadder")
+    }
+
     if (tracker.color && !isValidHex(tracker.color)) {
       errors.push(`Invalid hex color "${tracker.color}"`)
     }

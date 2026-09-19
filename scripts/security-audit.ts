@@ -21,6 +21,9 @@
 //   checkClientEnvLeak, checkAdapterCookieInjection, checkAdapterCredentialLogging,
 //   runAudit
 //
+// The recognizers behind checks 17, 37 and 38 live in scripts/security-audit-lib.ts,
+// which has no CLI entry so a test can import them.
+//
 // Usage: npx tsx scripts/security-audit.ts [--changed-only file1 file2 ...]
 // If --changed-only is provided, only those files are scanned for
 // file-level checks (2/3/8/9/11/12/14/20/34). Auth enforcement and headers always
@@ -31,6 +34,7 @@
 import { execFileSync } from "node:child_process"
 import fs from "node:fs"
 import path from "node:path"
+import { FETCH_RE, fetchWindowEnd, hasInjectionGuard, logsCredential } from "./security-audit-lib"
 
 const ROOT = path.resolve(__dirname, "..")
 const SRC_DIR = path.resolve(ROOT, "src")
@@ -1084,7 +1088,6 @@ function checkNoRawMigrations(): CheckResult {
 // is intentionally excluded from this scan.
 function checkFetchTimeout(): CheckResult {
   const findings: Finding[] = []
-  const FETCH_RE = /\bfetch\s*\(/
 
   const adaptersDir = requireDir(path.resolve(SRC_DIR, "lib/tracker-platforms"), "fetch-timeout")
   const clientsDir = requireDir(path.resolve(SRC_DIR, "lib/download-clients"), "fetch-timeout")
@@ -1119,29 +1122,7 @@ function checkFetchTimeout(): CheckResult {
       if (trimmed.startsWith("//") || trimmed.startsWith("*")) continue
       if (!FETCH_RE.test(line)) continue
 
-      // Read the whole argument list by balancing parentheses from the fetch(
-      // onward, capped so a malformed file cannot run away. A fixed line window
-      // flagged correct calls whose options object was merely long, and a false
-      // positive on a CI-blocking check teaches people to ignore it.
-      const fetchAt = line.search(FETCH_RE)
-      let depth = 0
-      let opened = false
-      let windowEnd = i
-      for (let j = i; j < Math.min(i + 60, lines.length); j++) {
-        const from = j === i ? fetchAt : 0
-        for (let k = from; k < lines[j].length; k++) {
-          const ch = lines[j][k]
-          if (ch === "(") {
-            depth++
-            opened = true
-          } else if (ch === ")") {
-            depth--
-          }
-        }
-        windowEnd = j
-        if (opened && depth <= 0) break
-      }
-      const fetchWindow = lines.slice(i, windowEnd + 1).join("\n")
+      const fetchWindow = lines.slice(i, fetchWindowEnd(lines, i) + 1).join("\n")
 
       const hasTimeout =
         /\bsignal\s*:/.test(fetchWindow) ||
@@ -2448,30 +2429,6 @@ function checkAdapterCookieInjection(): CheckResult {
   // Matches: Cookie: `...${...}...`  (template literal with interpolation)
   const COOKIE_INTERPOLATION_RE = /Cookie:\s*`[^`]*\$\{/
 
-  // Evidence that the file validates cookie values before interpolation. Every
-  // entry has to match a regex character class that actually holds the
-  // characters it claims to reject or allow.
-  //
-  // A variable name, a function name and a comment are all deliberately absent.
-  // This list used to carry /unsafeChars/, /validateMam/, /injection.*guard/i
-  // and /header.*injection/i, and because the test runs against the whole file,
-  // `const unsafeChars = /nothing/` satisfied the check with no validation
-  // behind it. A guard that is named rather than written is not a guard.
-  //
-  // Two approaches are valid:
-  //   1. Blocklist: a class holding ";" and at least one control-character
-  //      escape. The semicolon is what splits one cookie into two; CR and LF
-  //      are what split one header into two.
-  //   2. Allowlist: a class narrow enough that nothing in it can break a
-  //      header, which is stricter than any blocklist.
-  const INJECTION_GUARD_PATTERNS = [
-    /\[[^\]]*;[^\]]*(?:\\r|\\n|\\x00)[^\]]*\]/, // blocklist, semicolon first
-    /\[[^\]]*(?:\\r|\\n|\\x00)[^\]]*;[^\]]*\]/, // blocklist, control char first
-    /\[\^a-fA-F0-9\]/, // hex-only allowlist
-    /\[\^a-f0-9\]/i, // hex-only allowlist variant
-    /\[\^\\w\]/, // word-char-only allowlist
-  ]
-
   for (const file of adapterFiles) {
     if (isTestFile(file)) continue
     const content = fs.readFileSync(file, "utf8")
@@ -2488,10 +2445,7 @@ function checkAdapterCookieInjection(): CheckResult {
 
     if (cookieLines.length === 0) continue
 
-    // Check if the file contains ANY injection guard pattern
-    const hasGuard = INJECTION_GUARD_PATTERNS.some((re) => re.test(content))
-
-    if (!hasGuard) {
+    if (!hasInjectionGuard(content)) {
       for (const lineIdx of cookieLines) {
         findings.push({
           file: rel,
@@ -2515,28 +2469,14 @@ function checkAdapterCookieInjection(): CheckResult {
 // ── Check 38: Adapter credential logging ───────────────────────────────
 //
 // Adapter files must never log credential material (api tokens, cookies,
-// passwords, passkeys). console.log/warn/error calls in adapters are checked
-// to ensure they don't reference credential variables.
+// passwords, passkeys). Both call shapes adapters can reach a log with,
+// console.log/warn/error and pino log.debug/info/warn/error, are checked to
+// ensure they don't reference credential variables.
 
 function checkAdapterCredentialLogging(): CheckResult {
   const findings: Finding[] = []
   const adaptersDir = requireDir(path.resolve(SRC_DIR, "lib/tracker-platforms"), "adapter-credential-logging")
   const adapterFiles = walkFiles(adaptersDir, ".ts")
-
-  // Variable names that hold credentials in adapter code
-  const CREDENTIAL_VARS = [
-    "apiToken",
-    "creds\\.uid",
-    "creds\\.pass",
-    "creds\\.cookies",
-    "cookies",
-    "trimmedToken",
-    "trimmedPass",
-    "trimmedUid",
-  ]
-  const CRED_IN_LOG_RE = new RegExp(
-    `console\\.(log|warn|error)\\s*\\([^)]*\\b(${CREDENTIAL_VARS.join("|")})\\b`
-  )
 
   for (const file of adapterFiles) {
     if (isTestFile(file)) continue
@@ -2549,7 +2489,7 @@ function checkAdapterCredentialLogging(): CheckResult {
       const trimmed = line.trim()
       if (trimmed.startsWith("//") || trimmed.startsWith("*")) continue
 
-      if (CRED_IN_LOG_RE.test(line)) {
+      if (logsCredential(line)) {
         findings.push({
           file: rel,
           line: i + 1,
