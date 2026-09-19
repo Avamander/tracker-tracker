@@ -411,6 +411,9 @@ export async function POST(request: Request) {
           credentials = null
         }
 
+        // The export selects the whole tracker row minus five runtime fields, so
+        // a column missing from this list travels in the file and never comes
+        // back. restore-route.test.ts derives the required set from the schema.
         const [inserted] = await tx
           .insert(trackers)
           .values({
@@ -423,20 +426,29 @@ export async function POST(request: Request) {
             encryptedApiToken: apiToken,
             encryptedCredentials: credentials,
             isActive: fields.isActive as boolean,
+            // The only record that the user paused this tracker: pollAllTrackers
+            // drops it through getPauseState, and pruneOldSnapshots spares its
+            // history. Dropped, a restore silently resumes and then prunes.
+            userPausedAt: fields.userPausedAt ? new Date(fields.userPausedAt as string) : null,
             color: (fields.color as string | null) ?? null,
             qbtTag: (fields.qbtTag as string | null) ?? null,
             remoteUserId: (fields.remoteUserId as number | null) ?? null,
             platformMeta: (fields.platformMeta as string | null) ?? null,
+            mouseholeUrl: (fields.mouseholeUrl as string | null) ?? null,
             avatarData: (fields.avatarData as string | null) ?? null,
+            avatarMimeType: (fields.avatarMimeType as string | null) ?? null,
             avatarCachedAt: fields.avatarCachedAt
               ? new Date(fields.avatarCachedAt as string)
               : null,
             avatarRemoteUrl: (fields.avatarRemoteUrl as string | null) ?? null,
             useProxy: fields.useProxy as boolean,
             countCrossSeedUnsatisfied: (fields.countCrossSeedUnsatisfied as boolean) ?? false,
+            hideUnreadBadges: (fields.hideUnreadBadges as boolean) ?? false,
             isFavorite: (fields.isFavorite as boolean) ?? false,
             sortOrder: (fields.sortOrder as number | null) ?? null,
             joinedAt: (fields.joinedAt as string | null) ?? null,
+            lastAccessAt: (fields.lastAccessAt as string | null) ?? null,
+            profileUrl: (fields.profileUrl as string | null) ?? null,
             createdAt: new Date(fields.createdAt as string),
             updatedAt: new Date(fields.updatedAt as string),
           })
@@ -580,6 +592,9 @@ export async function POST(request: Request) {
           shareScore: (fields.shareScore as number | null) ?? null,
           username: (fields.username as string | null) ?? null,
           group: (fields.group as string | null) ?? null,
+          // Same whole-row export as the trackers insert above. Dropped, every
+          // restored snapshot loses the Manual badge PollLog keys on.
+          isManual: (fields.isManual as boolean) ?? false,
         })
       }
       await batchInsert(tx, trackerSnapshots, snapshotRows)

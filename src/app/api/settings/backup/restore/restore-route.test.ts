@@ -9,6 +9,7 @@
 // also real, so the fixtures below must survive validateBackupJson, that is
 // what stops a fixture from silently omitting a field the route reads.
 
+import { getTableColumns } from "drizzle-orm"
 import { NextResponse } from "next/server"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { authenticate } from "@/lib/api-helpers"
@@ -175,18 +176,24 @@ function makeBackupPayload(encryptionSalt: string, ct: Ciphertexts): BackupPaylo
         platformType: "unit3d",
         encryptedApiToken: ct.trackerToken,
         isActive: true,
+        userPausedAt: null,
         color: "#ff0000",
         qbtTag: "tt",
         remoteUserId: 42,
         platformMeta: null,
+        mouseholeUrl: null,
         avatarData: null,
+        avatarMimeType: null,
         avatarCachedAt: null,
         avatarRemoteUrl: null,
         useProxy: false,
         countCrossSeedUnsatisfied: false,
+        hideUnreadBadges: false,
         isFavorite: true,
         sortOrder: 1,
         joinedAt: "2020-01-01",
+        lastAccessAt: null,
+        profileUrl: null,
         createdAt: ISO,
         updatedAt: ISO,
       },
@@ -210,6 +217,7 @@ function makeBackupPayload(encryptionSalt: string, ct: Ciphertexts): BackupPaylo
         shareScore: 50,
         username: "alice",
         group: "User",
+        isManual: false,
       },
     ],
     trackerRoles: [{ id: 1, trackerId: 1, roleName: "Power User", achievedAt: ISO, notes: null }],
@@ -429,6 +437,130 @@ describe("POST /api/settings/backup/restore — credential re-encryption", () =>
     const restored = onlyInsert(recorder, "notification_targets")
     for (const key of NOTIFY_TOGGLE_KEYS) {
       expect(restored[key], key).toBe(saved[key])
+    }
+  })
+
+  // ─── 0b. Column drift: the insert lists columns the export does not ───────
+
+  // The five runtime fields backup.ts strips from the tracker export. Anything
+  // else in the schema travels in the file, so the insert must name it.
+  const TRACKER_RUNTIME_EXCLUSIONS = new Set([
+    "lastPolledAt",
+    "lastError",
+    "lastErrorAt",
+    "consecutiveFailures",
+    "pausedAt",
+  ])
+
+  /** backup.ts serializes BigInt and Date on the way out; undo that to compare. */
+  function serialize(value: unknown): unknown {
+    if (typeof value === "bigint") return value.toString()
+    if (value instanceof Date) return value.toISOString()
+    return value
+  }
+
+  // Same failure mode as the notify toggles above, on two inserts still listing
+  // columns by hand. A dropped userPausedAt resumes polling a tracker the user
+  // paused; a dropped isManual costs every snapshot the Manual badge PollLog
+  // keys on.
+  it("restores every tracker column the backup carries", async () => {
+    const { trackers: trackersTable } =
+      await vi.importActual<typeof import("@/lib/db/schema")>("@/lib/db/schema")
+    const backupKey = await deriveKey(PASSWORD, SALT_A)
+    const payload = makeBackupPayload(SALT_A, encryptAll(backupKey))
+
+    // Non-default in every column, so a value arriving by schema default rather
+    // than from the file cannot pass as restored.
+    const saved: Record<string, unknown> = {
+      id: 1,
+      name: "Drift Tracker",
+      baseUrl: "https://drift.example.com",
+      apiPath: "/api/v2/user",
+      platformType: "gazelle",
+      encryptedApiToken: payload.trackers[0].encryptedApiToken,
+      encryptedCredentials: encrypt('{"kind":"cookie","value":"invented"}', backupKey),
+      isActive: false,
+      userPausedAt: "2026-03-04T05:06:07.000Z",
+      color: "#ff0000",
+      qbtTag: "drift",
+      remoteUserId: 42,
+      platformMeta: '{"class":"Elite"}',
+      mouseholeUrl: "https://mousehole.example.com/u/driftling",
+      avatarData: "data:image/webp;base64,AAAA",
+      avatarMimeType: "image/webp",
+      avatarCachedAt: "2026-02-03T04:05:06.000Z",
+      avatarRemoteUrl: "https://drift.example.com/avatars/driftling.webp",
+      useProxy: true,
+      countCrossSeedUnsatisfied: true,
+      hideUnreadBadges: true,
+      isFavorite: true,
+      sortOrder: 3,
+      joinedAt: "2020-01-01",
+      lastAccessAt: "2026-03-01",
+      profileUrl: "https://drift.example.com/users/driftling",
+      createdAt: ISO,
+      updatedAt: ISO,
+    }
+    const expected = Object.keys(getTableColumns(trackersTable)).filter(
+      (key) => key !== "id" && !TRACKER_RUNTIME_EXCLUSIONS.has(key)
+    )
+    // A column added to the schema lands here first, so the fixture cannot fall
+    // behind the export it stands in for.
+    expect(Object.keys(saved).sort()).toEqual(["id", ...expected].sort())
+
+    payload.trackers = [saved]
+    mockCurrentSettings({ encryptionSalt: SALT_A })
+
+    expect(await POST(makeRequest(payload, PASSWORD))).toHaveProperty("status", 200)
+
+    const restored = onlyInsert(recorder, "trackers")
+    expect(expected.filter((key) => !(key in restored))).toEqual([])
+    for (const key of expected) {
+      expect(serialize(restored[key]), key).toEqual(saved[key])
+    }
+  })
+
+  it("restores every snapshot column the backup carries", async () => {
+    const { trackerSnapshots: snapshotsTable } =
+      await vi.importActual<typeof import("@/lib/db/schema")>("@/lib/db/schema")
+    const backupKey = await deriveKey(PASSWORD, SALT_A)
+    const payload = makeBackupPayload(SALT_A, encryptAll(backupKey))
+
+    const saved: Record<string, unknown> = {
+      id: 1,
+      trackerId: 1,
+      polledAt: "2026-04-05T06:07:08.000Z",
+      uploadedBytes: "1000",
+      downloadedBytes: "500",
+      ratio: 2,
+      bufferBytes: "250",
+      seedingCount: 10,
+      leechingCount: 1,
+      seedbonus: 100,
+      hitAndRuns: 2,
+      requiredRatio: 1,
+      warned: true,
+      freeleechTokens: 3,
+      shareScore: 50,
+      username: "driftling",
+      group: "Elite",
+      isManual: true,
+    }
+    const expected = Object.keys(getTableColumns(snapshotsTable)).filter((key) => key !== "id")
+    expect(Object.keys(saved).sort()).toEqual(["id", ...expected].sort())
+
+    payload.trackerSnapshots = [saved]
+    mockCurrentSettings({ encryptionSalt: SALT_A })
+
+    expect(await POST(makeRequest(payload, PASSWORD))).toHaveProperty("status", 200)
+
+    const restored = onlyInsert(recorder, "tracker_snapshots")
+    expect(expected.filter((key) => !(key in restored))).toEqual([])
+    for (const key of expected) {
+      // trackerId is the one column a restore must NOT carry over: it is remapped
+      // onto the id the tracker insert above just returned.
+      if (key === "trackerId") continue
+      expect(serialize(restored[key]), key).toEqual(saved[key])
     }
   })
 
