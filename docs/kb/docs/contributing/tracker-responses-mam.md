@@ -34,7 +34,7 @@ Auth fails silently, and you get HTML instead of JSON. We detect it by checking 
 
 ```json
 {
-  "username": "thesneakyrobot",
+  "username": "lanternfoxtail",
   "uid": 230500,
   "classname": "VIP",
   "ratio": 26.7,
@@ -153,7 +153,7 @@ Without `?id=`: empty array. With `?id={uid}` (your ID): full breakdown:
 {
   "clientStats": {
     "uid": 230500,
-    "username": "thesneakyrobot",
+    "username": "lanternfoxtail",
     "seedbonus": 99999,
     "uploaded": "5.125 TiB",
     "downloaded": "196.47 GiB",

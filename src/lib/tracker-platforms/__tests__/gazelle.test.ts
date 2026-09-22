@@ -199,7 +199,7 @@ describe("GazelleAdapter", () => {
         status: "success",
         response: {
           username: "JohnDoe",
-          id: 64605,
+          id: 60517,
           giftTokens: 7,
           meritTokens: 3,
           userstats: {
@@ -215,7 +215,7 @@ describe("GazelleAdapter", () => {
     const stats = await adapter.fetchStats("https://redacted.sh", "token", "/ajax.php")
 
     expect(stats.freeleechTokens).toBe(7)
-    expect(stats.remoteUserId).toBe(64605)
+    expect(stats.remoteUserId).toBe(60517)
   })
 
   it("enriches stats with user profile when enrich option is set", async () => {
@@ -227,7 +227,7 @@ describe("GazelleAdapter", () => {
           status: "success",
           response: {
             username: "JohnDoe",
-            id: 64605,
+            id: 60517,
             giftTokens: 7,
             meritTokens: 3,
             notifications: { messages: 1, notifications: 0, newAnnouncement: false, newBlog: true },
@@ -331,7 +331,7 @@ describe("GazelleAdapter", () => {
           status: "success",
           response: {
             username: "JohnDoe",
-            id: 64605,
+            id: 60517,
             userstats: {
               uploaded: 100000,
               downloaded: 50000,
@@ -463,7 +463,7 @@ describe("GazelleAdapter - security", () => {
           status: "success",
           response: {
             username: "JohnDoe",
-            id: 64605,
+            id: 60517,
             userstats: {
               uploaded: 100000000000,
               downloaded: 50000000000,
@@ -489,7 +489,7 @@ describe("GazelleAdapter - security", () => {
 
     const stats = await adapter.fetchStats("https://redacted.sh", "fake-token", "/ajax.php", {
       enrich: true,
-      remoteUserId: 64605,
+      remoteUserId: 60517,
     })
 
     expect(stats.seedingCount).toBe(31)

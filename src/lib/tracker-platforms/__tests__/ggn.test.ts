@@ -6,8 +6,8 @@ function mockQuickUserResponse() {
   return {
     status: "success",
     response: {
-      username: "thesneakyrobot",
-      id: 74360,
+      username: "lanternfoxtail",
+      id: 70813,
       authkey: "abc123",
       passkey: "def456",
       userstats: {
@@ -29,8 +29,8 @@ function mockUserResponse(overrides?: {
   return {
     status: "success",
     response: {
-      id: 74360,
-      username: "thesneakyrobot",
+      id: 70813,
+      username: "lanternfoxtail",
       stats: {
         uploaded: 372518353895,
         downloaded: 373640248681,
@@ -92,7 +92,7 @@ describe("GGnAdapter", () => {
 
     const stats = await adapter.fetchStats("https://gazellegames.net", "fake-key", "/api.php")
 
-    expect(stats.username).toBe("thesneakyrobot")
+    expect(stats.username).toBe("lanternfoxtail")
     expect(stats.group).toBe("Elite Gamer")
     expect(stats.uploadedBytes).toBe(BigInt(372518353895))
     expect(stats.downloadedBytes).toBe(BigInt(373640248681))
@@ -240,7 +240,7 @@ describe("GGnAdapter - URL construction", () => {
 
     const secondUrl = fetchSpy.mock.calls[1][0] as string
     expect(secondUrl).toContain("request=user")
-    expect(secondUrl).toContain("id=74360")
+    expect(secondUrl).toContain("id=70813")
     expect(secondUrl).toContain("key=my-api-key")
   })
 })

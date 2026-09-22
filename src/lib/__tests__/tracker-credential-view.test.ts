@@ -39,12 +39,12 @@ describe("toVaultView", () => {
   })
 
   it("keeps the value only when `secret` is literally false", () => {
-    const view = toVaultView(vault([{ id: "n", label: "Nick", value: "jordy", secret: false }]))
+    const view = toVaultView(vault([{ id: "n", label: "Nick", value: "tealotter", secret: false }]))
     expect(view.sections[0].fields[0]).toEqual({
       id: "n",
       label: "Nick",
       secret: false,
-      value: "jordy",
+      value: "tealotter",
     })
   })
 

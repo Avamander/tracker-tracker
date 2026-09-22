@@ -323,8 +323,8 @@ describe("NebulanceAdapter - Anthelion compatibility", () => {
     return {
       status: "success",
       response: {
-        ID: 1646,
-        Username: "Kitty",
+        ID: 2853,
+        Username: "Marigold",
         Uploaded: 5368709120,
         Downloaded: 2684354560,
         SeedCount: 88,
@@ -391,12 +391,12 @@ describe("NebulanceAdapter - Anthelion compatibility", () => {
 
     const stats = await adapter.fetchStats("https://anthelion.me", "key", "/api.php")
 
-    expect(stats.username).toBe("Kitty")
+    expect(stats.username).toBe("Marigold")
     expect(stats.group).toBe("Power User")
     expect(stats.uploadedBytes).toBe(BigInt(5368709120))
     expect(stats.seedingCount).toBe(88)
     expect(stats.hitAndRuns).toBeNull() // No HnR field → null
-    expect(stats.remoteUserId).toBe(1646)
+    expect(stats.remoteUserId).toBe(2853)
   })
 
   it("uses SubClasses (plural) for group when present", async () => {
@@ -411,8 +411,8 @@ describe("NebulanceAdapter - Anthelion compatibility", () => {
 
   it("handles flat (unwrapped) response format", async () => {
     const flatResponse = {
-      ID: 1646,
-      Username: "Kitty",
+      ID: 2853,
+      Username: "Marigold",
       Uploaded: 5368709120,
       Downloaded: 2684354560,
       SeedCount: 88,
@@ -431,8 +431,8 @@ describe("NebulanceAdapter - Anthelion compatibility", () => {
     } as Response)
 
     const stats = await adapter.fetchStats("https://anthelion.me", "key", "/api.php")
-    expect(stats.username).toBe("Kitty")
-    expect(stats.remoteUserId).toBe(1646)
+    expect(stats.username).toBe("Marigold")
+    expect(stats.remoteUserId).toBe(2853)
   })
 })
 

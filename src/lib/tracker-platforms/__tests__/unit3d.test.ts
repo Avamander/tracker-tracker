@@ -450,11 +450,11 @@ describe("Unit3dAdapter - numeric byte payloads", () => {
   })
 
   it("parses a build that reports bytes as numbers", async () => {
-    // Verbatim from a live Blutopia /api/user response.
+    // Anonymised from a live Blutopia /api/user response.
     vi.spyOn(global, "fetch").mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        username: "thesneakyrobot",
+        username: "lanternfoxtail",
         group: "BluSeeder",
         uploaded: 2114704480460,
         downloaded: 1041023858647,
@@ -469,7 +469,7 @@ describe("Unit3dAdapter - numeric byte payloads", () => {
 
     const stats = await adapter.fetchStats("https://blutopia.cc", "fake-token", "/api/user")
 
-    expect(stats.username).toBe("thesneakyrobot")
+    expect(stats.username).toBe("lanternfoxtail")
     expect(stats.group).toBe("BluSeeder")
     expect(stats.uploadedBytes).toBe(BigInt(2_114_704_480_460))
     expect(stats.downloadedBytes).toBe(BigInt(1_041_023_858_647))
@@ -672,7 +672,7 @@ describe("Unit3dAdapter - LST envelope (issue #214)", () => {
       ok: true,
       json: async () => ({
         data: {
-          username: "thesneakyrobot",
+          username: "lanternfoxtail",
           group: "Dolphin",
           uploaded: "13.14 TiB",
           downloaded: "0.95 TiB",
@@ -689,7 +689,7 @@ describe("Unit3dAdapter - LST envelope (issue #214)", () => {
 
     const stats = await adapter.fetchStats("https://lst.gg", "fake-token", "/api/user")
 
-    expect(stats.username).toBe("thesneakyrobot")
+    expect(stats.username).toBe("lanternfoxtail")
     expect(stats.group).toBe("Dolphin")
     // 13.14 TiB = 1314 * 1024^4 / 100, rounded half-up by parseBytes
     expect(stats.uploadedBytes).toBe(BigInt(14_447_582_788_977))
@@ -711,7 +711,7 @@ describe("Unit3dAdapter - LST envelope (issue #214)", () => {
   }
 
   const USER = {
-    username: "thesneakyrobot",
+    username: "lanternfoxtail",
     group: "Dolphin",
     uploaded: "13.14 TiB",
     downloaded: "0.95 TiB",

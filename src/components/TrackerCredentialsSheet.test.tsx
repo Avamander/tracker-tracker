@@ -33,7 +33,7 @@ const VAULT_VIEW = {
       id: "irc",
       title: "IRC",
       fields: [
-        { id: "irc_nick", label: "Nick", secret: false, value: "jordy" },
+        { id: "irc_nick", label: "Nick", secret: false, value: "tealotter" },
         { id: "passkey", label: "Passkey", secret: true, hasValue: true },
       ],
     },
@@ -169,7 +169,7 @@ describe("the sheet loads masked", () => {
 
     // secret: false means exactly this, an IRC nick is not a secret and does
     // not deserve a reveal round trip.
-    expect((screen.getByLabelText("Nick") as HTMLInputElement).value).toBe("jordy")
+    expect((screen.getByLabelText("Nick") as HTMLInputElement).value).toBe("tealotter")
     expect(revealCalls()).toHaveLength(0)
   })
 
@@ -459,7 +459,7 @@ describe("saving", () => {
     expect(lastPutVault().sections[0].fields[0]).toMatchObject({
       id: "irc_nick",
       secret: false,
-      value: "jordy",
+      value: "tealotter",
     })
   })
 

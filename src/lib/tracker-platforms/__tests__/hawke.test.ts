@@ -3,13 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { HawkeAdapter } from "../adapters/hawke"
 import type { HawkePlatformMeta } from "../contract"
 
-// The exact body returned by GET https://hawke.uno/api/profile with a live
-// Bearer key, values included. Every expectation below is derived from this
+// The body returned by GET https://hawke.uno/api/profile with a live Bearer
+// key, anonymised, figures kept. Every expectation below is derived from this
 // fixture rather than from what a UNIT3D response would have looked like.
 const LIVE_RESPONSE = {
   success: true,
   data: {
-    username: "CrispyBacon",
+    username: "MapleCanary",
     group: "Dothraki",
     member_since: "2024-12-02T00:09:58+00:00",
     uploaded: 6117633757897,
@@ -64,7 +64,7 @@ describe("HawkeAdapter", () => {
 
     const stats = await adapter.fetchStats("https://hawke.uno", "fake-token", "/api/profile")
 
-    expect(stats.username).toBe("CrispyBacon")
+    expect(stats.username).toBe("MapleCanary")
     expect(stats.group).toBe("Dothraki")
     expect(stats.uploadedBytes).toBe(6117633757897n)
     expect(stats.downloadedBytes).toBe(8744919810357n)

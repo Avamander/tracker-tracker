@@ -72,7 +72,7 @@ const VAULT = {
       fields: [
         // secret: false, an IRC nick is not a secret, and the flag exists so
         // the sheet can render it without a reveal round trip.
-        { id: "irc_nick", label: "Nick", value: "jordy", secret: false },
+        { id: "irc_nick", label: "Nick", value: "tealotter", secret: false },
         // `secret` ABSENT. Fail closed: this must be treated as a secret.
         { id: "irc_nickserv", label: "NickServ password", value: NICKSERV_PASSWORD },
       ],
@@ -192,7 +192,7 @@ describe("GET /api/trackers/[id]/credentials — no secret ever leaves", () => {
     expect(body.vault.sections[0].fields[0]).toMatchObject({
       id: "irc_nick",
       secret: false,
-      value: "jordy",
+      value: "tealotter",
     })
   })
 
@@ -331,7 +331,7 @@ describe("PUT merges omitted values against what is stored", () => {
         id: "irc",
         title: "IRC (renamed)",
         fields: [
-          { id: "irc_nick", label: "Nick", value: "jordy", secret: false },
+          { id: "irc_nick", label: "Nick", value: "tealotter", secret: false },
           { id: "irc_nickserv", label: "NickServ password" },
         ],
       },

@@ -126,7 +126,7 @@ const STAFF_PAGE =
   PAGE_HEAD +
   HEADER_STRIP +
   `<tr><td class=clear><div class="rt-form-card">
-    <a href="userdetails.php?id=1">DaffyD</a>
+    <a href="userdetails.php?id=1">StaffOne</a>
     <a href="userdetails.php?id=42">SomeoneElse</a>
   </div></td></tr>
 ` +
@@ -139,7 +139,7 @@ const STAFF_PAGE =
  */
 const LINK_BEFORE_GREETING_PAGE =
   PAGE_HEAD +
-  `<tr><td class=clear>Toon of the day uploaded by <a href="userdetails.php?id=99">DaffyD</a></td></tr>
+  `<tr><td class=clear>Toon of the day uploaded by <a href="userdetails.php?id=99">StaffOne</a></td></tr>
 ` +
   HEADER_STRIP +
   PROFILE_ROWS +

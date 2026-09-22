@@ -98,11 +98,11 @@ describe("POST /api/auth/username", () => {
     const { set } = signedInWithoutUsername()
 
     const { POST } = await import("./route")
-    const response = await POST(post({ username: "jordy" }))
+    const response = await POST(post({ username: "tealotter" }))
 
     expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toEqual({ success: true, username: "jordy" })
-    expect(set).toHaveBeenCalledWith({ username: "jordy" })
+    await expect(response.json()).resolves.toEqual({ success: true, username: "tealotter" })
+    expect(set).toHaveBeenCalledWith({ username: "tealotter" })
   })
 
   it("stores the trimmed value, not the raw input", async () => {

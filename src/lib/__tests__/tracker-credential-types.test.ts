@@ -24,7 +24,7 @@ function validVault(): TrackerCredentialVault {
         id: "irc",
         title: "IRC",
         fields: [
-          { id: "irc_nick", label: "Nick", value: "jordy", secret: false },
+          { id: "irc_nick", label: "Nick", value: "tealotter", secret: false },
           { id: "irc_nickserv", label: "NickServ password", value: "hunter2", secret: true },
         ],
       },

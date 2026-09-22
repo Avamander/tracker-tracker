@@ -635,7 +635,7 @@ describe("POST /api/auth/change-password — tracker credential vault", () => {
         id: "irc",
         title: "IRC",
         fields: [
-          { id: "irc_nick", label: "Nick", value: "jordy", secret: false },
+          { id: "irc_nick", label: "Nick", value: "tealotter", secret: false },
           { id: "irc_nickserv", label: "NickServ password", value: "hunter2" },
         ],
       },
