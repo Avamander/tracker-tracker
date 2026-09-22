@@ -54,7 +54,7 @@ const PROFILE_TABLE_HTML = `
   <tbody>
     <tr>
       <td><i class="fa fa-lock"></i> User ID</td>
-      <td class="col-sm-7"><span>540792</span></td>
+      <td class="col-sm-7"><span>100200</span></td>
       <td rowspan="8" class="avatar-cell"></td>
     </tr>
     <tr><td>Username</td><td><span class="badge-user group-member">testuser</span></td></tr>
@@ -92,14 +92,14 @@ const PROFILE_TABLE_HTML = `
 
 const AVATAR_HTML = `
 <div id="avatar-uploader" class="img-avatar pull-right"><div><div class="qq-uploader-selector text-center">
-  <img src="https://avistaz.to/images/avatar/z/2/k/z2kyjx7a08ea.jpg" class="avatar-original img-thumbnail">
+  <img src="https://avistaz.to/images/avatar/a/b/c/abcdef012345.jpg" class="avatar-original img-thumbnail">
 </div></div></div>`
 
 const FULL_PAGE = `<!doctype html><html><head></head><body>${RATIO_BAR_HTML}<section class="container content" id="content-area">${PROFILE_TABLE_HTML}</section>${AVATAR_HTML}</body></html>`
 
 describe("parseAvistazProfile", () => {
   it("extracts core stats from the ratio bar", () => {
-    const stats = parseAvistazProfile(FULL_PAGE, "testuser")
+    const stats = parseAvistazProfile(FULL_PAGE, "testuser", "avistaz.to")
     expect(stats.username).toBe("testuser")
     expect(stats.group).toBe("Member")
     expect(stats.uploadedBytes).toBe(BigInt(32_640_000_000)) // 32.64 GB decimal
@@ -113,22 +113,22 @@ describe("parseAvistazProfile", () => {
   })
 
   it("extracts remoteUserId from profile table", () => {
-    const stats = parseAvistazProfile(FULL_PAGE, "testuser")
-    expect(stats.remoteUserId).toBe(540792)
+    const stats = parseAvistazProfile(FULL_PAGE, "testuser", "avistaz.to")
+    expect(stats.remoteUserId).toBe(100200)
   })
 
   it("extracts joinedDate from profile table", () => {
-    const stats = parseAvistazProfile(FULL_PAGE, "testuser")
+    const stats = parseAvistazProfile(FULL_PAGE, "testuser", "avistaz.to")
     expect(stats.joinedDate).toContain("2026")
   })
 
   it("extracts lastAccessDate from private table", () => {
-    const stats = parseAvistazProfile(FULL_PAGE, "testuser")
+    const stats = parseAvistazProfile(FULL_PAGE, "testuser", "avistaz.to")
     expect(stats.lastAccessDate).toContain("2026")
   })
 
   it("extracts platformMeta fields", () => {
-    const stats = parseAvistazProfile(FULL_PAGE, "testuser")
+    const stats = parseAvistazProfile(FULL_PAGE, "testuser", "avistaz.to")
     const meta = stats.platformMeta as AvistazPlatformMeta
     expect(meta.donor).toBe(false)
     expect(meta.invites).toBe(0)
@@ -141,28 +141,30 @@ describe("parseAvistazProfile", () => {
   })
 
   it("extracts avatar URL from profile page", () => {
-    const stats = parseAvistazProfile(FULL_PAGE, "testuser")
-    expect(stats.avatarUrl).toBe("https://avistaz.to/images/avatar/z/2/k/z2kyjx7a08ea.jpg")
+    const stats = parseAvistazProfile(FULL_PAGE, "testuser", "avistaz.to")
+    expect(stats.avatarUrl).toBe("https://avistaz.to/images/avatar/a/b/c/abcdef012345.jpg")
   })
 
   it("computes bufferBytes as upload minus download", () => {
-    const stats = parseAvistazProfile(FULL_PAGE, "testuser")
+    const stats = parseAvistazProfile(FULL_PAGE, "testuser", "avistaz.to")
     expect(stats.bufferBytes).toBe(BigInt(32_640_000_000) - BigInt(1_000))
   })
 
   it("detects login redirect and throws", () => {
     const loginRedirect = `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url='https://avistaz.to/auth/login'" /></head></html>`
-    expect(() => parseAvistazProfile(loginRedirect, "testuser")).toThrow("Session expired")
+    expect(() => parseAvistazProfile(loginRedirect, "testuser", "avistaz.to")).toThrow(
+      "Session expired"
+    )
   })
 
   it("detects Cloudflare challenge and throws", () => {
     const cfChallenge = `<!DOCTYPE html><html><head><title>Just a moment...</title></head><body></body></html>`
-    expect(() => parseAvistazProfile(cfChallenge, "testuser")).toThrow("Cloudflare")
+    expect(() => parseAvistazProfile(cfChallenge, "testuser", "avistaz.to")).toThrow("Cloudflare")
   })
 
   it("throws when ratio bar is missing", () => {
     const noRatioBar = `<!DOCTYPE html><html><head></head><body><p>No ratio bar here.</p></body></html>`
-    expect(() => parseAvistazProfile(noRatioBar, "testuser")).toThrow("ratio bar")
+    expect(() => parseAvistazProfile(noRatioBar, "testuser", "avistaz.to")).toThrow("ratio bar")
   })
 
   it("falls back to passed username when badge-user span is absent", () => {
@@ -178,7 +180,7 @@ describe("parseAvistazProfile", () => {
         <li><a href="#">Hit & Run:</a> 0</li>
       </ul></div></div>
     </body></html>`
-    const stats = parseAvistazProfile(minimalPage, "fallbackuser")
+    const stats = parseAvistazProfile(minimalPage, "fallbackuser", "avistaz.to")
     expect(stats.username).toBe("fallbackuser")
   })
 
@@ -192,10 +194,31 @@ describe("parseAvistazProfile", () => {
       </ul></div></div>
     </body></html>`
 
-    const stats = parseAvistazProfile(newAccount, "newuser")
+    const stats = parseAvistazProfile(newAccount, "newuser", "avistaz.to")
     expect(stats.uploadedBytes).toBe(0n)
     expect(stats.downloadedBytes).toBe(0n)
     expect(stats.ratio).toBe(0)
+  })
+
+  it("rejects a ratio bar whose upload item is no longer labelled", () => {
+    // Standard 2.1: one side readable and the other not is a page-shape change.
+    // Both byte totals are non-nullable, so storing 0n for the unread side
+    // writes a fabricated total into snapshot history and a ratio of 0.
+    const renamedUpload = FULL_PAGE.replace('title="Upload"', 'title="Total Upload"')
+
+    expect(() => parseAvistazProfile(renamedUpload, "testuser", "avistaz.to")).toThrow(
+      "Unexpected response from avistaz.to: unreadable uploaded byte total"
+    )
+  })
+
+  it("rejects a ratio bar whose download item is no longer labelled", () => {
+    // The same page-shape change on the other side, where a fabricated 0n
+    // would make the ratio read Infinity.
+    const renamedDownload = FULL_PAGE.replace('title="Download"', 'title="Total Download"')
+
+    expect(() => parseAvistazProfile(renamedDownload, "testuser", "avistaz.to")).toThrow(
+      "Unexpected response from avistaz.to: unreadable downloaded byte total"
+    )
   })
 
   it("reports ratio bar figures that are absent as unknown", () => {
@@ -208,7 +231,7 @@ describe("parseAvistazProfile", () => {
       </ul></div></div>
     </body></html>`
 
-    const stats = parseAvistazProfile(bytesOnly, "testuser")
+    const stats = parseAvistazProfile(bytesOnly, "testuser", "avistaz.to")
     expect(stats.seedingCount).toBeNull()
     expect(stats.leechingCount).toBeNull()
     expect(stats.seedbonus).toBeNull()
@@ -228,7 +251,7 @@ describe("parseAvistazProfile", () => {
       </ul></div></div>
     </body></html>`
 
-    const stats = parseAvistazProfile(placeholderBonus, "testuser")
+    const stats = parseAvistazProfile(placeholderBonus, "testuser", "avistaz.to")
     expect(stats.seedbonus).toBe(100)
   })
 
@@ -243,7 +266,7 @@ describe("parseAvistazProfile", () => {
       </ul></div></div>
     </body></html>`
 
-    const stats = parseAvistazProfile(noBonusFallback, "testuser")
+    const stats = parseAvistazProfile(noBonusFallback, "testuser", "avistaz.to")
     expect(stats.seedbonus).toBeNull()
   })
 
@@ -257,7 +280,7 @@ describe("parseAvistazProfile", () => {
         <li><a href="#">Leeching:</a> 0</li>
       </ul></div></div>
     </body></html>`
-    const stats = parseAvistazProfile(noDownloadsPage, "freshuser")
+    const stats = parseAvistazProfile(noDownloadsPage, "freshuser", "avistaz.to")
     expect(stats.uploadedBytes).toBe(10_000_000_000n)
     expect(stats.downloadedBytes).toBe(0n)
     expect(stats.ratio).toBe(Infinity)
@@ -276,7 +299,7 @@ describe("parseAvistazProfile", () => {
           <i class="fa fa-exchange"></i> 4.20</li>
       </ul></div></div>
     </body></html>`
-    const stats = parseAvistazProfile(bs5Page, "bs5user")
+    const stats = parseAvistazProfile(bs5Page, "bs5user", "avistaz.to")
     expect(stats.username).toBe("bs5user")
     expect(stats.group).toBe("Power User")
     expect(stats.uploadedBytes).toBe(27050000000n)
@@ -320,7 +343,7 @@ describe("parseAvistazProfile", () => {
         </div>
       </div>
     </body></html>`
-    const stats = parseAvistazProfile(animezPage, "animezuser")
+    const stats = parseAvistazProfile(animezPage, "animezuser", "avistaz.to")
     expect(stats.username).toBe("animezuser")
     expect(stats.group).toBe("Member")
     expect(stats.uploadedBytes).toBe(10000000000n)
@@ -521,7 +544,7 @@ describe("parseAvistazProfile with the permission rows absent", () => {
   const NO_PROFILE_TABLE = `<!doctype html><html><body>${RATIO_BAR_HTML}<section class="container content" id="content-area"></section></body></html>`
 
   it("reports the permissions as unknown rather than granted", () => {
-    const meta = parseAvistazProfile(NO_PROFILE_TABLE, "testuser")
+    const meta = parseAvistazProfile(NO_PROFILE_TABLE, "testuser", "avistaz.to")
       .platformMeta as AvistazPlatformMeta
 
     expect(meta.canDownload).toBeUndefined()
@@ -531,7 +554,7 @@ describe("parseAvistazProfile with the permission rows absent", () => {
   })
 
   it("reports absent counts as unknown rather than zero", () => {
-    const meta = parseAvistazProfile(NO_PROFILE_TABLE, "testuser")
+    const meta = parseAvistazProfile(NO_PROFILE_TABLE, "testuser", "avistaz.to")
       .platformMeta as AvistazPlatformMeta
 
     expect(meta.invites).toBeUndefined()
@@ -540,7 +563,8 @@ describe("parseAvistazProfile with the permission rows absent", () => {
   })
 
   it("still reports a real zero as zero, which is a different thing", () => {
-    const meta = parseAvistazProfile(FULL_PAGE, "testuser").platformMeta as AvistazPlatformMeta
+    const meta = parseAvistazProfile(FULL_PAGE, "testuser", "avistaz.to")
+      .platformMeta as AvistazPlatformMeta
     expect(meta.totalUploads).toBe(0)
     expect(meta.invites).toBe(0)
   })
@@ -556,23 +580,26 @@ describe("parseAvistazProfile permission spellings", () => {
 
   it("reads a renamed negative spelling as denied, not granted", () => {
     const page = withValue("Can Download", "Yes", "Disabled")
-    const meta = parseAvistazProfile(page, "testuser").platformMeta as AvistazPlatformMeta
+    const meta = parseAvistazProfile(page, "testuser", "avistaz.to")
+      .platformMeta as AvistazPlatformMeta
     expect(meta.canDownload).toBe(false)
   })
 
   it("reads an unrecognised value as unknown rather than granted", () => {
     const page = withValue("Can Download", "Yes", "Pending review")
-    const meta = parseAvistazProfile(page, "testuser").platformMeta as AvistazPlatformMeta
+    const meta = parseAvistazProfile(page, "testuser", "avistaz.to")
+      .platformMeta as AvistazPlatformMeta
     expect(meta.canDownload).toBeUndefined()
   })
 
   it("still reads the ordinary spellings", () => {
     const no = withValue("Can Upload", "Yes", "No")
     expect(
-      (parseAvistazProfile(FULL_PAGE, "u").platformMeta as AvistazPlatformMeta).canUpload
+      (parseAvistazProfile(FULL_PAGE, "u", "avistaz.to").platformMeta as AvistazPlatformMeta)
+        .canUpload
     ).toBe(true)
-    expect((parseAvistazProfile(no, "u").platformMeta as AvistazPlatformMeta).canUpload).toBe(
-      false
-    )
+    expect(
+      (parseAvistazProfile(no, "u", "avistaz.to").platformMeta as AvistazPlatformMeta).canUpload
+    ).toBe(false)
   })
 })

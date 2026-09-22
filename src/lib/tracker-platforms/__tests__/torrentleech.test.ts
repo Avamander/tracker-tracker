@@ -78,6 +78,11 @@ const PROFILE_HTML = `
 
 const FULL_PROFILE_PAGE = `<!doctype html><html><head></head><body>${NAV_HTML}${TOP_BAR_HTML}${PROFILE_HTML}</body></html>`
 
+// Asserted inside the byte-total error messages, so a parser that stops
+// threading the hostname through fails here rather than shipping a message
+// the settings sheet cannot attribute to a tracker.
+const TL_HOSTNAME = "www.torrentleech.org"
+
 function setCookieResponse(cookies: string[], overrides: Partial<Response> = {}): Response {
   return {
     ok: true,
@@ -90,7 +95,7 @@ function setCookieResponse(cookies: string[], overrides: Partial<Response> = {})
 
 describe("parseTlProfile", () => {
   it("extracts uploaded/downloaded/ratio from the profile page", () => {
-    const stats = parseTlProfile(FULL_PROFILE_PAGE, "testuser")
+    const stats = parseTlProfile(FULL_PROFILE_PAGE, "testuser", TL_HOSTNAME)
     expect(stats.username).toBe("testuser")
     expect(stats.uploadedBytes).toBe(10_500_000_000n)
     expect(stats.downloadedBytes).toBe(5_250_000_000n)
@@ -101,7 +106,7 @@ describe("parseTlProfile", () => {
   it("reads downloaded bytes from a span with no profile-downloaded-details class", () => {
     // The regression guard. If this ever reads 0 again, ratio becomes Infinity
     // and every torrent on the tracker looks satisfied.
-    const stats = parseTlProfile(FULL_PROFILE_PAGE, "testuser")
+    const stats = parseTlProfile(FULL_PROFILE_PAGE, "testuser", TL_HOSTNAME)
     expect(stats.downloadedBytes).toBeGreaterThan(0n)
     expect(stats.ratio).not.toBe(Infinity)
   })
@@ -111,17 +116,17 @@ describe("parseTlProfile", () => {
       '<span class="profile-info-details">5.25 GB</span>',
       '<span class="profile-info-details profile-downloaded-details">1.25 GB</span>'
     )
-    expect(parseTlProfile(symmetric, "testuser").downloadedBytes).toBe(1_250_000_000n)
+    expect(parseTlProfile(symmetric, "testuser", TL_HOSTNAME).downloadedBytes).toBe(1_250_000_000n)
   })
 
   it("reads the user class from the badge, not the Classic TL nav link", () => {
-    const stats = parseTlProfile(FULL_PROFILE_PAGE, "testuser")
+    const stats = parseTlProfile(FULL_PROFILE_PAGE, "testuser", TL_HOSTNAME)
     expect(stats.group).toBe("Registered")
   })
 
   it("falls back to the Class table row when the badge is absent", () => {
     const noBadge = FULL_PROFILE_PAGE.replace("label-user-class", "label-something-else")
-    expect(parseTlProfile(noBadge, "testuser").group).toBe("Registered")
+    expect(parseTlProfile(noBadge, "testuser", TL_HOSTNAME).group).toBe("Registered")
   })
 
   it("defaults the class to User when the page carries neither", () => {
@@ -129,19 +134,19 @@ describe("parseTlProfile", () => {
       "label-user-class",
       "x"
     ).replace("<td>Class</td>", "<td>Rank</td>")}</body></html>`
-    expect(parseTlProfile(noClass, "testuser").group).toBe("User")
+    expect(parseTlProfile(noClass, "testuser", TL_HOSTNAME).group).toBe("User")
   })
 
   it("counts torrents from the parenthesised figure, not the size beside it", () => {
     // "10.5 GB (12)": the first number in that cell is 10, which is a byte
     // total masquerading as a torrent count.
-    const stats = parseTlProfile(FULL_PROFILE_PAGE, "testuser")
+    const stats = parseTlProfile(FULL_PROFILE_PAGE, "testuser", TL_HOSTNAME)
     expect(stats.seedingCount).toBe(12)
     expect(stats.leechingCount).toBe(3)
   })
 
   it("reports hit and runs from the top bar", () => {
-    expect(parseTlProfile(FULL_PROFILE_PAGE, "testuser").hitAndRuns).toBe(2)
+    expect(parseTlProfile(FULL_PROFILE_PAGE, "testuser", TL_HOSTNAME).hitAndRuns).toBe(2)
   })
 
   it("reports zero hit and runs as 0, not null", () => {
@@ -149,21 +154,21 @@ describe("parseTlProfile", () => {
       '<i class="fa fa-ban"></i>  2',
       '<i class="fa fa-ban"></i>  0'
     )
-    expect(parseTlProfile(clean, "testuser").hitAndRuns).toBe(0)
+    expect(parseTlProfile(clean, "testuser", TL_HOSTNAME).hitAndRuns).toBe(0)
   })
 
   it("reports hit and runs as null when the top bar has no such cell", () => {
     const noCell = FULL_PROFILE_PAGE.replace('title="Hit and Run"', 'title="Something Else"')
-    expect(parseTlProfile(noCell, "testuser").hitAndRuns).toBeNull()
+    expect(parseTlProfile(noCell, "testuser", TL_HOSTNAME).hitAndRuns).toBeNull()
   })
 
   it("reads TL Points from the total-TL-points span", () => {
-    expect(parseTlProfile(FULL_PROFILE_PAGE, "testuser").seedbonus).toBeCloseTo(2750.5)
+    expect(parseTlProfile(FULL_PROFILE_PAGE, "testuser", TL_HOSTNAME).seedbonus).toBeCloseTo(2750.5)
   })
 
   it("falls back to the TL Points label when the span class is absent", () => {
     const noSpan = FULL_PROFILE_PAGE.replace("total-TL-points", "tl-points-renamed")
-    expect(parseTlProfile(noSpan, "testuser").seedbonus).toBeCloseTo(2750.5)
+    expect(parseTlProfile(noSpan, "testuser", TL_HOSTNAME).seedbonus).toBeCloseTo(2750.5)
   })
 
   // The hit and run assertion above already reads a missing top bar as unknown.
@@ -171,7 +176,7 @@ describe("parseTlProfile", () => {
   // widget, which is what puts a tracker on the "no seeds" badge.
   it("reports counts as unknown when the top bar is missing entirely", () => {
     const noTopBar = `<!doctype html><html><body>${PROFILE_HTML}</body></html>`
-    const stats = parseTlProfile(noTopBar, "testuser")
+    const stats = parseTlProfile(noTopBar, "testuser", TL_HOSTNAME)
     expect(stats.seedingCount).toBeNull()
     expect(stats.leechingCount).toBeNull()
     expect(stats.seedbonus).toBeNull()
@@ -183,7 +188,7 @@ describe("parseTlProfile", () => {
       <div class="profile-downloaded"><span class="profile-info-details">0 B</span></div>
       <div class="profile-ratio"><span class="profile-info-details profile-ratio-details">&infin;</span></div>
     </body></html>`
-    const stats = parseTlProfile(infPage, "testuser")
+    const stats = parseTlProfile(infPage, "testuser", TL_HOSTNAME)
     expect(stats.ratio).toBe(Infinity)
   })
 
@@ -192,7 +197,7 @@ describe("parseTlProfile", () => {
       <div class="profile-uploaded"><span class="profile-info-details profile-uploaded-details">250 GB</span></div>
       <div class="profile-downloaded"><span class="profile-info-details">0 B</span></div>
     </body></html>`
-    const stats = parseTlProfile(noRatioCell, "testuser")
+    const stats = parseTlProfile(noRatioCell, "testuser", TL_HOSTNAME)
     expect(stats.uploadedBytes).toBe(250_000_000_000n)
     expect(stats.downloadedBytes).toBe(0n)
     expect(stats.ratio).toBe(Infinity)
@@ -200,22 +205,56 @@ describe("parseTlProfile", () => {
 
   it("raises session expiry as a type, so withTlSession need not read the message", () => {
     const loginPage = `<!doctype html><html><body><form action="/user/account/login/">login</form></body></html>`
-    expect(() => parseTlProfile(loginPage, "testuser")).toThrow(SessionExpiredError)
+    expect(() => parseTlProfile(loginPage, "testuser", TL_HOSTNAME)).toThrow(SessionExpiredError)
   })
 
   it("detects session expiry from a login page redirect", () => {
     const loginPage = `<!doctype html><html><body><form action="/user/account/login/">login</form></body></html>`
-    expect(() => parseTlProfile(loginPage, "testuser")).toThrow("Session expired")
+    expect(() => parseTlProfile(loginPage, "testuser", TL_HOSTNAME)).toThrow("Session expired")
   })
 
   it("detects Cloudflare challenge and throws", () => {
     const cfChallenge = `<!doctype html><html><head><title>Just a moment...</title></head><body></body></html>`
-    expect(() => parseTlProfile(cfChallenge, "testuser")).toThrow("Cloudflare")
+    expect(() => parseTlProfile(cfChallenge, "testuser", TL_HOSTNAME)).toThrow("Cloudflare")
   })
 
   it("throws when profile stats are missing (unauthenticated page)", () => {
     const noStats = `<!doctype html><html><body><p>Nothing here</p></body></html>`
-    expect(() => parseTlProfile(noStats, "testuser")).toThrow("profile stats")
+    expect(() => parseTlProfile(noStats, "testuser", TL_HOSTNAME)).toThrow("profile stats")
+  })
+
+  // One total readable and the other not is a page-shape change, not an account
+  // with nothing on that side. Substituting 0n there writes a fabricated figure
+  // into snapshot history and makes the ratio 0 or Infinity (standard 2.1).
+  it("rejects a page whose uploaded total is unreadable while downloaded parses", () => {
+    const noUploadedFigure = FULL_PROFILE_PAGE.replace(
+      '<span class="profile-info-details profile-uploaded-details">10.5 GB</span>',
+      ""
+    )
+    expect(() => parseTlProfile(noUploadedFigure, "testuser", TL_HOSTNAME)).toThrow(
+      "Unexpected response from www.torrentleech.org: unreadable uploaded byte total"
+    )
+  })
+
+  it("rejects a page whose downloaded total is unreadable while uploaded parses", () => {
+    const noDownloadedFigure = FULL_PROFILE_PAGE.replace(
+      '<span class="profile-info-details">5.25 GB</span>',
+      ""
+    )
+    expect(() => parseTlProfile(noDownloadedFigure, "testuser", TL_HOSTNAME)).toThrow(
+      "Unexpected response from www.torrentleech.org: unreadable downloaded byte total"
+    )
+  })
+
+  it("reads a rendered zero upload as 0n instead of calling it unreadable", () => {
+    const zeroUpload = FULL_PROFILE_PAGE.replace(
+      '<span class="profile-info-details profile-uploaded-details">10.5 GB</span>',
+      '<span class="profile-info-details profile-uploaded-details">0 B</span>'
+    )
+    const stats = parseTlProfile(zeroUpload, "testuser", TL_HOSTNAME)
+    expect(stats.uploadedBytes).toBe(0n)
+    expect(stats.downloadedBytes).toBe(5_250_000_000n)
+    expect(stats.ratio).toBe(0)
   })
 })
 

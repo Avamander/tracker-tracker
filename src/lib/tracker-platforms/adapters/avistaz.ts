@@ -128,7 +128,11 @@ function extractRatioBarValue(items: ParsedElement[], labelRegex: RegExp): strin
 // Profile page parser
 // ---------------------------------------------------------------------------
 
-export function parseAvistazProfile(html: string, username: string): TrackerStats {
+export function parseAvistazProfile(
+  html: string,
+  username: string,
+  hostname: string
+): TrackerStats {
   // Detect login redirect. AvistaZ uses /auth/login, AnimeZ and others use /login.
   if (html.includes("/auth/login") || html.includes('action="/login"')) {
     throw new SessionExpiredError("Session expired. Browser cookies need to be refreshed")
@@ -204,15 +208,21 @@ export function parseAvistazProfile(html: string, username: string): TrackerStat
   }
 
   // A ratio bar with neither item is a page this parser does not understand.
-  // A brand new account, whose items read 0 B, is not, and used to throw here.
+  // A brand new account, whose items read 0 B, is not.
   if (uploadedBytes === undefined && downloadedBytes === undefined) {
     throw new Error(
       "Could not extract upload/download bytes from AvistaZ ratio bar. The page structure may have changed."
     )
   }
-
-  const uploaded = uploadedBytes ?? 0n
-  const downloaded = downloadedBytes ?? 0n
+  // One side readable and the other not is a page-shape change, not an account
+  // with nothing on that side, and both fields are non-nullable bigint, so a 0n
+  // here would be stored as a measured zero (standard 2.1).
+  if (uploadedBytes === undefined) {
+    throw new Error(`Unexpected response from ${hostname}: unreadable uploaded byte total`)
+  }
+  if (downloadedBytes === undefined) {
+    throw new Error(`Unexpected response from ${hostname}: unreadable downloaded byte total`)
+  }
 
   // BS3 (AvistaZ) uses text labels like "Seeding: 2". BS5 (AnimeZ) uses tooltip
   // titles handled above. Fall back to text-based extraction for BS3. A tooltip
@@ -330,12 +340,12 @@ export function parseAvistazProfile(html: string, username: string): TrackerStat
   return {
     username: parsedUsername,
     group,
-    uploadedBytes: uploaded,
-    downloadedBytes: downloaded,
+    uploadedBytes,
+    downloadedBytes,
     // Compute from byte totals, not the ratio bar. AvistaZ caps its display at
     // 999999.99, so a near-zero account parses to a fake number not infinity.
-    ratio: computeRatio(uploaded, downloaded),
-    bufferBytes: computeBufferBytes(uploaded, downloaded),
+    ratio: computeRatio(uploadedBytes, downloadedBytes),
+    bufferBytes: computeBufferBytes(uploadedBytes, downloadedBytes),
     seedingCount,
     leechingCount,
     seedbonus,
@@ -386,7 +396,7 @@ export class AvistazAdapter implements TrackerAdapter {
     const creds = parseAvistazCredentials(apiToken)
     const profileUrl = `${baseUrl}/profile/${encodeURIComponent(creds.username)}`
     const html = await fetchHtml(profileUrl, creds.cookies, creds.userAgent, options?.proxyAgent)
-    return parseAvistazProfile(html, creds.username)
+    return parseAvistazProfile(html, creds.username, new URL(baseUrl).hostname)
   }
 
   async fetchRaw(
@@ -399,10 +409,11 @@ export class AvistazAdapter implements TrackerAdapter {
     const creds = parseAvistazCredentials(apiToken)
     const profileUrl = `${baseUrl}/profile/${encodeURIComponent(creds.username)}`
     const endpoint = `/profile/${creds.username}`
+    const hostname = new URL(baseUrl).hostname
 
     try {
       const html = await fetchHtml(profileUrl, creds.cookies, creds.userAgent, options?.proxyAgent)
-      const stats = parseAvistazProfile(html, creds.username)
+      const stats = parseAvistazProfile(html, creds.username, hostname)
       calls.push({ label: "Profile Page", endpoint, data: stats, error: null })
     } catch (err) {
       calls.push({

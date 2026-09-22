@@ -15,9 +15,11 @@ const STATS_HTML = `
 
 const FULL_PAGE = `<!doctype html><html><head></head><body>${STATS_HTML}</body></html>`
 
+const HOSTNAME = "iptorrents.com"
+
 describe("parseIptProfile", () => {
   it("extracts stats from the header stats bar", () => {
-    const stats = parseIptProfile(FULL_PAGE)
+    const stats = parseIptProfile(FULL_PAGE, HOSTNAME)
     expect(stats.username).toBe("testuser")
     expect(stats.ratio).toBeCloseTo(0.74)
     expect(stats.uploadedBytes).toBe(14_500_000_000n)
@@ -33,7 +35,7 @@ describe("parseIptProfile", () => {
     // nothing and the connection test goes green beside it.
     const unknownShape = `<!doctype html><html><body><div class="stats"><span class="uname">testuser</span><div class="tTipWrap">nothing recognisable here</div></div></body></html>`
 
-    expect(() => parseIptProfile(unknownShape)).toThrow(/upload\/download bytes/i)
+    expect(() => parseIptProfile(unknownShape, HOSTNAME)).toThrow(/upload\/download bytes/i)
   })
 
   it("reads a brand new account as zeros rather than an unreadable page", () => {
@@ -45,10 +47,28 @@ describe("parseIptProfile", () => {
       <div class="tTipWrap"><span class="tTip">Downloaded</span> 0 B</div>
     </div></body></html>`
 
-    const stats = parseIptProfile(newAccount)
+    const stats = parseIptProfile(newAccount, HOSTNAME)
     expect(stats.uploadedBytes).toBe(0n)
     expect(stats.downloadedBytes).toBe(0n)
     expect(stats.ratio).toBe(0)
+  })
+
+  it("rejects a page whose Uploaded row is unreadable while Downloaded parses", () => {
+    // The Downloaded row still parses, so the both-missing guard never fires and
+    // an upload total the account never had would reach the snapshot as 0n.
+    const uploadUnreadable = FULL_PAGE.replace("14.5 GB", "n/a")
+
+    expect(() => parseIptProfile(uploadUnreadable, HOSTNAME)).toThrow(
+      "Unexpected response from iptorrents.com: unreadable uploaded byte total"
+    )
+  })
+
+  it("rejects a page whose Downloaded row is unreadable while Uploaded parses", () => {
+    const downloadUnreadable = FULL_PAGE.replace("19.6 GB", "n/a")
+
+    expect(() => parseIptProfile(downloadUnreadable, HOSTNAME)).toThrow(
+      "Unexpected response from iptorrents.com: unreadable downloaded byte total"
+    )
   })
 
   it("reports counts the stats bar does not carry as unknown", () => {
@@ -60,21 +80,21 @@ describe("parseIptProfile", () => {
       <div class="tTipWrap"><span class="tTip">Downloaded</span> 500 MB</div>
     </div></body></html>`
 
-    const stats = parseIptProfile(bytesOnly)
+    const stats = parseIptProfile(bytesOnly, HOSTNAME)
     expect(stats.seedingCount).toBeNull()
     expect(stats.leechingCount).toBeNull()
     expect(stats.seedbonus).toBeNull()
   })
 
   it("computes bufferBytes as upload minus download", () => {
-    const stats = parseIptProfile(FULL_PAGE)
+    const stats = parseIptProfile(FULL_PAGE, HOSTNAME)
     // This fixture is a deficit account (14.5 GB up, 19.6 GB down), the
     // shortfall is the point of the chart, so it is not clamped to 0n.
     expect(stats.bufferBytes).toBe(-5_100_000_000n)
   })
 
   it("defaults group to 'User' with no VIP badge", () => {
-    const stats = parseIptProfile(FULL_PAGE)
+    const stats = parseIptProfile(FULL_PAGE, HOSTNAME)
     expect(stats.group).toBe("User")
   })
 
@@ -88,7 +108,7 @@ describe("parseIptProfile", () => {
         <span class="tTipWrap"><div class="tTip">Downloaded</div>500.0 MB</span>
       </div>
     </body></html>`
-    const stats = parseIptProfile(vipPage)
+    const stats = parseIptProfile(vipPage, HOSTNAME)
     expect(stats.group).toBe("VIP")
   })
 
@@ -102,7 +122,7 @@ describe("parseIptProfile", () => {
         <div class="up-stat"><div class="up-stat-label">Balance</div><div class="up-stat-value">10.5</div></div>
       </div>
     </body></html>`
-    const stats = parseIptProfile(upStatPage)
+    const stats = parseIptProfile(upStatPage, HOSTNAME)
     expect(stats.uploadedBytes).toBe(2_000_000_000n)
     expect(stats.downloadedBytes).toBe(1_000_000_000n)
     // The Ratio card deliberately contradicts the byte totals: 2 GB over 1 GB
@@ -121,7 +141,7 @@ describe("parseIptProfile", () => {
       <div class="tTipWrap"><span class="tTip">Downloaded</span> 500 MB</div>
       <div class="tTipWrap"><span class="tTip">Bonus Points</span> ...</div>
     </div></body></html>`
-    expect(parseIptProfile(tTipPage).seedbonus).toBeNull()
+    expect(parseIptProfile(tTipPage, HOSTNAME).seedbonus).toBeNull()
 
     // The .up-stat fallback carries its own copy of the same parse.
     const upStatPage = `<!doctype html><html><head></head><body>
@@ -132,7 +152,7 @@ describe("parseIptProfile", () => {
         <div class="up-stat"><div class="up-stat-label">Balance</div><div class="up-stat-value">...</div></div>
       </div>
     </body></html>`
-    expect(parseIptProfile(upStatPage).seedbonus).toBeNull()
+    expect(parseIptProfile(upStatPage, HOSTNAME).seedbonus).toBeNull()
   })
 
   it("returns Infinity for ratio when downloaded is zero and uploaded is positive", () => {
@@ -144,7 +164,7 @@ describe("parseIptProfile", () => {
         <span class="tTipWrap"><div class="tTip">Downloaded</div>0.0 GB</span>
       </div>
     </body></html>`
-    const stats = parseIptProfile(noDownloadsPage)
+    const stats = parseIptProfile(noDownloadsPage, HOSTNAME)
     expect(stats.uploadedBytes).toBe(5_000_000_000n)
     expect(stats.downloadedBytes).toBe(0n)
     expect(stats.ratio).toBe(Infinity)
@@ -152,17 +172,17 @@ describe("parseIptProfile", () => {
 
   it("throws when the stats bar is missing (unauthenticated page)", () => {
     const noStats = `<!doctype html><html><head></head><body><p>No stats here.</p></body></html>`
-    expect(() => parseIptProfile(noStats)).toThrow("stats bar")
+    expect(() => parseIptProfile(noStats, HOSTNAME)).toThrow("stats bar")
   })
 
   it("detects a session-expired login redirect and throws", () => {
     const loginRedirect = `<!doctype html><html><head><meta http-equiv="refresh" content="0;url='/auth/login'" /></head></html>`
-    expect(() => parseIptProfile(loginRedirect)).toThrow("Session expired")
+    expect(() => parseIptProfile(loginRedirect, HOSTNAME)).toThrow("Session expired")
   })
 
   it("detects a Cloudflare challenge and throws", () => {
     const cfChallenge = `<!doctype html><html><head><title>Just a moment...</title></head><body></body></html>`
-    expect(() => parseIptProfile(cfChallenge)).toThrow("Cloudflare")
+    expect(() => parseIptProfile(cfChallenge, HOSTNAME)).toThrow("Cloudflare")
   })
 })
 

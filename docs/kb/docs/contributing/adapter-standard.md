@@ -68,15 +68,16 @@ Seven `TrackerStats` fields are nullable for exactly this reason (`types.ts:15-2
 `invites: number | null` and sends `null`, the tracker is stating the figure is unknown. Map it to
 `null` in `TrackerStats` and `undefined` in `platformMeta`. Never to `0`.
 
-**Two shapes that look like violations and are not.** Say so in a comment so a reviewer does not
-"fix" them:
+**Byte totals are never coalesced.** Both are non-nullable `bigint`, so an absent or unreadable
+total cannot be reported as unknown and has to fail the poll. A JSON adapter gets that from
+`requireBytes` (3). A scraper throws when both totals are missing (the page is not a profile)
+and again when exactly one is unreadable, with the `Unexpected response from <host>:`
+prefix, the way `parseRetrotoonProfile` and `parseFilelistProfile` do. `?? 0n` on a byte total
+is a violation and the conformance test flags it.
 
-- `uploadedBytes ?? 0n`. Both byte totals are non-nullable `bigint`, so there is no null to
-  return (`filelist.ts:144-145`). Only safe because the adapter already threw if **both** totals
-  were missing (`filelist.ts:138-143`). If you can parse one but not the other, throw. A JSON
-  adapter gets that from `requireBytes` (3); a scraper does it the way FileList does.
-- `|| 0` on a value that came out of a `\d+` capture. Unreachable. Delete it rather than explain
-  it.
+**One shape that looks like a violation and is not.** Say so in a comment so a reviewer does not
+"fix" it: `|| 0` on a value that came out of a `\d+` capture. Unreachable. Delete it rather than
+explain it.
 
 **A secondary or enrichment call may only raise a field from `null` to a value**, never coalesce
 an absent one down to a literal. Reference: `gazelle.ts:205-206`, guarding with
@@ -282,7 +283,7 @@ dashes.
 - [ ] `warned` is `null` unless the response carried an actual boolean.
 - [ ] `ratio` is `computeRatio(...)`, or the reported ratio with `computeRatio` as fallback and a
       comment saying why. No `|| 0` anywhere in the ratio expression.
-- [ ] Any `?? 0n` I kept is on a non-nullable `bigint`, and I throw if the totals are missing.
+- [ ] I never coalesce a byte total; a missing or unreadable one throws with the `Unexpected response from` prefix.
 - [ ] In `platformMeta`, an omitted figure is `undefined` and its key absent. No fabricated
       booleans. Byte figures are `number`.
 - [ ] My meta interface declares every optional-on-the-wire field optional.
@@ -422,7 +423,7 @@ rule is aspirational when it is already green.
 | No U+2014 | Prose review cannot see an em dash reliably. Covers the test files too. |
 | No banned word | Locked in at zero cost. |
 | No `JSON.parse(apiToken` outside `helpers/` | Scoped to `adapters/`, where `parseCredentialJson` is the only sanctioned route. |
-| `/\?\?\s*(0\|false\|true)\b/` against a small allowlist | The null versus zero rule. The allowlist is the point: adding a coalescing default means adding a line with a reason, which turns a silent choice into a reviewable one. Keep `?? 0n` out of scope. |
+| `/\?\?\s*(0\|false\|true)\b/` against a small allowlist | The null versus zero rule. The allowlist is the point: adding a coalescing default means adding a line with a reason, which turns a silent choice into a reviewable one. `?? 0n` is in scope: a byte total is never coalesced. |
 | Each `<name>.test.ts` calls `.fetchRaw(` | Every adapter's debug path is exercised somewhere. |
 | Every logic-bearing file in `helpers/` has a colocated test | `errors.ts` is declaration-only and exempt. |
 | The `Functions:` header lists every function the file declares | Closes 7.7 for the files that carry a header. |

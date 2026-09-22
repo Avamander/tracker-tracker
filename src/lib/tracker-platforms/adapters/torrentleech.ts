@@ -286,7 +286,7 @@ function trailingCount(text: string): number | null {
   return parseInt(matches[matches.length - 1].replace(/,/g, ""), 10)
 }
 
-export function parseTlProfile(html: string, username: string): TrackerStats {
+export function parseTlProfile(html: string, username: string, hostname: string): TrackerStats {
   if (html.includes("/user/account/login")) {
     throw new SessionExpiredError("Session expired. TorrentLeech cookies need to be refreshed")
   }
@@ -301,15 +301,10 @@ export function parseTlProfile(html: string, username: string): TrackerStats {
 
   const doc = parseHtml(html)
 
-  // Only the uploaded figure carries a `profile-uploaded-details` class. Its
-  // downloaded counterpart is marked up as a bare `profile-info-details` span
-  // inside `.profile-downloaded`. There is no `profile-downloaded-details`
-  // anywhere on the page, so selecting it matched nothing and every account
-  // parsed as having downloaded zero bytes. That is not a cosmetic miss: it
-  // makes `computeRatio` return Infinity and `computeBufferBytes` return the
-  // full upload total, so an account is reported as unconditionally healthy.
-  //
-  // Both are read through the parent container, with the details class kept
+  // Only the uploaded figure carries a `profile-uploaded-details` class; the
+  // downloaded one is a bare `profile-info-details` span inside
+  // `.profile-downloaded`, with no counterpart class anywhere on the page. So
+  // each side is read through its parent container, the details class kept
   // first in case TorrentLeech ever makes the markup symmetric.
   const uploadedText = firstText(doc, [
     ".profile-uploaded-details",
@@ -325,9 +320,18 @@ export function parseTlProfile(html: string, username: string): TrackerStats {
       "Could not find profile stats on TorrentLeech page. The page may not be authenticated"
     )
   }
+  // One side readable and the other not is a page-shape change, not an account
+  // with nothing on that side, and both fields are non-nullable bigint, so a 0n
+  // here would be stored as a measured zero (standard 2.1).
+  if (!uploadedText) {
+    throw new Error(`Unexpected response from ${hostname}: unreadable uploaded byte total`)
+  }
+  if (!downloadedText) {
+    throw new Error(`Unexpected response from ${hostname}: unreadable downloaded byte total`)
+  }
 
-  const uploadedBytes = uploadedText ? parseBytes(uploadedText) : 0n
-  const downloadedBytes = downloadedText ? parseBytes(downloadedText) : 0n
+  const uploadedBytes = parseBytes(uploadedText)
+  const downloadedBytes = parseBytes(downloadedText)
 
   // Active seeding/leeching counts appear only in the top bar, alongside the
   // size totals they are parenthesised after.
@@ -452,10 +456,15 @@ export class TorrentleechAdapter implements TrackerAdapter {
     options?: FetchOptions
   ): Promise<TrackerStats> {
     const creds = parseTlCredentials(apiToken)
+    const hostname = new URL(baseUrl).hostname
     const profileUrl = `${baseUrl}/profile/${encodeURIComponent(creds.username)}`
 
     return withTlSession(baseUrl, creds, options?.proxyAgent, async (cookies) =>
-      parseTlProfile(await fetchHtml(profileUrl, cookies, options?.proxyAgent), creds.username)
+      parseTlProfile(
+        await fetchHtml(profileUrl, cookies, options?.proxyAgent),
+        creds.username,
+        hostname
+      )
     )
   }
 
@@ -467,6 +476,7 @@ export class TorrentleechAdapter implements TrackerAdapter {
   ): Promise<DebugApiCall[]> {
     const calls: DebugApiCall[] = []
     const creds = parseTlCredentials(apiToken)
+    const hostname = new URL(baseUrl).hostname
     // Encoded like fetchStats builds it. Unencoded, a username with a space or
     // a slash produced a different URL here than the one the poll actually uses.
     const endpoint = `/profile/${encodeURIComponent(creds.username)}`
@@ -474,7 +484,11 @@ export class TorrentleechAdapter implements TrackerAdapter {
     try {
       const profileUrl = `${baseUrl}${endpoint}`
       const stats = await withTlSession(baseUrl, creds, options?.proxyAgent, async (cookies) =>
-        parseTlProfile(await fetchHtml(profileUrl, cookies, options?.proxyAgent), creds.username)
+        parseTlProfile(
+          await fetchHtml(profileUrl, cookies, options?.proxyAgent),
+          creds.username,
+          hostname
+        )
       )
       calls.push({ label: "Profile Page", endpoint, data: stats, error: null })
     } catch (err) {

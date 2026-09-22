@@ -5,30 +5,37 @@ import { FilelistAdapter, parseFilelistCredentials, parseFilelistProfile } from 
 import type { FileListPlatformMeta } from "../contract"
 
 const VALID_TOKEN = JSON.stringify({
-  cookies: "uid=1683565; pass=abc123def456",
+  cookies: "uid=4207731; pass=abc123def456",
   userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) TestUA",
 })
 
+// What the adapter derives from baseUrl. The parser spends it only on error
+// wording, so the tests can assert the exact sentence a user would see.
+const HOST = "filelist.io"
+
 // ---------------------------------------------------------------------------
-// Fixture: verbatim from the owner's userdetails.php?id=1683565 capture
-// (2026-08-28, fresh account, English labels). Only redaction: the 32-hex
-// Cloudflare beacon token on the final <script> line is zeroed. The saved-page
-// asset rewrites ("./Details for ... _files/...") are kept as captured.
+// Fixture: the owner's userdetails.php capture (2026-08-28, fresh account,
+// English labels), anonymised. The account handle and both member ids are
+// invented values of the same length and character class, so the rest of the
+// markup stays byte-for-byte as captured, including the saved-page asset
+// rewrites ("./Details for ... _files/...") and the "saved from url=(0046)"
+// length prefix. The 32-hex Cloudflare beacon token on the final <script>
+// line is zeroed.
 // Composed as PAGE_HEAD + HEADER_STRIP + USERDETAILS_ROWS + PAGE_FOOTER.
 // ---------------------------------------------------------------------------
 
 const PAGE_HEAD = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<!-- saved from url=(0046)https://filelist.io/userdetails.php?id=1683565 -->
+<!-- saved from url=(0046)https://filelist.io/userdetails.php?id=4207731 -->
 <html xmlns="https://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<title>Details for BrotherMayIhaveSomeLoops :: FileList</title>
+<title>Details for SilentOtterCountsPebbles :: FileList</title>
 
-<link rel="stylesheet" href="./Details for BrotherMayIhaveSomeLoops __ FileList_files/blue.css" type="text/css">
+<link rel="stylesheet" href="./Details for SilentOtterCountsPebbles __ FileList_files/blue.css" type="text/css">
 <link rel="alternate" type="application/rss+xml" title="Latest Torrents" href="https://filelist.io/rss.php">
 <link rel="shortcut icon" href="https://filelist.io/favicon.ico" type="image/x-icon">
 
-<script src="./Details for BrotherMayIhaveSomeLoops __ FileList_files/jquery-2.2.4.min.js.download" integrity="sha256-BbhdlvQf/xTY9gja0Dq3HiwQF8LaCRTXxZKRutelT44=" crossorigin="anonymous"></script>
-<script src="./Details for BrotherMayIhaveSomeLoops __ FileList_files/bootstrap.min.js.download"></script>
-<link href="./Details for BrotherMayIhaveSomeLoops __ FileList_files/bootstrap.min.css" rel="stylesheet">
+<script src="./Details for SilentOtterCountsPebbles __ FileList_files/jquery-2.2.4.min.js.download" integrity="sha256-BbhdlvQf/xTY9gja0Dq3HiwQF8LaCRTXxZKRutelT44=" crossorigin="anonymous"></script>
+<script src="./Details for SilentOtterCountsPebbles __ FileList_files/bootstrap.min.js.download"></script>
+<link href="./Details for SilentOtterCountsPebbles __ FileList_files/bootstrap.min.css" rel="stylesheet">
 
 </head>
 
@@ -42,41 +49,41 @@ const HEADER_STRIP = `        <div class="mainheader"><!-- Begin Header -->
                 <a href="https://filelist.io/index.php"><div class="logo" style="background-image:url(&#39;/styles/images/logo_18years.png&#39;)"></div></a> <!-- logo -->
 
 	<div class="statusbar">
-    <div class="status_avatar" style="float:left;"><a href="https://filelist.io/userdetails.php?id=1683565"><img src="./Details for BrotherMayIhaveSomeLoops __ FileList_files/default_thumb.png" alt=""></a></div>
+    <div class="status_avatar" style="float:left;"><a href="https://filelist.io/userdetails.php?id=4207731"><img src="./Details for SilentOtterCountsPebbles __ FileList_files/default_thumb.png" alt=""></a></div>
 
     <div style="float:left;">
          <div style="padding:1px;">
-            Hello, <a href="https://filelist.io/userdetails.php?id=1683565"><span style="font-size:11px;font-weight:bold;">BrotherMayIhaveSomeLoops</span></a><span style="position:relative;bottom:2px;"></span> [<font color="#b8b7b7">User</font>]
+            Hello, <a href="https://filelist.io/userdetails.php?id=4207731"><span style="font-size:11px;font-weight:bold;">SilentOtterCountsPebbles</span></a><span style="position:relative;bottom:2px;"></span> [<font color="#b8b7b7">User</font>]
         </div>
         <div style="padding:1px;">
-            <a href="https://filelist.io/messages.php"><span>0</span><span style="position: relative;bottom: 3px;"> <img src="./Details for BrotherMayIhaveSomeLoops __ FileList_files/messages.gif" alt="No New Messages" title="No New Messages"></span></a>&nbsp;&nbsp;
-            <a href="https://filelist.io/reputation.php"><span style="position: relative;bottom: 1px;"><img src="./Details for BrotherMayIhaveSomeLoops __ FileList_files/reputation.png" alt="Reputation" title="Reputation"></span></a>&nbsp;&nbsp;
-            <a href="https://filelist.io/friends.php"><span style="position: relative;bottom: 1px;"><img src="./Details for BrotherMayIhaveSomeLoops __ FileList_files/buddylist.gif" alt="Friends" title="Friends"></span></a>&nbsp;&nbsp;
-            <a href="https://filelist.io/irc.php"><img style="border: none" alt="iRC" title="iRC" src="./Details for BrotherMayIhaveSomeLoops __ FileList_files/mirc.png" width="14" height="14"></a>&nbsp;&nbsp;
-            <a href="https://filelist.io/getrss.php"><img style="border:none" alt="Rss" title="Rss" src="./Details for BrotherMayIhaveSomeLoops __ FileList_files/rss.png"></a>&nbsp;&nbsp;
-            <a href="https://filelist.io/hof.php"><img style="border: none" alt="Hall of Fame" title="Hall of Fame" src="./Details for BrotherMayIhaveSomeLoops __ FileList_files/cup.png" width="14" height="14"></a>&nbsp;&nbsp;
-            <a href="https://filelist.io/bookmarks.php"><img style="border: none" alt="Bookmarks" title="Bookmarks" src="./Details for BrotherMayIhaveSomeLoops __ FileList_files/bookmark.png" width="14" height="14"></a>&nbsp;&nbsp;
+            <a href="https://filelist.io/messages.php"><span>0</span><span style="position: relative;bottom: 3px;"> <img src="./Details for SilentOtterCountsPebbles __ FileList_files/messages.gif" alt="No New Messages" title="No New Messages"></span></a>&nbsp;&nbsp;
+            <a href="https://filelist.io/reputation.php"><span style="position: relative;bottom: 1px;"><img src="./Details for SilentOtterCountsPebbles __ FileList_files/reputation.png" alt="Reputation" title="Reputation"></span></a>&nbsp;&nbsp;
+            <a href="https://filelist.io/friends.php"><span style="position: relative;bottom: 1px;"><img src="./Details for SilentOtterCountsPebbles __ FileList_files/buddylist.gif" alt="Friends" title="Friends"></span></a>&nbsp;&nbsp;
+            <a href="https://filelist.io/irc.php"><img style="border: none" alt="iRC" title="iRC" src="./Details for SilentOtterCountsPebbles __ FileList_files/mirc.png" width="14" height="14"></a>&nbsp;&nbsp;
+            <a href="https://filelist.io/getrss.php"><img style="border:none" alt="Rss" title="Rss" src="./Details for SilentOtterCountsPebbles __ FileList_files/rss.png"></a>&nbsp;&nbsp;
+            <a href="https://filelist.io/hof.php"><img style="border: none" alt="Hall of Fame" title="Hall of Fame" src="./Details for SilentOtterCountsPebbles __ FileList_files/cup.png" width="14" height="14"></a>&nbsp;&nbsp;
+            <a href="https://filelist.io/bookmarks.php"><img style="border: none" alt="Bookmarks" title="Bookmarks" src="./Details for SilentOtterCountsPebbles __ FileList_files/bookmark.png" width="14" height="14"></a>&nbsp;&nbsp;
 
 
 
         </div>
 
         <div style="padding:1px;font-weight:bold;">
-            <span style="margin-right:5px;"><a href="https://filelist.io/shop.php"> <img src="./Details for BrotherMayIhaveSomeLoops __ FileList_files/flcoins.png" height="14" style="position:relative;bottom:1px;"> 0.0</a></span>
-            <span style="margin-right:5px;"><a href="https://filelist.io/invite.php"><img src="./Details for BrotherMayIhaveSomeLoops __ FileList_files/invite.png" height="14" style="position:relative;bottom:1px;"> Invites 0</a></span>
-            <span style="margin-right:5px;"><a href="https://filelist.io/my.php"><img src="./Details for BrotherMayIhaveSomeLoops __ FileList_files/user.png" width="12" height="14" style="position:relative;bottom:1px;"> Profile</a></span>
-            <span style="margin-right:5px;"><a href="https://filelist.io/logout.php?id=1683565"><img src="./Details for BrotherMayIhaveSomeLoops __ FileList_files/logout.png" width="12" height="12" style="position:relative;bottom:1px;"> Logout</a></span>
+            <span style="margin-right:5px;"><a href="https://filelist.io/shop.php"> <img src="./Details for SilentOtterCountsPebbles __ FileList_files/flcoins.png" height="14" style="position:relative;bottom:1px;"> 0.0</a></span>
+            <span style="margin-right:5px;"><a href="https://filelist.io/invite.php"><img src="./Details for SilentOtterCountsPebbles __ FileList_files/invite.png" height="14" style="position:relative;bottom:1px;"> Invites 0</a></span>
+            <span style="margin-right:5px;"><a href="https://filelist.io/my.php"><img src="./Details for SilentOtterCountsPebbles __ FileList_files/user.png" width="12" height="14" style="position:relative;bottom:1px;"> Profile</a></span>
+            <span style="margin-right:5px;"><a href="https://filelist.io/logout.php?id=4207731"><img src="./Details for SilentOtterCountsPebbles __ FileList_files/logout.png" width="12" height="12" style="position:relative;bottom:1px;"> Logout</a></span>
         </div>
 
         <div style="padding:1px;">
-            <span style="margin-right:5px;"><img src="./Details for BrotherMayIhaveSomeLoops __ FileList_files/ratio.png" height="12" style="position:relative;bottom:1px;"> <font color="#2471ff">Ratio</font>&nbsp;---</span>
-            <span style="margin-right:5px;"><img src="./Details for BrotherMayIhaveSomeLoops __ FileList_files/download_token.png" height="12" style="position:relative;bottom:1px;"> <a href="https://filelist.io/snatchlist.php?id=1683565&amp;action=tokens"><font color="#2471ff">Tokens</font>&nbsp;0</a></span>
-            <span style="margin-right:5px;"><img src="./Details for BrotherMayIhaveSomeLoops __ FileList_files/snatchlist.png" height="12" style="position:relative;bottom:1px;"><a href="https://filelist.io/snatchlist.php?id=1683565">&nbsp;SnatchList</a></span>
+            <span style="margin-right:5px;"><img src="./Details for SilentOtterCountsPebbles __ FileList_files/ratio.png" height="12" style="position:relative;bottom:1px;"> <font color="#2471ff">Ratio</font>&nbsp;---</span>
+            <span style="margin-right:5px;"><img src="./Details for SilentOtterCountsPebbles __ FileList_files/download_token.png" height="12" style="position:relative;bottom:1px;"> <a href="https://filelist.io/snatchlist.php?id=4207731&amp;action=tokens"><font color="#2471ff">Tokens</font>&nbsp;0</a></span>
+            <span style="margin-right:5px;"><img src="./Details for SilentOtterCountsPebbles __ FileList_files/snatchlist.png" height="12" style="position:relative;bottom:1px;"><a href="https://filelist.io/snatchlist.php?id=4207731">&nbsp;SnatchList</a></span>
         </div>
 
         <div style="padding:1px;">
-            <span style="margin-right:5px;"><img src="./Details for BrotherMayIhaveSomeLoops __ FileList_files/uploaded.png" width="10" height="12" style="position:relative;bottom:1px;"> <font color="#34a60c">Uploaded</font>:&nbsp;0.00 kB</span>
-            <span style="margin-right:5px;"><img src="./Details for BrotherMayIhaveSomeLoops __ FileList_files/downloaded.png" width="10" height="12" style="position:relative;bottom:1px;"> <font color="#d21919">Downloaded</font>:&nbsp;0.00 kB</span>
+            <span style="margin-right:5px;"><img src="./Details for SilentOtterCountsPebbles __ FileList_files/uploaded.png" width="10" height="12" style="position:relative;bottom:1px;"> <font color="#34a60c">Uploaded</font>:&nbsp;0.00 kB</span>
+            <span style="margin-right:5px;"><img src="./Details for SilentOtterCountsPebbles __ FileList_files/downloaded.png" width="10" height="12" style="position:relative;bottom:1px;"> <font color="#d21919">Downloaded</font>:&nbsp;0.00 kB</span>
         </div>
     </div>
     <div class="clearfix"></div></div><div id="navigation"><!-- Begin Navigation -->
@@ -99,15 +106,15 @@ const USERDETAILS_ROWS = `
     <div class="cblock-top"></div>
 	<div class="clearfix"></div>
     <div class="cblock-content">
-	<div class="cblock-innercontent"><div align="center" style="margin-bottom:3px;"><h1 style="margin:0px">BrotherMayIhaveSomeLoops<span style="position:relative;bottom:2px;"><img src="./Details for BrotherMayIhaveSomeLoops __ FileList_files/usa.png" alt="United States of America" style="margin-left: 8pt"></span></h1></div><div align="center"></div><br><table width="90%" cellspacing="0" cellpadding="5">
+	<div class="cblock-innercontent"><div align="center" style="margin-bottom:3px;"><h1 style="margin:0px">SilentOtterCountsPebbles<span style="position:relative;bottom:2px;"><img src="./Details for SilentOtterCountsPebbles __ FileList_files/usa.png" alt="United States of America" style="margin-left: 8pt"></span></h1></div><div align="center"></div><br><table width="90%" cellspacing="0" cellpadding="5">
 <tbody><tr><td class="colhead" width="20%">Join&nbsp;date</td><td style="text-align:left;">2026-08-20 19:05:17 (1 week ago)</td></tr>
 
-<tr><td class="colhead">Last&nbsp;seen</td><td style="text-align:left;">2026-08-28 18:49:52 (&lt; 1 min ago)</td></tr><tr><td class="colhead">Invited by</td><td style="text-align:left;"><a href="https://filelist.io/userdetails.php?id=1538531">1538531</a></td></tr>
+<tr><td class="colhead">Last&nbsp;seen</td><td style="text-align:left;">2026-08-28 18:49:52 (&lt; 1 min ago)</td></tr><tr><td class="colhead">Invited by</td><td style="text-align:left;"><a href="https://filelist.io/userdetails.php?id=5119624">5119624</a></td></tr>
 ${INVITATIONS_ROW}
 <tr><td class="colhead">Uploaded</td><td style="text-align:left;">0.00 kB</td></tr>
 <tr><td class="colhead">Downloaded</td><td style="text-align:left;">0.00 kB</td></tr>
 <tr><td class="colhead">Reputation</td><td><div style="float:left;position:relative;top:5px;"><div title="10 Rep. Points" style="background-image: url(/styles/images/reputation/bg.png);width:150px;height:25px;margin-bottom:10px;">
-		<div style="max-width:10px;overflow:hidden;"><img src="./Details for BrotherMayIhaveSomeLoops __ FileList_files/green.png" width="150px" height="25px"></div>
+		<div style="max-width:10px;overflow:hidden;"><img src="./Details for SilentOtterCountsPebbles __ FileList_files/green.png" width="150px" height="25px"></div>
 	</div></div></td></tr><tr><td class="colhead">Class</td><td style="text-align:left;"><font color="#b8b7b7">User</font></td></tr>
 <tr><td class="colhead">Torrent&nbsp;comments</td><td style="text-align:left;">0</td></tr>
 <tr><td class="colhead">Forum&nbsp;posts</td><td style="text-align:left;">0</td></tr>
@@ -167,7 +174,7 @@ const PAGE_FOOTER = `
 			<div id="copyrightInnerRight"><b>
 				<font class="small"><a href="https://filelist.io/support.php" title="Contact">Contact</a></font>
 				&nbsp; | &nbsp;
-				<font class="small"><a href="https://filelist.io/userdetails.php?id=1683565#top" class="gototop" title="Go To Top">To Top</a></font>
+				<font class="small"><a href="https://filelist.io/userdetails.php?id=4207731#top" class="gototop" title="Go To Top">To Top</a></font>
 			</b></div>
 		</div>
 		</div><!-- END COPYRIGHT -->
@@ -183,7 +190,7 @@ const PAGE_FOOTER = `
 		});
 		</script>
 
-	<script type="module" src="./Details for BrotherMayIhaveSomeLoops __ FileList_files/v3d52b47920f24c319d37e2661827c42b1787588026925" integrity="sha512-d9sL6GJLXn6fInD1+TVXhTcQOsmxeHfmHAvwGDIxp5TO+uo1fiWW7mHomMj4MLRlCsJDTqXzWLHJFFlPCEIj/A==" data-cf-beacon="{&quot;version&quot;:&quot;2024.11.0&quot;,&quot;token&quot;:&quot;00000000000000000000000000000000&quot;,&quot;r&quot;:1}" crossorigin="anonymous"></script>
+	<script type="module" src="./Details for SilentOtterCountsPebbles __ FileList_files/v3d52b47920f24c319d37e2661827c42b1787588026925" integrity="sha512-d9sL6GJLXn6fInD1+TVXhTcQOsmxeHfmHAvwGDIxp5TO+uo1fiWW7mHomMj4MLRlCsJDTqXzWLHJFFlPCEIj/A==" data-cf-beacon="{&quot;version&quot;:&quot;2024.11.0&quot;,&quot;token&quot;:&quot;00000000000000000000000000000000&quot;,&quot;r&quot;:1}" crossorigin="anonymous"></script>
 
 	</body></html>`
 
@@ -246,6 +253,20 @@ const DEFICIT_PAGE = editFixture(
   `<td class="colhead">Downloaded</td><td style="text-align:left;">1.20 TB</td>`
 )
 
+// synthetic-fixture: figures-only edits leaving one byte cell unparseable while
+// the other still reads, one page per direction.
+const UNREADABLE_UPLOAD_PAGE = editFixture(
+  FULL_PAGE,
+  `<td class="colhead">Uploaded</td><td style="text-align:left;">0.00 kB</td>`,
+  `<td class="colhead">Uploaded</td><td style="text-align:left;">N/A</td>`
+)
+
+const UNREADABLE_DOWNLOAD_PAGE = editFixture(
+  FULL_PAGE,
+  `<td class="colhead">Downloaded</td><td style="text-align:left;">0.00 kB</td>`,
+  `<td class="colhead">Downloaded</td><td style="text-align:left;">N/A</td>`
+)
+
 // synthetic-fixture: Invitations row removed (a structure edit, flagged as
 // such) to reach the header "Invites N" fallback.
 const NO_INVITATIONS_ROW_PAGE = editFixture(FULL_PAGE, INVITATIONS_ROW, "")
@@ -263,8 +284,8 @@ const HEADER_ONLY_PAGE = PAGE_HEAD + HEADER_STRIP + PAGE_FOOTER
 
 describe("parseFilelistProfile", () => {
   it("extracts core stats from the fresh-account capture", () => {
-    const stats = parseFilelistProfile(FULL_PAGE)
-    expect(stats.username).toBe("BrotherMayIhaveSomeLoops")
+    const stats = parseFilelistProfile(FULL_PAGE, HOST)
+    expect(stats.username).toBe("SilentOtterCountsPebbles")
     expect(stats.group).toBe("User")
     expect(stats.uploadedBytes).toBe(0n)
     expect(stats.downloadedBytes).toBe(0n)
@@ -278,7 +299,7 @@ describe("parseFilelistProfile", () => {
   })
 
   it("returns ratio 0 and a zero buffer when both totals are zero", () => {
-    const stats = parseFilelistProfile(FULL_PAGE)
+    const stats = parseFilelistProfile(FULL_PAGE, HOST)
     expect(stats.ratio).toBe(0)
     expect(stats.bufferBytes).toBe(0n)
   })
@@ -292,11 +313,11 @@ describe("parseFilelistProfile", () => {
       'style="position:relative;bottom:1px;"> 0.0</a>',
       'style="position:relative;bottom:1px;"> ...</a>'
     )
-    expect(parseFilelistProfile(placeholderCoins).seedbonus).toBeNull()
+    expect(parseFilelistProfile(placeholderCoins, HOST).seedbonus).toBeNull()
   })
 
   it("derives ratio from byte totals even when the header strip disagrees", () => {
-    const stats = parseFilelistProfile(POPULATED_PAGE)
+    const stats = parseFilelistProfile(POPULATED_PAGE, HOST)
     expect(stats.uploadedBytes).toBe(12_530_000_000_000n) // synthetic-fixture
     expect(stats.downloadedBytes).toBe(3_670_000_000_000n) // synthetic-fixture
     // The header strip says 3.41; the derived value keeps full precision.
@@ -306,21 +327,21 @@ describe("parseFilelistProfile", () => {
   })
 
   it("parses the site's lowercase kB unit and returns Infinity on zero download", () => {
-    const stats = parseFilelistProfile(INFINITY_PAGE)
+    const stats = parseFilelistProfile(INFINITY_PAGE, HOST)
     expect(stats.uploadedBytes).toBe(123_450n) // synthetic-fixture
     expect(stats.downloadedBytes).toBe(0n) // synthetic-fixture
     expect(stats.ratio).toBe(Infinity) // synthetic-fixture
   })
 
   it("preserves a negative buffer unclamped", () => {
-    const stats = parseFilelistProfile(DEFICIT_PAGE)
+    const stats = parseFilelistProfile(DEFICIT_PAGE, HOST)
     expect(stats.uploadedBytes).toBe(500_000_000_000n) // synthetic-fixture
     expect(stats.downloadedBytes).toBe(1_200_000_000_000n) // synthetic-fixture
     expect(stats.bufferBytes).toBe(-700_000_000_000n) // synthetic-fixture
   })
 
   it("returns null for every field FileList does not show", () => {
-    const stats = parseFilelistProfile(FULL_PAGE)
+    const stats = parseFilelistProfile(FULL_PAGE, HOST)
     expect(stats.leechingCount).toBeNull()
     expect(stats.hitAndRuns).toBeNull()
     expect(stats.requiredRatio).toBeNull()
@@ -328,7 +349,7 @@ describe("parseFilelistProfile", () => {
   })
 
   it("extracts platformMeta from the fresh-account capture", () => {
-    const stats = parseFilelistProfile(FULL_PAGE)
+    const stats = parseFilelistProfile(FULL_PAGE, HOST)
     const meta = stats.platformMeta as FileListPlatformMeta
     expect(meta.invites).toBe(0)
     expect(meta.reputation).toBe(10)
@@ -336,7 +357,7 @@ describe("parseFilelistProfile", () => {
   })
 
   it("extracts platformMeta and seeding figures from a populated page", () => {
-    const stats = parseFilelistProfile(POPULATED_PAGE)
+    const stats = parseFilelistProfile(POPULATED_PAGE, HOST)
     const meta = stats.platformMeta as FileListPlatformMeta
     expect(stats.seedingCount).toBe(42) // synthetic-fixture
     expect(stats.seedbonus).toBeCloseTo(1543.8) // synthetic-fixture
@@ -347,14 +368,14 @@ describe("parseFilelistProfile", () => {
   })
 
   it("falls back to the header Invites count when the Invitations row is missing", () => {
-    const stats = parseFilelistProfile(NO_INVITATIONS_ROW_PAGE)
+    const stats = parseFilelistProfile(NO_INVITATIONS_ROW_PAGE, HOST)
     const meta = stats.platformMeta as FileListPlatformMeta
     expect(meta.invites).toBe(0) // synthetic-fixture
   })
 
   it("throws session-expired on a 200 login page", () => {
     // synthetic-fixture
-    expect(() => parseFilelistProfile(LOGIN_PAGE)).toThrow(
+    expect(() => parseFilelistProfile(LOGIN_PAGE, HOST)).toThrow(
       "Session expired. Browser cookies need to be refreshed"
     )
   })
@@ -366,23 +387,48 @@ describe("parseFilelistProfile", () => {
       `<!doctype html><html><body><script src="https://challenges.cloudflare.com/turnstile/v0/api.js"></script></body></html>`,
     ]
     for (const page of markers) {
-      expect(() => parseFilelistProfile(page)).toThrow(
+      expect(() => parseFilelistProfile(page, HOST)).toThrow(
         "Cloudflare challenge detected. Cookies need refreshing"
       )
     }
   })
 
   it("throws when neither byte total is present", () => {
-    expect(() => parseFilelistProfile(HEADER_ONLY_PAGE)).toThrow(
+    expect(() => parseFilelistProfile(HEADER_ONLY_PAGE, HOST)).toThrow(
       "Could not find profile stats on FileList page. The page may not be authenticated"
     )
+  })
+
+  it("throws with the uploaded wording when only the uploaded total is unreadable", () => {
+    expect(() => parseFilelistProfile(UNREADABLE_UPLOAD_PAGE, HOST)).toThrow(
+      "Unexpected response from filelist.io: unreadable uploaded byte total"
+    )
+  })
+
+  it("throws with the downloaded wording when only the downloaded total is unreadable", () => {
+    expect(() => parseFilelistProfile(UNREADABLE_DOWNLOAD_PAGE, HOST)).toThrow(
+      "Unexpected response from filelist.io: unreadable downloaded byte total"
+    )
+  })
+
+  it("reads a genuine zero total as 0n instead of rejecting it", () => {
+    // The guard keys on a cell the byte parser cannot read, never on the value,
+    // so both of the site's spellings of nothing still reach the snapshot as 0n.
+    const zeroSpelled = editFixture(
+      FULL_PAGE,
+      `<td class="colhead">Downloaded</td><td style="text-align:left;">0.00 kB</td>`,
+      `<td class="colhead">Downloaded</td><td style="text-align:left;">0 B</td>`
+    )
+    const stats = parseFilelistProfile(zeroSpelled, HOST) // synthetic-fixture
+    expect(stats.uploadedBytes).toBe(0n)
+    expect(stats.downloadedBytes).toBe(0n)
   })
 })
 
 describe("parseFilelistCredentials", () => {
   it("parses a valid credential blob", () => {
     const creds = parseFilelistCredentials(VALID_TOKEN)
-    expect(creds.cookies).toBe("uid=1683565; pass=abc123def456")
+    expect(creds.cookies).toBe("uid=4207731; pass=abc123def456")
     expect(creds.userAgent).toBe("Mozilla/5.0 (Windows NT 10.0; Win64; x64) TestUA")
   })
 
@@ -459,7 +505,7 @@ describe("FilelistAdapter.fetchStats - user-id resolution", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1)
     const [, init] = fetchSpy.mock.calls[0]
     const headers = init?.headers as Record<string, string>
-    expect(headers.Cookie).toBe("uid=1683565; pass=abc123def456")
+    expect(headers.Cookie).toBe("uid=4207731; pass=abc123def456")
     expect(headers["User-Agent"]).toBe("Mozilla/5.0 (Windows NT 10.0; Win64; x64) TestUA")
   })
 
@@ -481,8 +527,8 @@ describe("FilelistAdapter.fetchStats - user-id resolution", () => {
     const stats = await adapter.fetchStats("https://filelist.io", VALID_TOKEN, "")
 
     expect(fetchSpy).toHaveBeenCalledTimes(1)
-    expect(fetchSpy.mock.calls[0][0]).toBe("https://filelist.io/userdetails.php?id=1683565")
-    expect(stats.remoteUserId).toBe(1683565)
+    expect(fetchSpy.mock.calls[0][0]).toBe("https://filelist.io/userdetails.php?id=4207731")
+    expect(stats.remoteUserId).toBe(4207731)
   })
 
   it("bootstraps the id from the homepage logout link when neither source has it", async () => {
@@ -495,9 +541,9 @@ describe("FilelistAdapter.fetchStats - user-id resolution", () => {
 
     expect(fetchSpy).toHaveBeenCalledTimes(2)
     expect(fetchSpy.mock.calls[0][0]).toBe("https://filelist.io/")
-    expect(fetchSpy.mock.calls[1][0]).toBe("https://filelist.io/userdetails.php?id=1683565")
-    expect(stats.username).toBe("BrotherMayIhaveSomeLoops")
-    expect(stats.remoteUserId).toBe(1683565)
+    expect(fetchSpy.mock.calls[1][0]).toBe("https://filelist.io/userdetails.php?id=4207731")
+    expect(stats.username).toBe("SilentOtterCountsPebbles")
+    expect(stats.remoteUserId).toBe(4207731)
   })
 
   it("throws without a second fetch when the bootstrap page has no profile link", async () => {
@@ -532,13 +578,13 @@ describe("FilelistAdapter.fetchStats - redirects and network errors", () => {
       .mockResolvedValueOnce(
         new Response(null, {
           status: 302,
-          headers: { location: "/userdetails.php?id=1683565&mobile=0" },
+          headers: { location: "/userdetails.php?id=4207731&mobile=0" },
         })
       )
       .mockResolvedValueOnce(okPage(FULL_PAGE))
 
     const stats = await adapter.fetchStats("https://filelist.io", VALID_TOKEN, "")
-    expect(stats.username).toBe("BrotherMayIhaveSomeLoops")
+    expect(stats.username).toBe("SilentOtterCountsPebbles")
   })
 
   it("refuses an off-origin redirect without replaying credentials", async () => {
@@ -604,9 +650,9 @@ describe("FilelistAdapter.fetchRaw", () => {
 
     expect(calls).toHaveLength(1)
     expect(calls[0].label).toBe("User Details Page")
-    expect(calls[0].endpoint).toBe("/userdetails.php?id=1683565")
+    expect(calls[0].endpoint).toBe("/userdetails.php?id=4207731")
     expect(calls[0].error).toBeNull()
-    expect((calls[0].data as { username: string }).username).toBe("BrotherMayIhaveSomeLoops")
+    expect((calls[0].data as { username: string }).username).toBe("SilentOtterCountsPebbles")
   })
 
   it("captures a parse failure as an error entry instead of throwing", async () => {
@@ -638,10 +684,10 @@ describe("FilelistAdapter.fetchRaw", () => {
     expect(calls).toHaveLength(2)
     expect(calls[0].label).toBe("Home Page (user id lookup)")
     expect(calls[0].endpoint).toBe("/")
-    expect(calls[0].data).toEqual({ userId: 1683565 })
+    expect(calls[0].data).toEqual({ userId: 4207731 })
     expect(calls[0].error).toBeNull()
     expect(calls[1].label).toBe("User Details Page")
-    expect(calls[1].endpoint).toBe("/userdetails.php?id=1683565")
+    expect(calls[1].endpoint).toBe("/userdetails.php?id=4207731")
     expect(calls[1].error).toBeNull()
   })
 
@@ -659,6 +705,39 @@ describe("FilelistAdapter.fetchRaw", () => {
     expect(calls[0].data).toBeNull()
     expect(calls[0].error).toBe("Request to filelist.io timed out")
     expect(fetchSpy).toHaveBeenCalledTimes(1)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// The hostname in an "Unexpected response from" message comes from baseUrl, so
+// the card names the site actually polled rather than a literal in the parser.
+// ---------------------------------------------------------------------------
+
+describe("FilelistAdapter - unreadable byte totals", () => {
+  const adapter = new FilelistAdapter()
+
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it("rejects fetchStats with the hostname taken from baseUrl", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(okPage(UNREADABLE_UPLOAD_PAGE))
+
+    await expect(adapter.fetchStats("https://filelist.io", VALID_TOKEN, "")).rejects.toThrow(
+      "Unexpected response from filelist.io: unreadable uploaded byte total"
+    )
+  })
+
+  it("records the downloaded wording as a fetchRaw error entry", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(okPage(UNREADABLE_DOWNLOAD_PAGE))
+
+    const calls = await adapter.fetchRaw("https://filelist.io", VALID_TOKEN, "")
+
+    expect(calls).toHaveLength(1)
+    expect(calls[0].data).toBeNull()
+    expect(calls[0].error).toBe(
+      "Unexpected response from filelist.io: unreadable downloaded byte total"
+    )
   })
 })
 
@@ -684,7 +763,7 @@ describe("FilelistAdapter - proxy routing", () => {
       proxyAgent: {} as never,
     })
 
-    expect(stats.username).toBe("BrotherMayIhaveSomeLoops")
+    expect(stats.username).toBe("SilentOtterCountsPebbles")
     expect(proxyFetch).toHaveBeenCalledTimes(1)
     // The session is fingerprinted against the browser UA that minted the
     // cookies; a direct fetch here would also leak the user's real IP past

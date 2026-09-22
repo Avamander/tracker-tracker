@@ -65,7 +65,7 @@ export function parseFilelistCredentials(apiToken: string): FilelistCredentials 
 // the owner's account uses English (single-user app).
 // ---------------------------------------------------------------------------
 
-export function parseFilelistProfile(html: string): TrackerStats {
+export function parseFilelistProfile(html: string, hostname: string): TrackerStats {
   // Cloudflare first: a challenge body also lacks the logout link, and the
   // specific challenge message must win over the generic session-expired one.
   if (
@@ -147,8 +147,15 @@ export function parseFilelistProfile(html: string): TrackerStats {
     )
   }
 
-  const uploaded = uploadedBytes ?? 0n
-  const downloaded = downloadedBytes ?? 0n
+  // One side readable and the other not is a page-shape change, not an account
+  // with nothing on that side, and both fields are non-nullable bigint, so a 0n
+  // here would be stored as a measured zero (standard 2.1).
+  if (uploadedBytes === undefined) {
+    throw new Error(`Unexpected response from ${hostname}: unreadable uploaded byte total`)
+  }
+  if (downloadedBytes === undefined) {
+    throw new Error(`Unexpected response from ${hostname}: unreadable downloaded byte total`)
+  }
 
   // Header strip: seed bonus is the FLCoins figure (the shop.php link text);
   // the table's "Seed bonus" row does not hold a bonus number. The strip's
@@ -181,10 +188,10 @@ export function parseFilelistProfile(html: string): TrackerStats {
   const stats: TrackerStats = {
     username,
     group,
-    uploadedBytes: uploaded,
-    downloadedBytes: downloaded,
-    ratio: computeRatio(uploaded, downloaded),
-    bufferBytes: computeBufferBytes(uploaded, downloaded),
+    uploadedBytes,
+    downloadedBytes,
+    ratio: computeRatio(uploadedBytes, downloadedBytes),
+    bufferBytes: computeBufferBytes(uploadedBytes, downloadedBytes),
     seedingCount,
     // Not shown anywhere on FileList (no leeching count, hit-and-run count,
     // per-account required ratio, or warned flag): null means "site does not
@@ -270,6 +277,7 @@ export class FilelistAdapter implements TrackerAdapter {
     options?: FetchOptions
   ): Promise<TrackerStats> {
     const creds = parseFilelistCredentials(apiToken)
+    const hostname = new URL(baseUrl).hostname
 
     let uid = options?.remoteUserId ?? extractUidFromCookies(creds.cookies)
     if (uid === undefined) {
@@ -279,7 +287,7 @@ export class FilelistAdapter implements TrackerAdapter {
     }
 
     const html = await fetchHtml(`${baseUrl}/userdetails.php?id=${uid}`, creds, options?.proxyAgent)
-    const stats = parseFilelistProfile(html)
+    const stats = parseFilelistProfile(html, hostname)
     // Returned so the scheduler persists it and later polls skip discovery.
     return { ...stats, remoteUserId: uid }
   }
@@ -293,6 +301,7 @@ export class FilelistAdapter implements TrackerAdapter {
     const calls: DebugApiCall[] = []
     // Outside any try: bad credentials are a caller error, not a call entry.
     const creds = parseFilelistCredentials(apiToken)
+    const hostname = new URL(baseUrl).hostname
 
     let uid = options?.remoteUserId ?? extractUidFromCookies(creds.cookies)
     if (uid === undefined) {
@@ -320,7 +329,7 @@ export class FilelistAdapter implements TrackerAdapter {
     const endpoint = `/userdetails.php?id=${uid}`
     try {
       const html = await fetchHtml(`${baseUrl}${endpoint}`, creds, options?.proxyAgent)
-      const stats = parseFilelistProfile(html)
+      const stats = parseFilelistProfile(html, hostname)
       calls.push({ label: "User Details Page", endpoint, data: stats, error: null })
     } catch (err) {
       calls.push({

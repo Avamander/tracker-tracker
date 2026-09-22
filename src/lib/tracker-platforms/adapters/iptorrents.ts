@@ -97,7 +97,7 @@ function parseUpStatCards(doc: ParsedElement): {
 // Profile page parser
 // ---------------------------------------------------------------------------
 
-export function parseIptProfile(html: string): TrackerStats {
+export function parseIptProfile(html: string, hostname: string): TrackerStats {
   if (html.includes("/auth/login")) {
     throw new SessionExpiredError("Session expired. Browser cookies need to be refreshed")
   }
@@ -168,8 +168,15 @@ export function parseIptProfile(html: string): TrackerStats {
     )
   }
 
-  const uploaded = uploadedBytes ?? 0n
-  const downloaded = downloadedBytes ?? 0n
+  // One side readable and the other not is a page-shape change, not an account
+  // with nothing on that side, and both fields are non-nullable bigint, so a 0n
+  // here would be stored as a measured zero (standard 2.1).
+  if (uploadedBytes === undefined) {
+    throw new Error(`Unexpected response from ${hostname}: unreadable uploaded byte total`)
+  }
+  if (downloadedBytes === undefined) {
+    throw new Error(`Unexpected response from ${hostname}: unreadable downloaded byte total`)
+  }
 
   let group = "User"
   const vipEl = doc.querySelector(".hdr-vip")
@@ -180,13 +187,13 @@ export function parseIptProfile(html: string): TrackerStats {
   return {
     username,
     group,
-    uploadedBytes: uploaded,
-    downloadedBytes: downloaded,
+    uploadedBytes,
+    downloadedBytes,
     // Derived from byte totals, not the stats bar's own Ratio text. Whatever
     // that field holds for a zero-download account, the old parse left it at 0
     // either way, so a healthy account read as a critical ratio.
-    ratio: computeRatio(uploaded, downloaded),
-    bufferBytes: computeBufferBytes(uploaded, downloaded),
+    ratio: computeRatio(uploadedBytes, downloadedBytes),
+    bufferBytes: computeBufferBytes(uploadedBytes, downloadedBytes),
     seedingCount,
     leechingCount,
     seedbonus,
@@ -232,12 +239,13 @@ export class IptorrentsAdapter implements TrackerAdapter {
     options?: FetchOptions
   ): Promise<TrackerStats> {
     const creds = parseIptCredentials(apiToken)
+    const hostname = new URL(baseUrl).hostname
     // The stats bar is present on every authenticated page, so the homepage
     // is used rather than a specific profile URL (which requires the numeric
     // uid to build).
     const homeUrl = `${baseUrl}/`
     const html = await fetchHtml(homeUrl, creds.cookies, creds.userAgent, options?.proxyAgent)
-    return parseIptProfile(html)
+    return parseIptProfile(html, hostname)
   }
 
   async fetchRaw(
@@ -248,11 +256,12 @@ export class IptorrentsAdapter implements TrackerAdapter {
   ): Promise<DebugApiCall[]> {
     const calls: DebugApiCall[] = []
     const creds = parseIptCredentials(apiToken)
+    const hostname = new URL(baseUrl).hostname
     const homeUrl = `${baseUrl}/`
 
     try {
       const html = await fetchHtml(homeUrl, creds.cookies, creds.userAgent, options?.proxyAgent)
-      const stats = parseIptProfile(html)
+      const stats = parseIptProfile(html, hostname)
       calls.push({ label: "Home Page", endpoint: "/", data: stats, error: null })
     } catch (err) {
       calls.push({

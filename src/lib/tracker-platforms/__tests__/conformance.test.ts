@@ -96,9 +96,9 @@ describe("tracker-platforms source conformance", () => {
       // total that is itself null when every category is absent.
       "src/lib/tracker-platforms/adapters/mam.ts",
     ])
-    // `?? 0n` is out of scope: those fields are non-nullable bigint and the
-    // adapter has already thrown if both totals were missing.
-    const pattern = /\?\?\s*(?:0(?!n)|false|true)\b|parseInt\([^)]*\)\s*\|\|\s*0\b/
+    // `?? 0n` is in scope: a byte total is non-nullable bigint, so an adapter that
+    // cannot read one throws rather than storing a measured zero (standard 2.1).
+    const pattern = /\?\?\s*(?:0n?|false|true)\b|parseInt\([^)]*\)\s*\|\|\s*0\b/
     const hits = findAll(pattern, SOURCE).filter((h) => !ALLOWED.has(h.split(":")[0]))
     expect(hits).toEqual([])
   })
