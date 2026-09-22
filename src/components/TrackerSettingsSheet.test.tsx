@@ -336,3 +336,19 @@ describe("TrackerSettingsSheet torrentleech credentials", () => {
     expect(screen.getByLabelText("Alt 2FA Token (optional)")).toHaveValue("")
   })
 })
+
+describe("TrackerSettingsSheet base URL", () => {
+  // The URL is registry data copied in when the tracker was added, so the sheet
+  // neither shows a field for it nor sends one; the row keeps what the registry gave it.
+  it("offers no field for the tracker URL and sends none on save", async () => {
+    const user = userEvent.setup()
+    renderSheet()
+
+    expect(screen.queryByLabelText("Base URL")).toBeNull()
+    await user.click(screen.getByRole("button", { name: "Save Changes" }))
+
+    const [saveCall] = trackerRequests()
+    expect(saveCall[1].method).toBe("PATCH")
+    expect(JSON.parse(saveCall[1].body)).not.toHaveProperty("baseUrl")
+  })
+})

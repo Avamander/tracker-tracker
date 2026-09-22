@@ -519,55 +519,29 @@ describe("PATCH /api/trackers/[id]", () => {
     expect(data.error).toMatch(/name/i)
   })
 
-  it("returns 400 when URL exceeds 500 characters", async () => {
-    const longUrl = `https://aither.cc/${"a".repeat(490)}`
+  // The URL is registry data copied in at create time, not a field a user edits,
+  // so an edit body carrying one, valid or hostile, changes nothing.
+  it("ignores a baseUrl in the body", async () => {
     ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue({
-      baseUrl: longUrl,
-    })
-
-    const request = makeRequest("http://localhost/api/trackers/1", { baseUrl: longUrl }, "PATCH")
-    const params = Promise.resolve({ id: "1" })
-    const response = await PATCH(request, { params })
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toMatch(/url/i)
-  })
-
-  it("returns 400 for invalid URL format", async () => {
-    ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue({
-      baseUrl: "not-a-url",
-    })
-
-    const request = makeRequest(
-      "http://localhost/api/trackers/1",
-      { baseUrl: "not-a-url" },
-      "PATCH"
-    )
-    const params = Promise.resolve({ id: "1" })
-    const response = await PATCH(request, { params })
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toMatch(/url/i)
-  })
-
-  it("blocks SSRF via localhost in PATCH baseUrl", async () => {
-    ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue({
+      name: "Updated Name",
       baseUrl: "http://localhost:9000/internal",
     })
 
+    const mockWhere = vi.fn().mockResolvedValue([])
+    const mockSet = vi.fn().mockReturnValue({ where: mockWhere })
+    ;(db.update as ReturnType<typeof vi.fn>).mockReturnValue({ set: mockSet })
+
     const request = makeRequest(
       "http://localhost/api/trackers/1",
-      { baseUrl: "http://localhost:9000/internal" },
+      { name: "Updated Name", baseUrl: "http://localhost:9000/internal" },
       "PATCH"
     )
     const params = Promise.resolve({ id: "1" })
     const response = await PATCH(request, { params })
-    const data = await response.json()
 
-    expect(response.status).toBe(400)
-    expect(data.error).toMatch(/private network address/i)
+    expect(response.status).toBe(200)
+    expect(mockSet).toHaveBeenCalledTimes(1)
+    expect(mockSet.mock.calls[0][0]).not.toHaveProperty("baseUrl")
   })
 
   it("returns 400 when color exceeds 20 characters", async () => {

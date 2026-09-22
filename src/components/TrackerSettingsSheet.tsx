@@ -50,7 +50,6 @@ interface FormState {
   qbtTag: string
   joinedAt: string
   lastAccessAt: string
-  baseUrl: string
   useProxy: boolean
   countCrossSeedUnsatisfied: boolean
   hideUnreadBadges: boolean
@@ -64,7 +63,6 @@ function formStateFromTracker(t: TrackerSummary): FormState {
     qbtTag: t.qbtTag ?? "",
     joinedAt: t.joinedAt ?? "",
     lastAccessAt: t.lastAccessAt ?? "",
-    baseUrl: t.baseUrl,
     useProxy: t.useProxy ?? false,
     countCrossSeedUnsatisfied: t.countCrossSeedUnsatisfied ?? false,
     hideUnreadBadges: t.hideUnreadBadges ?? false,
@@ -153,15 +151,6 @@ function TrackerSettingsSheet({ open, tracker, onClose, onUpdated }: TrackerSett
 
     const validationErrors: Record<string, string> = {}
     if (!form.name.trim()) validationErrors.name = "Name is required"
-    if (!form.baseUrl.trim()) {
-      validationErrors.baseUrl = "Base URL is required"
-    } else {
-      try {
-        new URL(form.baseUrl)
-      } catch {
-        validationErrors.baseUrl = "Invalid URL"
-      }
-    }
     // AvistaZ is deliberately absent here, see the submit-time check below.
     if (changingKey && credentialForm.kind !== "cookies-username") {
       const credentialError = validateCredentialValues(credentialForm, credentials)
@@ -200,7 +189,7 @@ function TrackerSettingsSheet({ open, tracker, onClose, onUpdated }: TrackerSett
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            baseUrl: form.baseUrl.trim(),
+            baseUrl: tracker.baseUrl,
             apiToken: trimmedToken,
             platformType: tracker.platformType,
           }),
@@ -221,7 +210,6 @@ function TrackerSettingsSheet({ open, tracker, onClose, onUpdated }: TrackerSett
     const payload: Record<string, unknown> = {
       name: form.name.trim(),
       color: form.color,
-      baseUrl: form.baseUrl.trim(),
       qbtTag: form.qbtTag.trim(),
       joinedAt: form.joinedAt || null,
       lastAccessAt: form.lastAccessAt || null,
@@ -329,14 +317,6 @@ function TrackerSettingsSheet({ open, tracker, onClose, onUpdated }: TrackerSett
             onChange={(e) => updateField("name", e.target.value)}
             placeholder="Display name for this tracker"
             error={errors.name}
-          />
-
-          <Input
-            label="Base URL"
-            value={form.baseUrl}
-            onChange={(e) => updateField("baseUrl", e.target.value)}
-            placeholder="https://aither.cc"
-            error={errors.baseUrl}
           />
 
           {/* Credentials. Show the masked status or the change input. */}

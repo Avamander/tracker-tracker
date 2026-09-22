@@ -17,17 +17,10 @@ import {
   validateMaxLength,
 } from "@/lib/api-helpers"
 import { encrypt } from "@/lib/crypto"
-import { stripTrailingSlash } from "@/lib/data-transforms"
 import { db } from "@/lib/db"
 import { trackers } from "@/lib/db/schema"
 import { errMsg } from "@/lib/error-utils"
-import {
-  LONG_STRING_MAX,
-  maxTokenLengthFor,
-  TRACKER_NAME_MAX,
-  TRACKER_TAG_MAX,
-  TRACKER_URL_MAX,
-} from "@/lib/limits"
+import { LONG_STRING_MAX, maxTokenLengthFor, TRACKER_NAME_MAX, TRACKER_TAG_MAX } from "@/lib/limits"
 import { log } from "@/lib/logger"
 import { getTrackerForClient } from "@/lib/server-data"
 
@@ -68,15 +61,8 @@ export async function PATCH(request: Request, props: RouteContext) {
     if (nameErr) return nameErr
     updates.name = body.name.trim()
   }
-  if (typeof body.baseUrl === "string") {
-    const urlLenErr = validateMaxLength(body.baseUrl, TRACKER_URL_MAX, "URL")
-    if (urlLenErr) return urlLenErr
-    const urlErr = validateHttpUrl(body.baseUrl as string)
-    if (urlErr) return urlErr
-    // Same normalisation the create route applies, so an edit cannot
-    // reintroduce the trailing slash adapters would double.
-    updates.baseUrl = stripTrailingSlash((body.baseUrl as string).trim())
-  }
+  // No baseUrl: the URL is registry data copied in when the tracker was added, so
+  // an edit body carrying one, valid or hostile, is ignored.
   if (typeof body.isActive === "boolean") updates.isActive = body.isActive
   if (typeof body.color === "string") {
     const colorErr = validateHexColor(body.color)

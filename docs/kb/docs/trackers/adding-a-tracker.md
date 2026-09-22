@@ -91,10 +91,6 @@ Added trackers hide from the list automatically.
 
 ## Required fields
 
-### Base URL
-
-The tracker's full HTTPS address.
-
 ### API token
 
 Location varies by platform:
