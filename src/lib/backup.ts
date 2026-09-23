@@ -467,6 +467,13 @@ export function validateBackupJson(payload: unknown): asserts payload is BackupP
     assertString(t.encryptedApiToken, `${prefix}.encryptedApiToken`)
     // Empty token is valid, happens after a restore clears encrypted fields
 
+    // Optional: backups predating the column carry no slug, and a pre-registry
+    // custom site legitimately carries null. Only the type is checked here;
+    // registryEntryFor returns undefined for an unknown slug on read.
+    if (t.registrySlug !== null && t.registrySlug !== undefined) {
+      assertString(t.registrySlug, `${prefix}.registrySlug`)
+    }
+
     if (t.color !== null && t.color !== undefined) {
       assertString(t.color, `${prefix}.color`)
       if (!isValidHex(t.color, true)) {

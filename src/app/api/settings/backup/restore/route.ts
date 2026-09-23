@@ -423,6 +423,9 @@ export async function POST(request: Request) {
             baseUrl: stripTrailingSlash((fields.baseUrl as string).trim()),
             apiPath: fields.apiPath as string,
             platformType: fields.platformType as string,
+            // Absent from backups taken before the column existed. The restore
+            // does not derive it from baseUrl; the startup backfill fills null rows.
+            registrySlug: (fields.registrySlug as string | null) ?? null,
             encryptedApiToken: apiToken,
             encryptedCredentials: credentials,
             isActive: fields.isActive as boolean,

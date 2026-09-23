@@ -477,6 +477,7 @@ describe("POST /api/settings/backup/restore — credential re-encryption", () =>
       baseUrl: "https://drift.example.com",
       apiPath: "/api/v2/user",
       platformType: "gazelle",
+      registrySlug: "drift-tracker",
       encryptedApiToken: payload.trackers[0].encryptedApiToken,
       encryptedCredentials: encrypt('{"kind":"cookie","value":"invented"}', backupKey),
       isActive: false,
@@ -518,6 +519,45 @@ describe("POST /api/settings/backup/restore — credential re-encryption", () =>
     for (const key of expected) {
       expect(serialize(restored[key]), key).toEqual(saved[key])
     }
+  })
+
+  // Backups taken before the column existed carry no slug at all, and null is
+  // what the startup backfill scans for.
+  it("leaves registrySlug null for a backup taken before the column existed", async () => {
+    const backupKey = await deriveKey(PASSWORD, SALT_A)
+    const payload = makeBackupPayload(SALT_A, encryptAll(backupKey))
+    mockCurrentSettings({ encryptionSalt: SALT_A })
+
+    expect(await POST(makeRequest(payload, PASSWORD))).toHaveProperty("status", 200)
+
+    expect(onlyInsert(recorder, "trackers").registrySlug).toBeNull()
+  })
+
+  // A pre-registry custom site is stored with an explicit null, which is a
+  // legitimate slug value and not a missing field.
+  it("accepts a tracker whose registrySlug is explicitly null", async () => {
+    const backupKey = await deriveKey(PASSWORD, SALT_A)
+    const payload = makeBackupPayload(SALT_A, encryptAll(backupKey))
+    ;(payload.trackers[0] as Record<string, unknown>).registrySlug = null
+    mockCurrentSettings({ encryptionSalt: SALT_A })
+
+    expect(await POST(makeRequest(payload, PASSWORD))).toHaveProperty("status", 200)
+
+    expect(onlyInsert(recorder, "trackers").registrySlug).toBeNull()
+  })
+
+  // The slug is the key every registry lookup goes by, so a backup handing it a
+  // number has to be refused at the door rather than stored and read back.
+  it("rejects a tracker whose registrySlug is neither a string nor null", async () => {
+    const backupKey = await deriveKey(PASSWORD, SALT_A)
+    const payload = makeBackupPayload(SALT_A, encryptAll(backupKey))
+    ;(payload.trackers[0] as Record<string, unknown>).registrySlug = 42
+    mockCurrentSettings({ encryptionSalt: SALT_A })
+
+    const res = await POST(makeRequest(payload, PASSWORD))
+    expect(res.status).toBe(400)
+    await expect(res.json()).resolves.toEqual({ error: "Invalid or corrupted backup file" })
+    expect(recorder.inserts).toHaveLength(0)
   })
 
   it("restores every snapshot column the backup carries", async () => {
