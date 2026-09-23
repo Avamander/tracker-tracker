@@ -40,6 +40,7 @@ export function serializeTrackerResponse(
     id: tracker.id,
     name: tracker.name,
     baseUrl: tracker.baseUrl,
+    registrySlug: tracker.registrySlug ?? null,
     platformType: tracker.platformType as PlatformType,
     isActive: tracker.isActive,
     lastPolledAt: tracker.lastPolledAt?.toISOString() ?? null,

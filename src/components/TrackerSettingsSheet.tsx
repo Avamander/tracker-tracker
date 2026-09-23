@@ -20,7 +20,7 @@ import {
 } from "@/components/ui"
 import { ColorPicker } from "@/components/ui/ColorPicker"
 
-import { findRegistryEntry } from "@/data/tracker-registry"
+import { registryEntryFor } from "@/data/tracker-registry"
 import {
   buildCredentialBlob,
   type CredentialValues,
@@ -106,7 +106,7 @@ function TrackerSettingsSheet({ open, tracker, onClose, onUpdated }: TrackerSett
     setForm(formStateFromTracker(tracker))
   }, [tracker])
 
-  const registryEntry = findRegistryEntry(tracker.baseUrl)
+  const registryEntry = registryEntryFor(tracker)
   const hasLoginPolicy = !!registryEntry?.rules?.loginIntervalDays
 
   const [proxyAvailable, setProxyAvailable] = useState<boolean | null>(null)
@@ -188,11 +188,18 @@ function TrackerSettingsSheet({ open, tracker, onClose, onUpdated }: TrackerSett
         const testRes = await fetch("/api/trackers/test-connection", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            baseUrl: tracker.baseUrl,
-            apiToken: trimmedToken,
-            platformType: tracker.platformType,
-          }),
+          // A row that names a registry entry is tested by slug, and the route
+          // takes the address and platform from the entry. A pre-registry row
+          // has nothing but what it stores.
+          body: JSON.stringify(
+            tracker.registrySlug
+              ? { slug: tracker.registrySlug, apiToken: trimmedToken }
+              : {
+                  baseUrl: tracker.baseUrl,
+                  apiToken: trimmedToken,
+                  platformType: tracker.platformType,
+                }
+          ),
         })
         if (!testRes.ok) {
           const testData = await testRes.json().catch(() => ({ error: "Connection failed" }))

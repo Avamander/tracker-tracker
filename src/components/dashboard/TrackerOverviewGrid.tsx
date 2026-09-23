@@ -15,7 +15,7 @@ import {
   PulseDot,
   RedactedText,
 } from "@/components/ui"
-import { findRegistryEntry, type TrackerRegistryEntry } from "@/data/tracker-registry"
+import { registryEntryFor, type TrackerRegistryEntry } from "@/data/tracker-registry"
 import { ALL_TRACKERS } from "@/data/trackers"
 import { useClickOutside } from "@/hooks/useClickOutside"
 import { formatAccountAge, formatJoinedDate, formatRatioDisplay } from "@/lib/formatters"
@@ -75,14 +75,14 @@ function TrackerOverviewGrid({ trackers, showHealthIndicators = true }: TrackerO
   )
 
   // Resolve each tracker's registry entry once. The cards need the whole entry
-  // now (defunct status and categories). Since findRegistryEntry scans per call,
-  // doing it here is a single pass instead of once for filtering and once for
-  // rendering.
+  // now (defunct status and categories). Since the lookup scans the registry per
+  // call, doing it here is a single pass instead of once for filtering and once
+  // for rendering.
   const { trackerEntries, allCategories } = useMemo(() => {
     const entryMap = new Map<number, TrackerRegistryEntry | undefined>()
     const catSet = new Set<string>()
     for (const t of trackers) {
-      const entry = findRegistryEntry(t.baseUrl)
+      const entry = registryEntryFor(t)
       entryMap.set(t.id, entry)
       for (const c of entry?.contentCategories ?? []) catSet.add(c)
     }

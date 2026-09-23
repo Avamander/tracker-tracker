@@ -32,7 +32,9 @@ vi.mock("@/lib/notifications/dispatch", () => ({ dispatchNotifications: vi.fn(as
 vi.mock("@/lib/alert-pruning", () => ({ pruneDismissedAlerts: vi.fn(async () => 0) }))
 vi.mock("@/lib/server-data", () => ({ recordDatabaseSize: vi.fn(async () => {}) }))
 vi.mock("@/lib/tunnel", () => ({ buildProxyAgentFromSettings: vi.fn(() => undefined) }))
-vi.mock("@/data/tracker-registry", () => ({ findRegistryEntry: vi.fn(() => null) }))
+vi.mock("@/data/tracker-registry", () => ({
+  registryEntryFor: vi.fn(() => undefined),
+}))
 vi.mock("node-cron", () => ({ default: { schedule: vi.fn() } }))
 
 const fetchStats = vi.fn()

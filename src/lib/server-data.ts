@@ -260,6 +260,7 @@ export const trackerColumns = {
   baseUrl: trackers.baseUrl,
   apiPath: trackers.apiPath,
   platformType: trackers.platformType,
+  registrySlug: trackers.registrySlug,
   isActive: trackers.isActive,
   lastPolledAt: trackers.lastPolledAt,
   lastError: trackers.lastError,

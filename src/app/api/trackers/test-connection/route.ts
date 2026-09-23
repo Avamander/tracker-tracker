@@ -1,6 +1,7 @@
 // src/app/api/trackers/test-connection/route.ts
 import { NextResponse } from "next/server"
 import { DEFAULT_API_PATHS, VALID_PLATFORM_TYPES } from "@/data/platform-types"
+import { getTrackerBySlug } from "@/data/tracker-registry"
 import {
   authenticate,
   decodeKey,
@@ -24,24 +25,37 @@ export async function POST(request: Request) {
   const body = await parseJsonBody(request)
   if (body instanceof NextResponse) return body
 
-  const { baseUrl, apiToken, platformType, apiPath } = body as {
+  const { slug, baseUrl, apiToken, platformType, apiPath } = body as {
+    slug?: string
     baseUrl?: string
     apiToken?: string
     platformType?: string
     apiPath?: string
   }
 
-  if (!baseUrl || typeof baseUrl !== "string" || !apiToken || typeof apiToken !== "string") {
-    return NextResponse.json({ error: "baseUrl and apiToken are required" }, { status: 400 })
+  // A slug names the registry entry, and address, platform and API path all come
+  // from it. Only a row without a slug sends baseUrl and platformType instead.
+  const trimmedSlug = typeof slug === "string" ? slug.trim() : ""
+  const entry = trimmedSlug ? getTrackerBySlug(trimmedSlug) : undefined
+  if (trimmedSlug && !entry) {
+    return NextResponse.json({ error: "Unknown tracker" }, { status: 400 })
   }
 
-  // Stripped exactly as POST /api/trackers stores it. Without this the test
-  // probes a URL the save then rewrites, so the two disagree about what was
-  // proven: a pasted trailing slash gives the concatenating adapters a doubled
-  // separator here and not once saved.
-  const trimmedBaseUrl = stripTrailingSlash(baseUrl.trim())
+  const rawBaseUrl = entry?.url ?? (typeof baseUrl === "string" ? baseUrl : "")
+
+  if (!rawBaseUrl.trim() || !apiToken || typeof apiToken !== "string") {
+    return NextResponse.json(
+      { error: "slug or baseUrl, and apiToken are required" },
+      { status: 400 }
+    )
+  }
+
+  // Adapters concatenate onto this as well as passing it to `new URL`, and the
+  // first form doubles the separator. Registry URLs carry no trailing slash; a
+  // stored URL from a row without a slug can.
+  const trimmedBaseUrl = stripTrailingSlash(rawBaseUrl.trim())
   const trimmedApiToken = apiToken.trim()
-  const platform = typeof platformType === "string" ? platformType : "unit3d"
+  const platform = entry?.platform ?? (typeof platformType === "string" ? platformType : "unit3d")
 
   const maxTokenLength = maxTokenLengthFor(platform)
   const tokenErr = validateMaxLength(trimmedApiToken, maxTokenLength, "API token")
@@ -75,11 +89,12 @@ export async function POST(request: Request) {
 
     const adapter = getAdapter(platform)
     const defaultPath = DEFAULT_API_PATHS[platform] ?? "/api/user"
-    const rawPath = typeof apiPath === "string" && apiPath.startsWith("/") ? apiPath : defaultPath
-    const pathLenErr = validateMaxLength(rawPath, LONG_STRING_MAX, "API path")
+    const bodyPath = typeof apiPath === "string" && apiPath.startsWith("/") ? apiPath : defaultPath
+    const path = entry?.apiPath ?? bodyPath
+    const pathLenErr = validateMaxLength(path, LONG_STRING_MAX, "API path")
     if (pathLenErr) return pathLenErr
-    const path = rawPath
-    const fetchOptions = buildFetchOptions(trimmedBaseUrl, {
+    const fetchOptions = buildFetchOptions({
+      registrySlug: entry?.slug,
       proxyAgent: proxyAgent ?? undefined,
     })
     const stats = await adapter.fetchStats(trimmedBaseUrl, trimmedApiToken, path, fetchOptions)

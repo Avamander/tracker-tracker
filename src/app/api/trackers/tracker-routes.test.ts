@@ -248,7 +248,7 @@ describe("POST /api/trackers", () => {
   it("returns 201 with id and name on happy path", async () => {
     ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue({
       name: "Aither",
-      baseUrl: "https://aither.cc",
+      slug: "aither",
       apiToken: "mytoken",
     })
 
@@ -260,7 +260,7 @@ describe("POST /api/trackers", () => {
       "http://localhost/api/trackers",
       {
         name: "Aither",
-        baseUrl: "https://aither.cc",
+        slug: "aither",
         apiToken: "mytoken",
       },
       "POST"
@@ -270,6 +270,97 @@ describe("POST /api/trackers", () => {
 
     expect(response.status).toBe(201)
     expect(data).toEqual({ id: 42, name: "Aither" })
+    expect(mockValues).toHaveBeenCalledWith(
+      expect.objectContaining({ registrySlug: "aither", baseUrl: "https://aither.cc" })
+    )
+  })
+
+  it("takes the platform, API path and default color from the registry entry", async () => {
+    ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue({
+      name: "Orpheus",
+      slug: "orpheus",
+      apiToken: "mytoken",
+    })
+
+    const mockReturning = vi.fn().mockResolvedValue([{ id: 7, name: "Orpheus" }])
+    const mockValues = vi.fn().mockReturnValue({ returning: mockReturning })
+    ;(db.insert as ReturnType<typeof vi.fn>).mockReturnValue({ values: mockValues })
+
+    const request = makeRequest(
+      "http://localhost/api/trackers",
+      {
+        name: "Orpheus",
+        slug: "orpheus",
+        apiToken: "mytoken",
+      },
+      "POST"
+    )
+    const response = await POST(request)
+
+    expect(response.status).toBe(201)
+    expect(mockValues.mock.calls[0][0]).toMatchObject({
+      registrySlug: "orpheus",
+      baseUrl: "https://orpheus.network",
+      platformType: "gazelle",
+      apiPath: "/ajax.php",
+      color: "#1daf8b",
+    })
+  })
+
+  it("stores the registry URL and platform, not the ones the body carries", async () => {
+    ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue({
+      name: "Aither",
+      slug: "aither",
+      apiToken: "mytoken",
+      baseUrl: "http://169.254.169.254/latest/meta-data",
+      platformType: "gazelle",
+    })
+
+    const mockReturning = vi.fn().mockResolvedValue([{ id: 42, name: "Aither" }])
+    const mockValues = vi.fn().mockReturnValue({ returning: mockReturning })
+    ;(db.insert as ReturnType<typeof vi.fn>).mockReturnValue({ values: mockValues })
+
+    const request = makeRequest(
+      "http://localhost/api/trackers",
+      {
+        name: "Aither",
+        slug: "aither",
+        apiToken: "mytoken",
+        baseUrl: "http://169.254.169.254/latest/meta-data",
+        platformType: "gazelle",
+      },
+      "POST"
+    )
+    const response = await POST(request)
+
+    expect(response.status).toBe(201)
+    expect(mockValues.mock.calls[0][0]).toMatchObject({
+      baseUrl: "https://aither.cc",
+      platformType: "unit3d",
+    })
+  })
+
+  it("returns 400 for a slug the registry does not carry", async () => {
+    ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue({
+      name: "Aither",
+      slug: "no-such-tracker",
+      apiToken: "mytoken",
+    })
+
+    const request = makeRequest(
+      "http://localhost/api/trackers",
+      {
+        name: "Aither",
+        slug: "no-such-tracker",
+        apiToken: "mytoken",
+      },
+      "POST"
+    )
+    const response = await POST(request)
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toBe("Unknown tracker")
   })
 
   it("returns 400 when required fields are missing", async () => {
@@ -289,7 +380,7 @@ describe("POST /api/trackers", () => {
     const longName = "a".repeat(101)
     ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue({
       name: longName,
-      baseUrl: "https://aither.cc",
+      slug: "aither",
       apiToken: "mytoken",
     })
 
@@ -297,7 +388,7 @@ describe("POST /api/trackers", () => {
       "http://localhost/api/trackers",
       {
         name: longName,
-        baseUrl: "https://aither.cc",
+        slug: "aither",
         apiToken: "mytoken",
       },
       "POST"
@@ -309,104 +400,11 @@ describe("POST /api/trackers", () => {
     expect(data.error).toMatch(/name/i)
   })
 
-  it("returns 400 when URL exceeds 500 characters", async () => {
-    const longUrl = `https://aither.cc/${"a".repeat(490)}`
-    ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue({
-      name: "Aither",
-      baseUrl: longUrl,
-      apiToken: "mytoken",
-    })
-
-    const request = makeRequest(
-      "http://localhost/api/trackers",
-      {
-        name: "Aither",
-        baseUrl: longUrl,
-        apiToken: "mytoken",
-      },
-      "POST"
-    )
-    const response = await POST(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toMatch(/url/i)
-  })
-
-  it("returns 400 for invalid URL format", async () => {
-    ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue({
-      name: "Aither",
-      baseUrl: "not-a-url",
-      apiToken: "mytoken",
-    })
-
-    const request = makeRequest(
-      "http://localhost/api/trackers",
-      {
-        name: "Aither",
-        baseUrl: "not-a-url",
-        apiToken: "mytoken",
-      },
-      "POST"
-    )
-    const response = await POST(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toMatch(/url/i)
-  })
-
-  it("blocks SSRF via loopback address in baseUrl", async () => {
-    ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue({
-      name: "Aither",
-      baseUrl: "http://127.0.0.1:8080",
-      apiToken: "mytoken",
-    })
-
-    const request = makeRequest(
-      "http://localhost/api/trackers",
-      {
-        name: "Aither",
-        baseUrl: "http://127.0.0.1:8080",
-        apiToken: "mytoken",
-      },
-      "POST"
-    )
-    const response = await POST(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toMatch(/private network address/i)
-  })
-
-  it("blocks SSRF via cloud metadata endpoint (169.254.169.254)", async () => {
-    ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue({
-      name: "Aither",
-      baseUrl: "http://169.254.169.254/latest/meta-data",
-      apiToken: "mytoken",
-    })
-
-    const request = makeRequest(
-      "http://localhost/api/trackers",
-      {
-        name: "Aither",
-        baseUrl: "http://169.254.169.254/latest/meta-data",
-        apiToken: "mytoken",
-      },
-      "POST"
-    )
-    const response = await POST(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data.error).toMatch(/private network address/i)
-  })
-
   it("returns 400 when API token exceeds 500 characters", async () => {
     const longToken = "t".repeat(501)
     ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue({
       name: "Aither",
-      baseUrl: "https://aither.cc",
+      slug: "aither",
       apiToken: longToken,
     })
 
@@ -414,7 +412,7 @@ describe("POST /api/trackers", () => {
       "http://localhost/api/trackers",
       {
         name: "Aither",
-        baseUrl: "https://aither.cc",
+        slug: "aither",
         apiToken: longToken,
       },
       "POST"
@@ -429,7 +427,7 @@ describe("POST /api/trackers", () => {
   it("returns 400 when color exceeds 20 characters", async () => {
     ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue({
       name: "Aither",
-      baseUrl: "https://aither.cc",
+      slug: "aither",
       apiToken: "mytoken",
       color: `#${"a".repeat(20)}`,
     })
@@ -438,7 +436,7 @@ describe("POST /api/trackers", () => {
       "http://localhost/api/trackers",
       {
         name: "Aither",
-        baseUrl: "https://aither.cc",
+        slug: "aither",
         apiToken: "mytoken",
         color: `#${"a".repeat(20)}`,
       },
@@ -460,7 +458,7 @@ describe("POST /api/trackers", () => {
       "http://localhost/api/trackers",
       {
         name: "Aither",
-        baseUrl: "https://aither.cc",
+        slug: "aither",
         apiToken: "mytoken",
       },
       "POST"

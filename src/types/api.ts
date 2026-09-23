@@ -55,6 +55,7 @@ export interface TrackerSummary {
   id: number
   name: string
   baseUrl: string
+  registrySlug: string | null
   platformType: PlatformType
   isActive: boolean
   lastPolledAt: string | null

@@ -18,23 +18,23 @@ vi.mock("next/navigation", () => ({
 }))
 
 const LADDERS: Record<string, TrackerUserClass[]> = {
-  "https://alpha.example": [
+  alpha: [
     { name: "Leech", requirements: "Ratio below 0.4", outsideLadder: "below" },
     { name: "User", requirements: "Ratio at or above 0.4" },
     { name: "Power User", requirements: "1 TiB uploaded" },
     { name: "VIP", requirements: "Donation", outsideLadder: "above" },
   ],
-  "https://beta.example": [],
-  "https://gamma.example": [
+  beta: [],
+  gamma: [
     { name: "User", requirements: "Default" },
     { name: "Elite", requirements: "5 TiB uploaded" },
   ],
 }
 
 vi.mock("@/data/tracker-registry", () => ({
-  findRegistryEntry: (baseUrl: string) =>
-    baseUrl in LADDERS
-      ? ({ userClasses: LADDERS[baseUrl] } as unknown as TrackerRegistryEntry)
+  registryEntryFor: ({ registrySlug }: { registrySlug: string | null }) =>
+    registrySlug && registrySlug in LADDERS
+      ? ({ userClasses: LADDERS[registrySlug] } as unknown as TrackerRegistryEntry)
       : undefined,
 }))
 
@@ -61,14 +61,17 @@ const baseStats: TrackerLatestStats = {
 function makeTracker(
   id: number,
   name: string,
-  baseUrl: string,
+  registrySlug: string | null,
   group: string | null,
   overrides: Partial<TrackerSummary> = {}
 ): TrackerSummary {
   return {
     id,
     name,
-    baseUrl,
+    // One address for every fixture: it is where the row polls, never how the
+    // ladder is found.
+    baseUrl: "https://poll-address.example",
+    registrySlug,
     platformType: "unit3d",
     isActive: true,
     lastPolledAt: null,
@@ -95,9 +98,9 @@ function makeTracker(
   }
 }
 
-const alpha = makeTracker(1, "Alpha", "https://alpha.example", "power user")
-const beta = makeTracker(2, "Beta", "https://beta.example", "Member")
-const gamma = makeTracker(3, "Gamma", "https://gamma.example", null)
+const alpha = makeTracker(1, "Alpha", "alpha", "power user")
+const beta = makeTracker(2, "Beta", "beta", "Member")
+const gamma = makeTracker(3, "Gamma", "gamma", null)
 
 function stackFor(name: string): HTMLElement {
   return screen.getByRole("button", { name: new RegExp(`^${name}:`) })
@@ -143,14 +146,14 @@ describe("RankStacks", () => {
   })
 
   it("lights a partial stack for a mid-ladder class, lowest rung first in the DOM", () => {
-    renderStacks([makeTracker(4, "Delta", "https://alpha.example", "User")])
+    renderStacks([makeTracker(4, "Delta", "alpha", "User")])
     const d = stackFor("Delta")
     expect(litCount(d)).toBe(1)
     expect(rungs(d).map((r) => r.dataset.lit)).toEqual(["true", "false"])
   })
 
   it("renders a class above the ladder as a full stack under its own name", () => {
-    renderStacks([makeTracker(5, "Epsilon", "https://alpha.example", "VIP")])
+    renderStacks([makeTracker(5, "Epsilon", "alpha", "VIP")])
     const e = stackFor("Epsilon")
     expect(rungs(e)).toHaveLength(2)
     expect(litCount(e)).toBe(2)
@@ -158,7 +161,7 @@ describe("RankStacks", () => {
   })
 
   it("renders a demoted member as an empty stack under the demotion class", () => {
-    renderStacks([makeTracker(7, "Theta", "https://alpha.example", "Leech")])
+    renderStacks([makeTracker(7, "Theta", "alpha", "Leech")])
     const t = stackFor("Theta")
     expect(rungs(t)).toHaveLength(2)
     expect(litCount(t)).toBe(0)
@@ -166,7 +169,7 @@ describe("RankStacks", () => {
   })
 
   it("marks a class the registry does not list instead of pretending it is a demotion", () => {
-    renderStacks([makeTracker(8, "Zeta", "https://alpha.example", "Mystery")])
+    renderStacks([makeTracker(8, "Zeta", "alpha", "Mystery")])
     const z = stackFor("Zeta")
     expect(litCount(z)).toBe(0)
     const label = within(z).getByText("Mystery")
@@ -178,8 +181,8 @@ describe("RankStacks", () => {
     renderStacks([
       alpha,
       gamma,
-      makeTracker(5, "Epsilon", "https://alpha.example", "VIP"),
-      makeTracker(7, "Theta", "https://alpha.example", "Leech"),
+      makeTracker(5, "Epsilon", "alpha", "VIP"),
+      makeTracker(7, "Theta", "alpha", "Leech"),
     ])
     expect(stackFor("Alpha")).toHaveAttribute("aria-label", "Alpha: Power User, rank 2 of 2")
     expect(stackFor("Gamma")).toHaveAttribute(
@@ -193,8 +196,15 @@ describe("RankStacks", () => {
     expect(stackFor("Theta")).toHaveAttribute("aria-label", "Theta: Leech, rank 0 of 2")
   })
 
+  it("skips a row that names no registry entry", () => {
+    // A pre-registry custom site has no ladder to draw, and its stored URL is
+    // not a way to guess one.
+    renderStacks([makeTracker(10, "Lambda", null, "Power User")])
+    expect(screen.queryByRole("button", { name: /^Lambda:/ })).not.toBeInTheDocument()
+  })
+
   it("renders nothing at all when no active tracker has a ladder", () => {
-    const archived = makeTracker(6, "Iota", "https://alpha.example", "User", { isActive: false })
+    const archived = makeTracker(6, "Iota", "alpha", "User", { isActive: false })
     const { container } = renderStacks([beta, archived])
     expect(container).toBeEmptyDOMElement()
   })
@@ -213,7 +223,7 @@ describe("RankStacks", () => {
 
   it("lists every rung with its requirements in one tooltip, highest first, marking yours", async () => {
     const user = userEvent.setup()
-    renderStacks([makeTracker(4, "Delta", "https://alpha.example", "User")])
+    renderStacks([makeTracker(4, "Delta", "alpha", "User")])
     await user.hover(stackFor("Delta"))
     const tip = screen.getByRole("tooltip")
     const text = tip.textContent ?? ""
@@ -241,7 +251,7 @@ describe("RankStacks", () => {
 
   it("names a class above the ladder at the top of its tooltip", async () => {
     const user = userEvent.setup()
-    renderStacks([makeTracker(5, "Epsilon", "https://alpha.example", "VIP")])
+    renderStacks([makeTracker(5, "Epsilon", "alpha", "VIP")])
     await user.hover(stackFor("Epsilon"))
     const text = screen.getByRole("tooltip").textContent ?? ""
     expect(text).toContain("VIP, above the ladder")
@@ -251,14 +261,14 @@ describe("RankStacks", () => {
 
   it("explains an unlisted class in the tooltip with the same words it speaks", async () => {
     const user = userEvent.setup()
-    renderStacks([makeTracker(8, "Zeta", "https://alpha.example", "Mystery")])
+    renderStacks([makeTracker(8, "Zeta", "alpha", "Mystery")])
     await user.hover(stackFor("Zeta"))
     expect(screen.getByRole("tooltip").textContent).toContain("Mystery, not on the registry ladder")
   })
 
   it("opens a single tooltip for a redacted class and explains the mask inside it", async () => {
     const user = userEvent.setup()
-    const masked = makeTracker(9, "Kappa", "https://alpha.example", `${REDACTED_PREFIX}5`)
+    const masked = makeTracker(9, "Kappa", "alpha", `${REDACTED_PREFIX}5`)
     renderStacks([masked])
     const k = stackFor("Kappa")
     expect(k).toHaveAttribute("aria-label", "Kappa: class redacted, rank 0 of 2")

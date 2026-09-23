@@ -21,6 +21,7 @@ function makeTracker(overrides: Partial<TrackerSummary> = {}): TrackerSummary {
     id: 1,
     name: "Test Tracker",
     baseUrl: "https://tracker.example.com",
+    registrySlug: null,
     platformType: "ggn",
     isActive: true,
     lastPolledAt: null,

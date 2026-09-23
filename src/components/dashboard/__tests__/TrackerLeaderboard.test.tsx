@@ -38,6 +38,7 @@ const baseTracker: TrackerSummary = {
   id: 1,
   name: "placeholder",
   baseUrl: "https://example.com",
+  registrySlug: null,
   platformType: "unit3d",
   isActive: true,
   lastPolledAt: null,

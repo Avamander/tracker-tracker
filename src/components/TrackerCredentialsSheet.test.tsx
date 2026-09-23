@@ -69,10 +69,10 @@ function renderSheet(overrides: Partial<TrackerCredentialsSheetProps> = {}) {
     open: true,
     trackerId: 42,
     trackerName: "Aither",
-    // Deliberately NOT in the registry, so the defaults seed is the deterministic
-    // universal fallback (a single `api_key`) rather than whatever platform list
-    // the registry happens to carry today.
-    trackerBaseUrl: "https://not-a-real-tracker.test",
+    // No slug, so the defaults seed is the deterministic universal fallback (a
+    // single `api_key`) rather than whatever platform list the registry happens
+    // to carry today.
+    trackerRegistrySlug: null,
     onClose: vi.fn(),
     ...overrides,
   }
@@ -610,11 +610,20 @@ describe("a tracker with no vault yet", () => {
     renderSheet()
     await ready()
 
-    // The universal fallback for an unrecognised tracker.
+    // The universal fallback for a row that names no registry entry.
     expect(screen.getByLabelText("API key")).toBeInTheDocument()
     expect((screen.getAllByLabelText("Section title")[0] as HTMLInputElement).value).toBe(
       "Credentials"
     )
+  })
+
+  it("seeds the fields of the entry the row's slug names", async () => {
+    // Aither is unit3d, whose defaults carry an RSS key the universal fallback
+    // does not.
+    renderSheet({ trackerRegistrySlug: "aither" })
+    await ready()
+
+    expect(screen.getByLabelText("RSS key")).toBeInTheDocument()
   })
 
   it("does not count the seed as an unsaved change", async () => {

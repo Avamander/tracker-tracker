@@ -155,7 +155,7 @@ export function computeAlerts(trackers: TrackerSummary[]): DashboardAlert[] {
     // Same resolution the health tiers use: live requiredRatio first, registry
     // minimumRatio second. Keeps the alert from contradicting the health badge.
     const minimumRatio =
-      resolveRequiredRatio(tracker.latestStats?.requiredRatio, tracker.baseUrl) ?? undefined
+      resolveRequiredRatio(tracker.latestStats?.requiredRatio, tracker) ?? undefined
     if (checkRatioBelowMinimum(tracker.latestStats?.ratio, minimumRatio)) {
       alerts.push({
         key: `ratio-danger-${tracker.id}`,

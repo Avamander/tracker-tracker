@@ -7,6 +7,7 @@ import type { Agent as HttpAgent } from "node:http"
 
 import { and, desc, eq, isNotNull, lt, notInArray, sql } from "drizzle-orm"
 import cron, { type ScheduledTask } from "node-cron"
+import { registryEntryFor } from "@/data/tracker-registry"
 import { pruneDismissedAlerts } from "@/lib/alert-pruning"
 import { pruneCoverageGaps } from "@/lib/app-liveness"
 import { decrypt } from "@/lib/crypto"
@@ -74,6 +75,7 @@ const POLL_TRACKER_COLUMNS = {
   isActive: trackers.isActive,
   encryptedApiToken: trackers.encryptedApiToken,
   platformType: trackers.platformType,
+  registrySlug: trackers.registrySlug,
   baseUrl: trackers.baseUrl,
   apiPath: trackers.apiPath,
   useProxy: trackers.useProxy,
@@ -88,6 +90,28 @@ const POLL_TRACKER_COLUMNS = {
   userPausedAt: trackers.userPausedAt,
   updatedAt: trackers.updatedAt,
 } as const
+
+/**
+ * The URL to poll. The row names its registry entry by slug; the URL it stores is
+ * only the address, so when the registry's URL differs (a site moved, or the row was
+ * restored with an older spelling) the registry wins and is written back. A domain
+ * change then ships as a registry edit rather than a per-user fix.
+ */
+async function pollUrlFor(tracker: {
+  id: number
+  name: string
+  baseUrl: string
+  registrySlug: string | null
+}): Promise<string> {
+  const entry = registryEntryFor(tracker)
+  if (!entry || entry.url === tracker.baseUrl) return tracker.baseUrl
+  await db.update(trackers).set({ baseUrl: entry.url }).where(eq(trackers.id, tracker.id))
+  log.info(
+    { trackerId: tracker.id, tracker: tracker.name, from: tracker.baseUrl, to: entry.url },
+    "tracker URL refreshed from the registry"
+  )
+  return entry.url
+}
 
 export const POLL_FAILURE_THRESHOLD = 4
 
@@ -135,11 +159,13 @@ export async function fetchTrackerStats(
     throw new Error("Proxy required but not available, refusing to leak IP via direct connection")
   }
 
-  const fetchOptions = buildFetchOptions(tracker.baseUrl, {
+  const baseUrl = await pollUrlFor(tracker)
+  const fetchOptions = buildFetchOptions({
+    registrySlug: tracker.registrySlug,
     proxyAgent: tracker.useProxy ? proxyAgent : undefined,
     remoteUserId: tracker.remoteUserId ?? undefined,
   })
-  const stats = await adapter.fetchStats(tracker.baseUrl, apiToken, tracker.apiPath, fetchOptions)
+  const stats = await adapter.fetchStats(baseUrl, apiToken, tracker.apiPath, fetchOptions)
 
   // Write metadata side effects
   const metaUpdates: Partial<TrackerRow> = {}
@@ -199,11 +225,13 @@ export async function pollTracker(
     if (tracker.useProxy && !proxyAgent) {
       throw new Error("Proxy required but not available, refusing to leak IP via direct connection")
     }
-    const fetchOptions = buildFetchOptions(tracker.baseUrl, {
+    const baseUrl = await pollUrlFor(tracker)
+    const fetchOptions = buildFetchOptions({
+      registrySlug: tracker.registrySlug,
       proxyAgent: tracker.useProxy ? proxyAgent : undefined,
       remoteUserId: tracker.remoteUserId ?? undefined,
     })
-    const stats = await adapter.fetchStats(tracker.baseUrl, apiToken, tracker.apiPath, fetchOptions)
+    const stats = await adapter.fetchStats(baseUrl, apiToken, tracker.apiPath, fetchOptions)
 
     // Snapshot the previous platformMeta BEFORE writing the current poll's metadata to DB.
     // dispatchNotifications uses this for change detection (i.e. canDownload transition).
@@ -350,7 +378,7 @@ export async function pollTracker(
           trackerIsActive: tracker.isActive,
           trackerPausedAt: null,
           trackerJoinedAt: tracker.joinedAt ?? null,
-          minimumRatio: resolveRequiredRatio(stats.requiredRatio, tracker.baseUrl) ?? undefined,
+          minimumRatio: resolveRequiredRatio(stats.requiredRatio, tracker) ?? undefined,
           platformContext:
             tracker.platformType === "mam"
               ? {

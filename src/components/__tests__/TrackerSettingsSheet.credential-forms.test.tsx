@@ -20,6 +20,7 @@ const RETROTOON: TrackerSummary = {
   id: 42,
   name: "RetroToon World",
   baseUrl: "https://retrotoon.world",
+  registrySlug: null,
   platformType: "retrotoon",
   isActive: true,
   lastPolledAt: null,
@@ -66,17 +67,18 @@ beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock)
 })
 
-function renderSheet() {
+/** The body of the credential re-test, or null if the sheet never sent one. */
+function testConnectionBody(): Record<string, unknown> | null {
+  const call = fetchMock.mock.calls.find(([url]) => String(url) === "/api/trackers/test-connection")
+  return call ? JSON.parse(String(call[1]?.body)) : null
+}
+
+function renderSheet(tracker: TrackerSummary = RETROTOON) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  queryClient.setQueryData(trackerQueryOptions.queryKey, [RETROTOON])
+  queryClient.setQueryData(trackerQueryOptions.queryKey, [tracker])
   render(
     <QueryClientProvider client={queryClient}>
-      <TrackerSettingsSheet
-        open
-        tracker={RETROTOON}
-        onClose={vi.fn()}
-        onUpdated={vi.fn()}
-      />
+      <TrackerSettingsSheet open tracker={tracker} onClose={vi.fn()} onUpdated={vi.fn()} />
     </QueryClientProvider>
   )
 }
@@ -106,5 +108,37 @@ describe("TrackerSettingsSheet cookie credentials", () => {
     const patch = credentialRequests().find(([, init]) => init?.method === "PATCH")
     const blob = JSON.parse(JSON.parse(String(patch?.[1]?.body)).apiToken)
     expect(blob).toEqual({ cookies: "PHPSESSID=abc123", userAgent: navigator.userAgent })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// The credential re-test before a save. The route derives the address and the
+// platform from the registry entry a slug names, so a row that has one sends
+// the slug alone; a pre-registry row still sends what it stores.
+// ---------------------------------------------------------------------------
+
+describe("TrackerSettingsSheet credential re-test", () => {
+  async function changeCookies(tracker: TrackerSummary) {
+    const user = userEvent.setup()
+    renderSheet(tracker)
+    await user.click(screen.getByRole("button", { name: "Change" }))
+    await user.type(screen.getByLabelText("Browser Cookies"), "Cookie: PHPSESSID=abc123")
+    await user.click(screen.getByRole("button", { name: "Save Changes" }))
+    await waitFor(() => expect(testConnectionBody()).not.toBeNull())
+    return testConnectionBody() as Record<string, unknown>
+  }
+
+  it("names the tracker by slug when the row has one", async () => {
+    const body = await changeCookies({ ...RETROTOON, registrySlug: "retrotoon" })
+    expect(body.slug).toBe("retrotoon")
+    expect(body).not.toHaveProperty("baseUrl")
+    expect(body).not.toHaveProperty("platformType")
+  })
+
+  it("sends the stored address and platform for a row with no slug", async () => {
+    const body = await changeCookies(RETROTOON)
+    expect(body.baseUrl).toBe(RETROTOON.baseUrl)
+    expect(body.platformType).toBe("retrotoon")
+    expect(body).not.toHaveProperty("slug")
   })
 })

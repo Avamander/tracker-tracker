@@ -38,6 +38,7 @@ const mockTracker: TrackerSummary = {
   id: 1,
   name: "Test Tracker",
   baseUrl: "https://example.com",
+  registrySlug: null,
   platformType: "unit3d",
   isActive: true,
   lastPolledAt: null,

@@ -74,7 +74,7 @@ vi.mock("@/lib/download-client-scheduler", () => ({
 }))
 
 vi.mock("@/data/tracker-registry", () => ({
-  findRegistryEntry: vi.fn().mockReturnValue(undefined),
+  registryEntryFor: vi.fn(() => undefined),
 }))
 
 vi.mock("node-cron", () => ({

@@ -17,7 +17,7 @@ import { resolveSlots } from "@/components/tracker-detail/resolve-slots"
 import { TrackerDetailHeader } from "@/components/tracker-detail/TrackerDetailHeader"
 import { TrackerInfoTab } from "@/components/tracker-detail/TrackerInfoTab"
 import { TrackerStatusBanner } from "@/components/tracker-detail/TrackerStatusBanner"
-import { findRegistryEntry } from "@/data/tracker-registry"
+import { registryEntryFor } from "@/data/tracker-registry"
 import { useTrackerTorrents } from "@/hooks/useTrackerTorrents"
 import { hexToRgba } from "@/lib/color-utils"
 import { computeDelta } from "@/lib/data-transforms"
@@ -84,7 +84,7 @@ export function TrackerDetailClient({
   const torrentData = useTrackerTorrents({
     trackerId,
     qbtTag: tracker.qbtTag,
-    rules: findRegistryEntry(tracker.baseUrl)?.rules,
+    rules: registryEntryFor(tracker)?.rules,
     tagGroups,
     trackerSeedingCount: tracker.latestStats?.seedingCount,
     qbitmanageConfig,
@@ -225,8 +225,8 @@ export function TrackerDetailClient({
       }) as CSSProperties,
     [tc]
   )
-  const baseUrl = tracker?.baseUrl
-  const registryEntry = useMemo(() => (baseUrl ? findRegistryEntry(baseUrl) : undefined), [baseUrl])
+  const registrySlug = tracker?.registrySlug ?? null
+  const registryEntry = useMemo(() => registryEntryFor({ registrySlug }), [registrySlug])
 
   const { statCardSlots, badgeSlots, progressSlots } = useMemo(() => {
     if (!tracker) return { statCardSlots: [], badgeSlots: [], progressSlots: [] }
@@ -364,7 +364,7 @@ export function TrackerDetailClient({
         open={showCredentials}
         trackerId={tracker.id}
         trackerName={tracker.name}
-        trackerBaseUrl={tracker.baseUrl}
+        trackerRegistrySlug={tracker.registrySlug}
         onClose={() => setShowCredentials(false)}
       />
 

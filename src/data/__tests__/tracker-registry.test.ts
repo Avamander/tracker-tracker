@@ -14,6 +14,7 @@ import { afterAll, describe, expect, it } from "vitest"
 import { DEFAULT_API_PATHS, VALID_PLATFORM_TYPES } from "@/data/platform-types"
 import {
   getTrackerBySlug,
+  registryEntryFor,
   registryHostname,
   TRACKER_REGISTRY,
   type TrackerRegistryEntry,
@@ -71,8 +72,8 @@ describe("tracker registry", () => {
   })
 
   it("has no two entries sharing a hostname", () => {
-    // findRegistryEntryByHostname returns the first match, so two entries on
-    // one hostname would hand a tracker the other one's auth spelling.
+    // The startup backfill takes the first hostname match, so two entries on
+    // one hostname would give a pre-registry row the other one's slug.
     const hosts = TRACKER_REGISTRY.map((t) => registryHostname(t.url))
     const dupes = hosts.filter((h, i) => h !== undefined && hosts.indexOf(h) !== i)
     expect(dupes, `Shared hostnames: ${dupes.join(", ")}`).toEqual([])
@@ -344,6 +345,23 @@ describe("tracker registry", () => {
         expect(tracker.platform).toBe("gazelle")
         expect(["token", "raw"]).toContain(tracker.gazelleAuthStyle)
       }
+    })
+  })
+
+  describe("registryEntryFor", () => {
+    // A tracker row records which registry entry it is; the URL it stores is
+    // the poll address and never the key. A null slug is a pre-registry custom
+    // site and resolves to nothing.
+    it("resolves a row by its slug", () => {
+      expect(registryEntryFor({ registrySlug: "anthelion" })?.nebulanceAuthParam).toBe("apikey")
+    })
+
+    it("resolves nothing for a row with no slug", () => {
+      expect(registryEntryFor({ registrySlug: null })).toBeUndefined()
+    })
+
+    it("resolves nothing for a slug the registry does not carry", () => {
+      expect(registryEntryFor({ registrySlug: "not-a-tracker" })).toBeUndefined()
     })
   })
 

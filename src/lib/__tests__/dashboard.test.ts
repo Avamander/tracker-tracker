@@ -4,12 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type { TrackerRegistryEntry } from "@/data/tracker-registry"
 import type { Snapshot, TrackerSummary } from "@/types/api"
 
-// Mock findRegistryEntry so computeAlerts can look up registry entries by baseUrl
+// Mock the registry so computeAlerts is driven by the rules each test sets,
+// not by what the real registry happens to say about the fixture's tracker.
 vi.mock("@/data/tracker-registry", () => ({
-  findRegistryEntry: vi.fn(() => undefined),
+  registryEntryFor: vi.fn(() => undefined),
 }))
 
-import { findRegistryEntry } from "@/data/tracker-registry"
+import { registryEntryFor } from "@/data/tracker-registry"
 import {
   computeAggregateStats,
   computeAlerts,
@@ -21,7 +22,7 @@ import {
 } from "@/lib/dashboard"
 import { getTrackerHealth } from "@/lib/tracker-status"
 
-const mockFindRegistryEntry = vi.mocked(findRegistryEntry)
+const mockRegistryEntryFor = vi.mocked(registryEntryFor)
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -32,6 +33,7 @@ function makeTracker(overrides: Partial<TrackerSummary> = {}): TrackerSummary {
     id: 1,
     name: "Aither",
     baseUrl: "https://aither.cc",
+    registrySlug: null,
     platformType: "unit3d",
     isActive: true,
     lastPolledAt: new Date().toISOString(),
@@ -93,7 +95,7 @@ function makeRegistryEntry(overrides: Partial<TrackerRegistryEntry> = {}): Track
   }
 }
 
-// Reset the findRegistryEntry mock before each test in computeAlerts suite
+// Reset the registry mock before each test in the computeAlerts suite
 
 const makeSnapshot = (overrides: Partial<Snapshot> = {}): Snapshot => ({
   polledAt: new Date().toISOString(),
@@ -431,11 +433,11 @@ describe("computeAggregateStats hit & runs", () => {
 
 describe("computeAlerts", () => {
   beforeEach(() => {
-    mockFindRegistryEntry.mockReset()
+    mockRegistryEntryFor.mockReset()
   })
 
   it("returns no alerts for a healthy tracker", () => {
-    mockFindRegistryEntry.mockReturnValue(
+    mockRegistryEntryFor.mockReturnValue(
       makeRegistryEntry({ rules: { minimumRatio: 0.4, seedTimeHours: 72, loginIntervalDays: 90 } })
     )
     const tracker = makeTracker({
@@ -505,7 +507,7 @@ describe("computeAlerts", () => {
   })
 
   it("generates a ratio-danger alert when ratio is below minimumRatio", () => {
-    mockFindRegistryEntry.mockReturnValue(
+    mockRegistryEntryFor.mockReturnValue(
       makeRegistryEntry({ rules: { minimumRatio: 0.4, seedTimeHours: 72, loginIntervalDays: 90 } })
     )
     const tracker = makeTracker({
@@ -541,7 +543,7 @@ describe("computeAlerts", () => {
   })
 
   it("does not generate ratio-danger alert when ratio meets minimumRatio", () => {
-    mockFindRegistryEntry.mockReturnValue(
+    mockRegistryEntryFor.mockReturnValue(
       makeRegistryEntry({ rules: { minimumRatio: 0.4, seedTimeHours: 72, loginIntervalDays: 90 } })
     )
     const tracker = makeTracker({
@@ -573,7 +575,7 @@ describe("computeAlerts", () => {
   it("suppresses the ratio-danger alert when the live requiredRatio is 0", () => {
     // Phoenix at full seeding: the sliding requirement really is 0, and the
     // registry's bracket cap must not keep the alert alive.
-    mockFindRegistryEntry.mockReturnValue(
+    mockRegistryEntryFor.mockReturnValue(
       makeRegistryEntry({ rules: { minimumRatio: 0.6, seedTimeHours: 72, loginIntervalDays: 90 } })
     )
     const tracker = makeTracker({
@@ -602,7 +604,7 @@ describe("computeAlerts", () => {
   })
 
   it("fires the ratio-danger alert from the live requiredRatio over the registry", () => {
-    mockFindRegistryEntry.mockReturnValue(
+    mockRegistryEntryFor.mockReturnValue(
       makeRegistryEntry({ rules: { minimumRatio: 0.4, seedTimeHours: 72, loginIntervalDays: 90 } })
     )
     const tracker = makeTracker({
@@ -633,13 +635,14 @@ describe("computeAlerts", () => {
     expect(ratioAlert?.message).toContain("2.5")
   })
 
-  it("looks up registry by baseUrl not name", () => {
-    mockFindRegistryEntry.mockReturnValue(
+  it("keeps the registry rules when the user has renamed the row", () => {
+    mockRegistryEntryFor.mockReturnValue(
       makeRegistryEntry({ rules: { minimumRatio: 0.4, seedTimeHours: 72, loginIntervalDays: 90 } })
     )
     const tracker = makeTracker({
       id: 1,
-      name: "My Custom Name", // user renamed, should still match via baseUrl
+      name: "My Custom Name", // display only, never the registry key
+      registrySlug: "aither",
       baseUrl: "https://aither.cc",
       lastError: null,
       latestStats: {
@@ -661,7 +664,7 @@ describe("computeAlerts", () => {
       },
     })
     const alerts = computeAlerts([tracker])
-    expect(mockFindRegistryEntry).toHaveBeenCalledWith("https://aither.cc")
+    expect(mockRegistryEntryFor).toHaveBeenCalledWith(expect.objectContaining({ registrySlug: "aither" }))
     expect(alerts.find((a) => a.type === "ratio-danger")).toBeDefined()
   })
 

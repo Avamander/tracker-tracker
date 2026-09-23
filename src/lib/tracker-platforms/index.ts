@@ -6,7 +6,7 @@
 // this makes fail at build time rather than at runtime.
 import "server-only"
 import type { Agent as HttpAgent } from "node:http"
-import { findRegistryEntryByHostname } from "@/data/tracker-registry"
+import { registryEntryFor } from "@/data/tracker-registry"
 import { AvistazAdapter } from "./adapters/avistaz"
 import { BtnAdapter } from "./adapters/btn"
 import { DigitalCoreAdapter } from "./adapters/digitalcore"
@@ -46,18 +46,21 @@ export function getAdapter(platformType: string): TrackerAdapter {
   return adapter
 }
 
-/** Resolve registry config + caller-supplied infra options into a unified FetchOptions. */
-export function buildFetchOptions(
-  baseUrl: string,
-  opts?: { proxyAgent?: HttpAgent; remoteUserId?: number }
-): FetchOptions {
+/**
+ * Resolve registry config plus caller-supplied infra options into one FetchOptions.
+ * The registry entry comes from the row's slug; a row with none gets no registry
+ * options and polls by its stored URL alone.
+ */
+export function buildFetchOptions(opts?: {
+  registrySlug?: string | null
+  proxyAgent?: HttpAgent
+  remoteUserId?: number
+}): FetchOptions {
   const fetchOptions: FetchOptions = {}
   if (opts?.proxyAgent) fetchOptions.proxyAgent = opts.proxyAgent
   if (opts?.remoteUserId) fetchOptions.remoteUserId = opts.remoteUserId
 
-  // Matched on hostname, not on the stored spelling: an Anthelion row saved as
-  // http:// or with a www prefix would otherwise send api_key instead of apikey.
-  const entry = findRegistryEntryByHostname(baseUrl)
+  const entry = registryEntryFor({ registrySlug: opts?.registrySlug ?? null })
   if (entry?.gazelleAuthStyle) fetchOptions.authStyle = entry.gazelleAuthStyle
   if (entry?.gazelleEnrich) fetchOptions.enrich = true
   if (entry?.unit3dAuthStyle) fetchOptions.unit3dAuthStyle = entry.unit3dAuthStyle

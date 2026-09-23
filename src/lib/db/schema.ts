@@ -94,6 +94,10 @@ export const trackers = pgTable("trackers", {
   baseUrl: text("base_url").notNull(),
   apiPath: varchar("api_path", { length: 255 }).default("/api/user").notNull(),
   platformType: varchar("platform_type", { length: 50 }).default("unit3d").notNull(),
+  // Which registry entry this row is. NULL for a pre-registry custom site, which
+  // keeps polling by its stored URL with no registry data. Set from the preset when
+  // the tracker is added, and backfilled once at startup for older rows.
+  registrySlug: varchar("registry_slug", { length: 100 }),
   encryptedApiToken: text("encrypted_api_token").notNull(),
   /**
    * The tracker credential vault: base64(iv[12] + authTag[16] + AES-256-GCM(json))

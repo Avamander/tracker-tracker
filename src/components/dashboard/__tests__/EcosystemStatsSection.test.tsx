@@ -16,6 +16,7 @@ function makeTracker(id: number, name: string): TrackerSummary {
     id,
     name,
     baseUrl: `https://${name.toLowerCase()}.example`,
+    registrySlug: null,
     platformType: "unit3d",
     isActive: true,
     lastPolledAt: null,

@@ -5,6 +5,8 @@
 //   1. Returns sanitized actual error instead of generic "Tracker test failed"
 //   2. Logs platform, baseUrl, and raw error in the msg field
 //   3. Wires proxy settings from appSettings (DB load -> buildProxyAgentFromSettings)
+// Plus the two body shapes. A registry slug settles URL, platform and API path;
+// the baseUrl form is what a row without a slug still uses.
 
 import { NextResponse } from "next/server"
 import { beforeEach, describe, expect, it, vi } from "vitest"
@@ -193,6 +195,83 @@ describe("POST /api/trackers/test-connection — input validation", () => {
 })
 
 // ---------------------------------------------------------------------------
+// Registry slug form
+// ---------------------------------------------------------------------------
+
+describe("POST /api/trackers/test-connection by registry slug", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    ;(authenticate as ReturnType<typeof vi.fn>).mockResolvedValue({
+      encryptionKey: VALID_KEY,
+    })
+  })
+
+  it("takes the URL, platform and API path from the entry, not from the body", async () => {
+    mockDbSettings()
+    ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue({
+      slug: "orpheus",
+      apiToken: "some-token",
+      baseUrl: "http://127.0.0.1:8080",
+      platformType: "unit3d",
+    })
+
+    const { getAdapter } = await import("@/lib/tracker-platforms")
+    const res = await POST(makeRequest({ slug: "orpheus", apiToken: "some-token" }))
+
+    expect(res.status).toBe(200)
+    expect(getAdapter).toHaveBeenCalledWith("gazelle")
+    const resolved = vi.mocked(getAdapter).mock.results[0]?.value as {
+      fetchStats: ReturnType<typeof vi.fn>
+    }
+    expect(resolved.fetchStats).toHaveBeenCalledWith(
+      "https://orpheus.network",
+      "some-token",
+      "/ajax.php",
+      expect.anything()
+    )
+  })
+
+  it("passes the slug to buildFetchOptions so the entry's auth options apply", async () => {
+    mockDbSettings()
+    ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue({
+      slug: "orpheus",
+      apiToken: "some-token",
+    })
+
+    const { buildFetchOptions } = await import("@/lib/tracker-platforms")
+    await POST(makeRequest({ slug: "orpheus", apiToken: "some-token" }))
+
+    expect(buildFetchOptions).toHaveBeenCalledWith(
+      expect.objectContaining({ registrySlug: "orpheus" })
+    )
+  })
+
+  it("returns 400 for a slug the registry does not carry", async () => {
+    ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue({
+      slug: "no-such-tracker",
+      apiToken: "some-token",
+    })
+
+    const res = await POST(makeRequest({ slug: "no-such-tracker", apiToken: "some-token" }))
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error).toBe("Unknown tracker")
+  })
+
+  it("passes no slug for a body carrying only a URL, the shape a row without one uses", async () => {
+    mockDbSettings()
+    ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue(VALID_BODY)
+
+    const { buildFetchOptions } = await import("@/lib/tracker-platforms")
+    await POST(makeRequest(VALID_BODY))
+
+    const [opts] = vi.mocked(buildFetchOptions).mock.calls[0]
+    expect(opts?.registrySlug).toBeUndefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Happy path
 // ---------------------------------------------------------------------------
 
@@ -217,7 +296,7 @@ describe("POST /api/trackers/test-connection — success", () => {
     expect(body.group).toBe("Member")
   })
 
-  it("tests the base URL the save route will store, not the one that was typed", async () => {
+  it("strips a trailing slash so the adapters do not probe a doubled separator", async () => {
     mockDbSettings()
     ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue({
       ...VALID_BODY,
@@ -496,7 +575,7 @@ describe("POST /api/trackers/test-connection — proxy wiring", () => {
     await POST(makeRequest(VALID_BODY))
 
     expect(buildFetchOptions).toHaveBeenCalledOnce()
-    const [, optsArg] = (buildFetchOptions as ReturnType<typeof vi.fn>).mock.calls[0]
+    const [optsArg] = (buildFetchOptions as ReturnType<typeof vi.fn>).mock.calls[0]
     expect(optsArg).toMatchObject({ proxyAgent: fakeAgent })
   })
 

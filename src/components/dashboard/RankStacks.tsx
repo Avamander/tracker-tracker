@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { REDACTED_NOTE, RedactedText } from "@/components/ui/RedactedText"
 import { SectionToggle } from "@/components/ui/SectionToggle"
 import { Tooltip } from "@/components/ui/Tooltip"
-import { findRegistryEntry } from "@/data/tracker-registry"
+import { registryEntryFor } from "@/data/tracker-registry"
 import { hexToRgba } from "@/lib/color-utils"
 import { isRedacted } from "@/lib/privacy"
 import { buildRankLadder, type RankLadder } from "@/lib/rank-ladder"
@@ -131,7 +131,7 @@ export function RankStacks({ trackers, expanded, onToggleExpanded }: RankStacksP
 
   const entries: StackEntry[] = trackers.flatMap((tracker) => {
     if (!tracker.isActive) return []
-    const classes = findRegistryEntry(tracker.baseUrl)?.userClasses ?? []
+    const classes = registryEntryFor(tracker)?.userClasses ?? []
     const ladder = buildRankLadder(classes, tracker.latestStats?.group)
     return ladder ? [{ tracker, ladder }] : []
   })

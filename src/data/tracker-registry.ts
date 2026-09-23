@@ -1,7 +1,6 @@
 // src/data/tracker-registry.ts
 
 import type { PlatformType } from "@/data/platform-types"
-import { normalizeUrl } from "@/lib/data-transforms"
 import type { SatisfactionMode } from "@/lib/satisfaction"
 import type { TrackerCredentialFieldDefinition } from "@/lib/tracker-credentials/types"
 import type { GazelleAuthStyle, NebulanceAuthParam, Unit3dAuthStyle } from "./platform-types"
@@ -148,9 +147,15 @@ export function getTrackerBySlug(slug: string): TrackerRegistryEntry | undefined
   return TRACKER_REGISTRY.find((t) => t.slug === slug)
 }
 
-export function findRegistryEntry(baseUrl: string): TrackerRegistryEntry | undefined {
-  const normalized = normalizeUrl(baseUrl)
-  return TRACKER_REGISTRY.find((r) => normalizeUrl(r.url) === normalized)
+/**
+ * The registry entry a tracker row points at. The row names it by slug; the URL
+ * it stores is the poll address, never the key. Undefined for a row with no slug
+ * (a pre-registry custom site) or a slug the registry no longer carries.
+ */
+export function registryEntryFor(tracker: {
+  registrySlug: string | null
+}): TrackerRegistryEntry | undefined {
+  return tracker.registrySlug ? getTrackerBySlug(tracker.registrySlug) : undefined
 }
 
 /**
@@ -159,6 +164,10 @@ export function findRegistryEntry(baseUrl: string): TrackerRegistryEntry | undef
  * stored row usually has not. Undefined for anything `new URL` refuses, which
  * a restored backup can carry because it never passed the create route's
  * validateHttpUrl.
+ *
+ * The startup backfill is the only caller: it is how a row that predates
+ * `registrySlug` is matched to an entry once. Nothing else may reach the
+ * registry by URL.
  */
 export function registryHostname(url: string): string | undefined {
   try {
@@ -166,16 +175,4 @@ export function registryHostname(url: string): string | undefined {
   } catch {
     return undefined
   }
-}
-
-/**
- * The registry entry for the site a base URL points at. Unlike
- * `findRegistryEntry`, which its callers use to compare stored URLs as typed, this
- * ignores scheme, path and a `www.` prefix, so a row saved with another
- * spelling still gets the tracker's own auth options.
- */
-export function findRegistryEntryByHostname(baseUrl: string): TrackerRegistryEntry | undefined {
-  const host = registryHostname(baseUrl)
-  if (!host) return undefined
-  return TRACKER_REGISTRY.find((r) => registryHostname(r.url) === host)
 }

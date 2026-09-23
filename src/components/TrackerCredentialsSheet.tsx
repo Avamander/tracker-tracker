@@ -39,7 +39,7 @@ import {
   TrashIcon,
 } from "@/components/ui/Icons"
 import { getDefaultCredentialFields } from "@/data/tracker-credential-defaults"
-import { findRegistryEntry } from "@/data/tracker-registry"
+import { registryEntryFor } from "@/data/tracker-registry"
 import {
   type DraftField,
   type DraftVault,
@@ -59,8 +59,8 @@ export interface TrackerCredentialsSheetProps {
   open: boolean
   trackerId: number
   trackerName: string
-  /** Used only to pick the registry defaults that seed a brand-new vault. */
-  trackerBaseUrl: string
+  /** The registry entry this row names, used only to seed a brand-new vault. */
+  trackerRegistrySlug: string | null
   onClose: () => void
 }
 
@@ -68,7 +68,7 @@ export function TrackerCredentialsSheet({
   open,
   trackerId,
   trackerName,
-  trackerBaseUrl,
+  trackerRegistrySlug,
   onClose,
 }: TrackerCredentialsSheetProps) {
   const [status, setStatus] = useState<SheetStatus>("loading")
@@ -116,10 +116,11 @@ export function TrackerCredentialsSheet({
       }
 
       const body = (await res.json()) as { vault: TrackerCredentialVaultView | null }
-      // draftFromView consults these ONLY when `vault` is null. An unrecognised
-      // baseUrl falls to `custom`, which getDefaultCredentialFields deliberately
-      // leaves out of its platform map so it lands on the universal fallback.
-      const registryEntry = findRegistryEntry(trackerBaseUrl)
+      // draftFromView consults these ONLY when `vault` is null. A row naming no
+      // registry entry falls to `custom`, which getDefaultCredentialFields
+      // deliberately leaves out of its platform map so it lands on the
+      // universal fallback.
+      const registryEntry = registryEntryFor({ registrySlug: trackerRegistrySlug })
       const seeded = draftFromView(
         body.vault,
         getDefaultCredentialFields(registryEntry ?? { platform: "custom" })
@@ -133,7 +134,7 @@ export function TrackerCredentialsSheet({
       setLoadError("Network error. Could not load credentials")
       setStatus("error")
     }
-  }, [trackerId, trackerBaseUrl])
+  }, [trackerId, trackerRegistrySlug])
 
   useEffect(() => {
     if (!open) return

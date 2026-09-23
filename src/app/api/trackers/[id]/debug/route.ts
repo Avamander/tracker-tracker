@@ -56,6 +56,7 @@ export async function POST(_request: Request, props: RouteContext) {
       baseUrl: trackers.baseUrl,
       apiPath: trackers.apiPath,
       platformType: trackers.platformType,
+      registrySlug: trackers.registrySlug,
       encryptedApiToken: trackers.encryptedApiToken,
       isActive: trackers.isActive,
       remoteUserId: trackers.remoteUserId,
@@ -113,7 +114,8 @@ export async function POST(_request: Request, props: RouteContext) {
     )
   }
 
-  const fetchOptions = buildFetchOptions(tracker.baseUrl, {
+  const fetchOptions = buildFetchOptions({
+    registrySlug: tracker.registrySlug,
     proxyAgent: tracker.useProxy ? proxyAgent : undefined,
     remoteUserId: tracker.remoteUserId ?? undefined,
   })

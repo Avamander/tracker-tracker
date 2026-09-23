@@ -27,7 +27,6 @@ import {
   EMPTY_CREDENTIAL_VALUES,
   validateCredentialValues,
 } from "@/lib/credential-forms"
-import { normalizeUrl } from "@/lib/data-transforms"
 import { localDateStr } from "@/lib/formatters"
 
 // ---------------------------------------------------------------------------
@@ -227,18 +226,17 @@ interface AddTrackerDialogProps {
   open: boolean
   onClose: () => void
   onAdded: (trackerId: number) => void
-  existingBaseUrls?: string[]
+  existingSlugs?: string[]
 }
 
 function AddTrackerDialog({
   open,
   onClose,
   onAdded,
-  existingBaseUrls = [],
+  existingSlugs = [],
 }: AddTrackerDialogProps) {
   const [selectedPreset, setSelectedPreset] = useState("")
   const [nickname, setNickname] = useState("")
-  const [baseUrl, setBaseUrl] = useState("")
   const [credentials, setCredentials] = useState<CredentialValues>(EMPTY_CREDENTIAL_VALUES)
   const [qbtTag, setQbtTag] = useState("")
   const [mouseholeUrl, setMouseholeUrl] = useState("")
@@ -255,7 +253,6 @@ function AddTrackerDialog({
   const resetForm = useCallback(() => {
     setSelectedPreset("")
     setNickname("")
-    setBaseUrl("")
     setCredentials(EMPTY_CREDENTIAL_VALUES)
     setQbtTag("")
     setMouseholeUrl("")
@@ -275,12 +272,10 @@ function AddTrackerDialog({
     setSelectedPreset(slug)
     const entry = TRACKER_REGISTRY.find((t) => t.slug === slug)
     if (entry) {
-      setBaseUrl(entry.url)
       setColor(entry.color)
       setErrors({})
       setTestResult(null)
     } else {
-      setBaseUrl("")
       setColor(CHART_THEME.accent)
     }
     // Everything typed belongs to the tracker it was typed for. Keeping a token
@@ -289,9 +284,9 @@ function AddTrackerDialog({
   }
 
   const availablePresets = useMemo(() => {
-    const urls = new Set(existingBaseUrls.map(normalizeUrl))
-    return TRACKER_REGISTRY.filter((t) => !urls.has(normalizeUrl(t.url)))
-  }, [existingBaseUrls])
+    const taken = new Set(existingSlugs)
+    return TRACKER_REGISTRY.filter((t) => !taken.has(t.slug))
+  }, [existingSlugs])
 
   const selectedEntry = TRACKER_REGISTRY.find((t) => t.slug === selectedPreset)
   const trackerName = nickname.trim() || selectedEntry?.name || ""
@@ -338,10 +333,8 @@ function AddTrackerDialog({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          baseUrl,
+          slug: selectedPreset,
           apiToken: effectiveApiToken,
-          platformType: selectedEntry?.platform ?? "unit3d",
-          apiPath: selectedEntry?.apiPath,
         }),
       })
 
@@ -359,9 +352,8 @@ function AddTrackerDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: trackerName,
-          baseUrl,
+          slug: selectedPreset,
           apiToken: effectiveApiToken,
-          platformType: selectedEntry?.platform ?? "unit3d",
           color,
           qbtTag: qbtTag.trim() || undefined,
           joinedAt: joinedAt || undefined,

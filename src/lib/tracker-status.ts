@@ -9,7 +9,7 @@
 
 import type { BadgeVariant } from "@/components/ui/Badge"
 import type { PulseDotStatus } from "@/components/ui/PulseDot"
-import { findRegistryEntry } from "@/data/tracker-registry"
+import { registryEntryFor } from "@/data/tracker-registry"
 import type { TrackerSummary } from "@/types/api"
 
 // Ordered loosely by severity, ascending. "warning" and "no-seeds" were a
@@ -107,9 +107,12 @@ function getPauseState(tracker: {
 // the current figure per account, and 0 is a real value there, hence the
 // explicit checks rather than `??` or `||`. Null means no requirement is on
 // record anywhere, which is not the same as no requirement existing.
+//
+// Takes the row rather than its slug so a caller cannot hand it a base URL and
+// get a silent null: the registry is reached by slug only.
 function resolveRequiredRatio(
   liveRequiredRatio: number | null | undefined,
-  baseUrl: string
+  tracker: { registrySlug: string | null }
 ): number | null {
   if (
     typeof liveRequiredRatio === "number" &&
@@ -118,7 +121,7 @@ function resolveRequiredRatio(
   ) {
     return liveRequiredRatio
   }
-  const registryMinimum = findRegistryEntry(baseUrl)?.rules?.minimumRatio
+  const registryMinimum = registryEntryFor(tracker)?.rules?.minimumRatio
   if (typeof registryMinimum === "number" && Number.isFinite(registryMinimum) && registryMinimum >= 0) {
     return registryMinimum
   }
@@ -149,7 +152,7 @@ function getTrackerHealth(tracker: TrackerSummary): TrackerHealth {
     // (Phoenix fully seeding) means nothing is demanded, so no ratio can be
     // unhealthy; an amber band above a zero requirement would claim risk that
     // does not exist.
-    const requirement = resolveRequiredRatio(tracker.latestStats.requiredRatio, tracker.baseUrl)
+    const requirement = resolveRequiredRatio(tracker.latestStats.requiredRatio, tracker)
     const minimum = requirement ?? 1
     const value = ratio ?? 0
     if (minimum === 0 || value >= 2 * minimum) status = "healthy"
@@ -201,7 +204,7 @@ function getHealthDescription(status: TrackerHealth, tracker?: TrackerSummary): 
   if (status === "critical" && tracker.latestStats?.warned === true) {
     return "Warned by the tracker"
   }
-  const requirement = resolveRequiredRatio(tracker.latestStats?.requiredRatio, tracker.baseUrl)
+  const requirement = resolveRequiredRatio(tracker.latestStats?.requiredRatio, tracker)
   if (requirement === 0) return "No ratio requirement on this tracker"
   const minimum = formatRequirement(requirement ?? 1)
   const healthyLine = formatRequirement((requirement ?? 1) * 2)

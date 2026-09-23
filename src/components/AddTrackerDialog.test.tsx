@@ -26,6 +26,10 @@ function createRequest() {
   )
 }
 
+function testConnectionRequest() {
+  return fetchMock.mock.calls.find(([url]) => String(url) === "/api/trackers/test-connection")
+}
+
 beforeEach(() => {
   fetchMock.mockReset()
   fetchMock.mockImplementation(async (url: unknown) => {
@@ -180,5 +184,29 @@ describe("AddTrackerDialog retrotoon credentials", () => {
     rerender(<AddTrackerDialog open onClose={vi.fn()} onAdded={vi.fn()} />)
     await pickRetroToon(user)
     expect(screen.getByLabelText("Browser Cookies")).toHaveValue("")
+  })
+})
+
+describe("AddTrackerDialog request bodies", () => {
+  it("names the tracker by slug and sends no URL or platform to either route", async () => {
+    // The address is registry data keyed by the slug, so a URL in either body
+    // would be a second opinion about where the tracker lives.
+    const user = userEvent.setup()
+    render(<AddTrackerDialog open onClose={vi.fn()} onAdded={vi.fn()} />)
+
+    await pickTorrentLeech(user)
+    await user.type(screen.getByLabelText("TorrentLeech Username"), "bob")
+    await user.type(screen.getByLabelText("TorrentLeech Password"), "hunter2")
+    await user.click(screen.getByRole("button", { name: "Add Tracker" }))
+
+    const tested = JSON.parse(String(testConnectionRequest()?.[1]?.body))
+    expect(tested.slug).toBe("torrentleech")
+    expect(tested).not.toHaveProperty("baseUrl")
+    expect(tested).not.toHaveProperty("platformType")
+
+    const saved = JSON.parse(String(createRequest()?.[1]?.body))
+    expect(saved.slug).toBe("torrentleech")
+    expect(saved).not.toHaveProperty("baseUrl")
+    expect(saved).not.toHaveProperty("platformType")
   })
 })

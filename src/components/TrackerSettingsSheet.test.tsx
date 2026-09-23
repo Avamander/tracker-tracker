@@ -33,6 +33,7 @@ const TRACKER: TrackerSummary = {
   id: 42,
   name: "Aither",
   baseUrl: "https://aither.cc",
+  registrySlug: null,
   platformType: "unit3d",
   isActive: true,
   lastPolledAt: null,
@@ -255,6 +256,7 @@ describe("TrackerSettingsSheet digitalcore credentials", () => {
     ...TRACKER,
     platformType: "digitalcore",
     baseUrl: "https://digitalcore.club",
+    registrySlug: null,
   }
 
   it("labels the credential section Credentials rather than API Key", () => {
@@ -287,6 +289,7 @@ describe("TrackerSettingsSheet torrentleech credentials", () => {
     ...TRACKER,
     platformType: "torrentleech",
     baseUrl: "https://www.torrentleech.org",
+    registrySlug: null,
   }
 
   it("includes the Alt 2FA Token in the blob only when one is entered", async () => {
@@ -334,6 +337,24 @@ describe("TrackerSettingsSheet torrentleech credentials", () => {
     await user.click(screen.getByRole("button", { name: "Change" }))
     expect(screen.getByLabelText("Password")).toHaveValue("")
     expect(screen.getByLabelText("Alt 2FA Token (optional)")).toHaveValue("")
+  })
+})
+
+describe("TrackerSettingsSheet registry data", () => {
+  // The row names its registry entry by slug. A stored URL that happens to
+  // match an entry is a poll address, not a key.
+  const loginHint = () => screen.queryByText(/no login-interval policy/i)
+
+  it("reads the login policy from the slug, not the stored URL", () => {
+    renderSheet({
+      tracker: { ...TRACKER, registrySlug: "aither", baseUrl: "https://moved-since.test" },
+    })
+    expect(loginHint()).toBeNull()
+  })
+
+  it("offers no registry rules to a row with no slug", () => {
+    renderSheet({ tracker: { ...TRACKER, registrySlug: null, baseUrl: "https://aither.cc" } })
+    expect(loginHint()).toBeInTheDocument()
   })
 })
 
