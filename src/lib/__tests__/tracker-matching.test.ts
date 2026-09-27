@@ -76,6 +76,12 @@ describe("registry announceHosts", () => {
   it("matches Orpheus' opsfet.ch announces", () => {
     expect(announceMatchesTracker("home.opsfet.ch", "https://orpheus.network")).toBe(true)
   })
+
+  it("matches Redacted's flacsfor.me announces, and only for Redacted", () => {
+    expect(trackerAnnounceKeys("https://redacted.sh")).toEqual(["redacted.sh", "flacsfor.me"])
+    expect(announceMatchesTracker("flacsfor.me:443", "https://redacted.sh")).toBe(true)
+    expect(announceMatchesTracker("flacsfor.me", "https://orpheus.network")).toBe(false)
+  })
 })
 
 describe("resolveTorrentTracker", () => {
