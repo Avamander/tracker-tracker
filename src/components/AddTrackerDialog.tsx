@@ -366,7 +366,10 @@ function AddTrackerDialog({
         next.apiToken =
           'You pasted a cookie name, not the value. Copy the entire string after "Cookie:" in the request headers.'
       }
-    } else if (selectedEntry?.platform === "torrentleech") {
+    } else if (
+      selectedEntry?.platform === "torrentleech" ||
+      selectedEntry?.platform === "luminance"
+    ) {
       if (!tlUsername.trim()) {
         next.apiToken = "Username is required"
       } else if (!tlPassword) {
@@ -395,6 +398,7 @@ function AddTrackerDialog({
     const isIptorrents = selectedEntry?.platform === "iptorrents"
     const isFilelist = selectedEntry?.platform === "filelist"
     const isTorrentleech = selectedEntry?.platform === "torrentleech"
+    const isLuminance = selectedEntry?.platform === "luminance"
     let effectiveApiToken = apiToken
 
     if (isAvistaz) {
@@ -429,6 +433,8 @@ function AddTrackerDialog({
         cookies: flCookies.trim().replace(/^Cookie:\s*/i, ""),
         userAgent: navigator.userAgent,
       })
+    } else if (isLuminance) {
+      effectiveApiToken = JSON.stringify({ username: tlUsername.trim(), password: tlPassword })
     } else if (isTorrentleech) {
       const alt2FAToken = tlAlt2FAToken.trim()
       effectiveApiToken = JSON.stringify({
@@ -660,21 +666,22 @@ function AddTrackerDialog({
               </Notice>
             )}
           </div>
-        ) : selectedEntry?.platform === "torrentleech" ? (
+        ) : selectedEntry?.platform === "torrentleech" ||
+          selectedEntry?.platform === "luminance" ? (
           <div className="flex flex-col gap-3">
             <Input
-              label="TorrentLeech Username"
+              label={`${selectedEntry.name} Username`}
               name="tracker-tl-username"
               autoComplete="off"
               data-1p-ignore
               value={tlUsername}
               onChange={(e) => setTlUsername(e.target.value)}
-              placeholder="Your TorrentLeech username"
+              placeholder={`Your ${selectedEntry.name} username`}
             />
             <div className="flex flex-col gap-1">
               <Input
-                label="TorrentLeech Password"
-                tooltip="TorrentLeech has no API, so stats are read by logging in on your behalf. Your password is encrypted at rest with the same key as every other tracker credential."
+                label={`${selectedEntry.name} Password`}
+                tooltip={`${selectedEntry.name} has no stats API, so stats are read by logging in on your behalf. Your password is encrypted at rest with the same key as every other tracker credential.`}
                 docs={DOCS.ADDING_A_TRACKER}
                 id="tracker-tl-password"
                 name="tracker-tl-password"
@@ -683,25 +690,27 @@ function AddTrackerDialog({
                 data-1p-ignore
                 value={tlPassword}
                 onChange={(e) => setTlPassword(e.target.value)}
-                placeholder="Your TorrentLeech password"
+                placeholder={`Your ${selectedEntry.name} password`}
                 error={errors.apiToken}
               />
             </div>
-            <div className="flex flex-col gap-1">
-              <Input
-                label="Alt 2FA Token (optional)"
-                tooltip="Required only if your TorrentLeech account has 2FA enabled. Find it at Site Profile => Alt 2FA Token. It is a static token, not a rotating 6-digit code."
-                docs={DOCS.ADDING_A_TRACKER}
-                id="tracker-tl-alt2fa"
-                name="tracker-tl-alt2fa"
-                type="password"
-                autoComplete="off"
-                data-1p-ignore
-                value={tlAlt2FAToken}
-                onChange={(e) => setTlAlt2FAToken(e.target.value)}
-                placeholder="Only if 2FA is enabled on your account"
-              />
-            </div>
+            {selectedEntry.platform === "torrentleech" && (
+              <div className="flex flex-col gap-1">
+                <Input
+                  label="Alt 2FA Token (optional)"
+                  tooltip="Required only if your TorrentLeech account has 2FA enabled. Find it at Site Profile => Alt 2FA Token. It is a static token, not a rotating 6-digit code."
+                  docs={DOCS.ADDING_A_TRACKER}
+                  id="tracker-tl-alt2fa"
+                  name="tracker-tl-alt2fa"
+                  type="password"
+                  autoComplete="off"
+                  data-1p-ignore
+                  value={tlAlt2FAToken}
+                  onChange={(e) => setTlAlt2FAToken(e.target.value)}
+                  placeholder="Only if 2FA is enabled on your account"
+                />
+              </div>
+            )}
             {testResult && (
               <Notice variant="success">
                 Connected as <span className="font-semibold">{testResult.username}</span>

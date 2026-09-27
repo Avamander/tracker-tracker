@@ -10,6 +10,7 @@ import { GazelleAdapter } from "./gazelle"
 import { GGnAdapter } from "./ggn"
 import { HawkeAdapter } from "./hawke"
 import { IptorrentsAdapter } from "./iptorrents"
+import { LuminanceAdapter } from "./luminance"
 import { MamAdapter } from "./mam"
 import { NebulanceAdapter } from "./nebulance"
 import { TorrentleechAdapter } from "./torrentleech"
@@ -28,6 +29,7 @@ const adapters: Record<string, TrackerAdapter> = {
   ggn: new GGnAdapter(),
   hawke: new HawkeAdapter(),
   iptorrents: new IptorrentsAdapter(),
+  luminance: new LuminanceAdapter(),
   mam: new MamAdapter(),
   nebulance: new NebulanceAdapter(),
   torrentleech: new TorrentleechAdapter(),

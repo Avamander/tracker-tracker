@@ -192,7 +192,10 @@ function TrackerSettingsSheet({ open, tracker, onClose, onUpdated }: TrackerSett
       } else if (!trimmed.includes("=")) {
         validationErrors.apiToken = "Cookie string must contain key=value pairs"
       }
-    } else if (changingKey && tracker.platformType === "torrentleech") {
+    } else if (
+      changingKey &&
+      (tracker.platformType === "torrentleech" || tracker.platformType === "luminance")
+    ) {
       if (!editTlUsername.trim() || !editTlPassword) {
         validationErrors.apiToken = "Username and password are required"
       }
@@ -231,6 +234,8 @@ function TrackerSettingsSheet({ open, tracker, onClose, onUpdated }: TrackerSett
         cookies: editFlCookies.trim().replace(/^Cookie:\s*/i, ""),
         userAgent: navigator.userAgent,
       })
+    } else if (changingKey && tracker.platformType === "luminance") {
+      trimmedToken = JSON.stringify({ username: editTlUsername.trim(), password: editTlPassword })
     } else if (changingKey && tracker.platformType === "torrentleech") {
       const alt2FAToken = editTlAlt2FAToken.trim()
       trimmedToken = JSON.stringify({
@@ -467,7 +472,8 @@ function TrackerSettingsSheet({ open, tracker, onClose, onUpdated }: TrackerSett
                   }}
                 />
               </div>
-            ) : changingKey && tracker.platformType === "torrentleech" ? (
+            ) : changingKey &&
+              (tracker.platformType === "torrentleech" || tracker.platformType === "luminance") ? (
               <div className="flex flex-col gap-2">
                 <Input
                   label="Username"
@@ -486,16 +492,18 @@ function TrackerSettingsSheet({ open, tracker, onClose, onUpdated }: TrackerSett
                   value={editTlPassword}
                   onChange={(e) => setEditTlPassword(e.target.value)}
                 />
-                <Input
-                  label="Alt 2FA Token (optional)"
-                  name="edit-tl-alt2fa"
-                  type="password"
-                  autoComplete="off"
-                  data-1p-ignore
-                  value={editTlAlt2FAToken}
-                  onChange={(e) => setEditTlAlt2FAToken(e.target.value)}
-                  placeholder="Only if 2FA is enabled on your account"
-                />
+                {tracker.platformType === "torrentleech" && (
+                  <Input
+                    label="Alt 2FA Token (optional)"
+                    name="edit-tl-alt2fa"
+                    type="password"
+                    autoComplete="off"
+                    data-1p-ignore
+                    value={editTlAlt2FAToken}
+                    onChange={(e) => setEditTlAlt2FAToken(e.target.value)}
+                    placeholder="Only if 2FA is enabled on your account"
+                  />
+                )}
                 <Notice message={errors.apiToken} />
                 <Button
                   variant="minimal"

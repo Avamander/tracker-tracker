@@ -46,6 +46,8 @@ export function sanitizeNetworkError(raw: string, fallback = "Connection failed"
     return "TorrentLeech requires 2FA. Add your Alt 2FA Token (Site Profile => Alt 2FA Token) to this tracker's credentials"
   }
   if (/Alt 2FA Token/i.test(raw)) return "Invalid credentials or Alt 2FA Token"
+  const luminance = raw.match(/Luminance (login failed: .*|2FA is not supported.*)/)
+  if (luminance) return `Luminance ${luminance[1]}`
   // A tracker that answered 2xx with a body the adapter could not read.
   // "Unexpected response from <host>: ..." is the wording the Gazelle, BTN,
   // GGn, MAM, Nebulance, Hawke and UNIT3D adapters share (issue #214); the
