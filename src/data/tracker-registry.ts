@@ -32,6 +32,8 @@ export interface TrackerUserClass {
   requirements?: string
   perks?: RankPerk[]
   icon?: string
+  /** Appointed or secondary class, not a promotion step */
+  offLadder?: boolean
 }
 
 export interface TrackerRules {

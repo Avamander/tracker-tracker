@@ -9,6 +9,7 @@ import type { TrackerUserClass } from "@/data/tracker-registry"
 import { hexToRgba } from "@/lib/color-utils"
 import { isRedacted } from "@/lib/privacy"
 import { checkAnniversaryMilestone } from "@/lib/tracker-events"
+import { ladderClasses } from "@/lib/user-classes"
 import type { Snapshot } from "@/types/api"
 
 // ── Types ──
@@ -72,9 +73,10 @@ function classifyDirection(
   to: string,
   userClasses: TrackerUserClass[]
 ): "promotion" | "demotion" | "unknown" {
-  if (userClasses.length === 0) return "unknown"
-  const fromIdx = userClasses.findIndex((uc) => uc.name.toLowerCase() === from.toLowerCase())
-  const toIdx = userClasses.findIndex((uc) => uc.name.toLowerCase() === to.toLowerCase())
+  const ladder = ladderClasses(userClasses)
+  if (ladder.length === 0) return "unknown"
+  const fromIdx = ladder.findIndex((uc) => uc.name.toLowerCase() === from.toLowerCase())
+  const toIdx = ladder.findIndex((uc) => uc.name.toLowerCase() === to.toLowerCase())
   if (fromIdx === -1 || toIdx === -1) return "unknown"
   return toIdx > fromIdx ? "promotion" : "demotion"
 }
@@ -82,13 +84,16 @@ function classifyDirection(
 function RankProgressBar({ userClasses, currentRank, accentColor }: RankProgressBarProps) {
   if (userClasses.length === 0 || !currentRank || isRedacted(currentRank)) return null
 
-  const currentIndex = userClasses.findIndex(
-    (uc) => uc.name.toLowerCase() === currentRank.toLowerCase()
-  )
+  const isCurrentRank = (uc: TrackerUserClass) =>
+    uc.name.toLowerCase() === currentRank.toLowerCase()
+  const ladder = ladderClasses(userClasses)
+  const currentIndex = ladder.findIndex(isCurrentRank)
+  const offLadderCurrent =
+    currentIndex === -1 ? userClasses.find((uc) => uc.offLadder && isCurrentRank(uc)) : undefined
 
   return (
     <div className="flex items-center gap-1 w-full overflow-x-auto p-3 -m-3 styled-scrollbar">
-      {userClasses.map((uc, i) => {
+      {ladder.map((uc, i) => {
         const isPast = currentIndex >= 0 && i < currentIndex
         const isCurrent = i === currentIndex
         const isFuture = currentIndex >= 0 && i > currentIndex
@@ -133,6 +138,19 @@ function RankProgressBar({ userClasses, currentRank, accentColor }: RankProgress
           </div>
         )
       })}
+      {offLadderCurrent && (
+        <div
+          className="ml-3 px-3 py-1.5 text-xs font-mono shrink-0 rounded-nm-pill"
+          style={{
+            backgroundColor: hexToRgba(accentColor, 0.15),
+            color: accentColor,
+            fontWeight: 600,
+            boxShadow: `0 0 12px ${hexToRgba(accentColor, 0.2)}`,
+          }}
+        >
+          {offLadderCurrent.name}
+        </div>
+      )}
     </div>
   )
 }
