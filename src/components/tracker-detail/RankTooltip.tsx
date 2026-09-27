@@ -21,6 +21,7 @@ export function RankTooltip({ currentRank, userClasses, accentColor }: RankToolt
           <SlotLabel label="Ranks" className="px-3 pb-1.5" />
           {userClasses.map((uc) => {
             const isCurrent = uc.name.toLowerCase() === currentRank.toLowerCase()
+            if (uc.offLadder && !isCurrent) return null
             return (
               <div
                 key={uc.name}
