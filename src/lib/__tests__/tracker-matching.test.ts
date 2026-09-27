@@ -68,6 +68,12 @@ describe("registry announceHosts", () => {
     expect(trackerAnnounceKeys("https://example.org")).toEqual(["example.org"])
     expect(trackerAnnounceKeys(null)).toEqual([])
   })
+
+  it("matches Redacted's flacsfor.me announces, and only for Redacted", () => {
+    expect(trackerAnnounceKeys("https://redacted.sh")).toEqual(["redacted.sh", "flacsfor.me"])
+    expect(announceMatchesTracker("flacsfor.me:443", "https://redacted.sh")).toBe(true)
+    expect(announceMatchesTracker("flacsfor.me", "https://orpheus.network")).toBe(false)
+  })
 })
 
 describe("resolveTorrentTracker", () => {
