@@ -71,6 +71,7 @@ const LARGE_TOKEN_PLATFORMS: ReadonlySet<string> = new Set([
   "digitalcore",
   "filelist",
   "iptorrents",
+  "luminance",
   "torrentleech",
 ])
 
