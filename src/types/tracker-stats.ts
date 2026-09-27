@@ -237,6 +237,20 @@ export interface RetrotoonPlatformMeta {
   hnrCleanupTokens?: number
 }
 
+export interface AnimeBytesPlatformMeta {
+  potentialHnrs?: number
+  yenPerHour?: number
+  yenPerDay?: number
+  rawUploadedBytes?: number
+  rawDownloadedBytes?: number
+  snatched?: number
+  seedSizeBytes?: number
+  avgSeedTime?: number
+  torrentsUploaded?: number
+  torrentsPruned?: number
+  freeleechUntil?: number
+}
+
 /** Union of all platform-specific metadata types */
 export type PlatformMeta =
   | GGnPlatformMeta
@@ -249,6 +263,7 @@ export type PlatformMeta =
   | FileListPlatformMeta
   | Unit3dPlatformMeta
   | RetrotoonPlatformMeta
+  | AnimeBytesPlatformMeta
 
 /** Maps platformType string → the corresponding PlatformMeta variant */
 export interface PlatformMetaMap {
@@ -262,6 +277,7 @@ export interface PlatformMetaMap {
   filelist: FileListPlatformMeta
   unit3d: Unit3dPlatformMeta
   retrotoon: RetrotoonPlatformMeta
+  animebytes: AnimeBytesPlatformMeta
 }
 
 /**

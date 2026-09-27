@@ -7,6 +7,7 @@
 import "server-only"
 import type { Agent as HttpAgent } from "node:http"
 import { registryEntryFor } from "@/data/tracker-registry"
+import { AnimeBytesAdapter } from "./adapters/animebytes"
 import { AvistazAdapter } from "./adapters/avistaz"
 import { BtnAdapter } from "./adapters/btn"
 import { DigitalCoreAdapter } from "./adapters/digitalcore"
@@ -24,6 +25,7 @@ import { Unit3dAdapter } from "./adapters/unit3d"
 import type { FetchOptions, TrackerAdapter } from "./contract"
 
 const adapters: Record<string, TrackerAdapter> = {
+  animebytes: new AnimeBytesAdapter(),
   avistaz: new AvistazAdapter(),
   btn: new BtnAdapter(),
   digitalcore: new DigitalCoreAdapter(),
