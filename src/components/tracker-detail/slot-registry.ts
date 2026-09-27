@@ -119,6 +119,38 @@ const goldSlot: SlotDefinition<StatCardStackedProps> = {
   },
 }
 
+const yenSlot: SlotDefinition<StatCardStackedProps> = {
+  id: "yen",
+  category: "stat-card",
+  component: StatCard as ComponentType<StatCardStackedProps>,
+  priority: 10,
+  span: 2,
+  resolve(ctx) {
+    const abMeta = metaFor(ctx, "animebytes")
+    if (!abMeta) return null
+    if (ctx.latestSnapshot?.seedbonus == null) return null
+    const rate = (n: number | undefined) => (n ? `+¥${formatCount(Math.floor(n))}` : "—")
+    return {
+      type: "stacked" as const,
+      title: "Yen",
+      rows: [
+        { label: "Balance", value: `¥${formatCount(Math.floor(ctx.latestSnapshot.seedbonus))}` },
+        {
+          label: "Per Hour",
+          value: rate(abMeta.yenPerHour),
+          colorClass: abMeta.yenPerHour ? "text-success" : undefined,
+        },
+        {
+          label: "Per Day",
+          value: rate(abMeta.yenPerDay),
+          colorClass: abMeta.yenPerDay ? "text-success" : undefined,
+        },
+      ],
+      accentColor: ctx.accentColor,
+    }
+  },
+}
+
 const snatchedNebulanceSlot: SlotDefinition<StatCardBasicProps> = {
   id: "snatched-nebulance",
   category: "stat-card",
@@ -143,7 +175,13 @@ const seedbonusSlot: SlotDefinition<StatCardBasicProps> = {
   priority: 10,
   resolve(ctx) {
     if (ctx.latestSnapshot?.seedbonus == null) return null
-    if (metaFor(ctx, "ggn") || metaFor(ctx, "gazelle") || metaFor(ctx, "nebulance")) return null
+    if (
+      metaFor(ctx, "ggn") ||
+      metaFor(ctx, "gazelle") ||
+      metaFor(ctx, "nebulance") ||
+      metaFor(ctx, "animebytes")
+    )
+      return null
     const bonusName = ctx.registry?.bonusName
     return {
       label: bonusName ?? "Seedbonus",
@@ -997,6 +1035,7 @@ export const SLOT_DEFINITIONS: AnySlotDefinition[] = [
   loginDeadlineSlot,
   apiKeyExpirySlot,
   goldSlot,
+  yenSlot,
   snatchedNebulanceSlot,
   seedbonusSlot,
   ggnShareScoreCardSlot,

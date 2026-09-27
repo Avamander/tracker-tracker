@@ -34,6 +34,7 @@ export interface TrackerStats {
     | HawkePlatformMeta
     | FileListPlatformMeta
     | Unit3dPlatformMeta
+    | AnimeBytesPlatformMeta
 }
 
 export interface GGnPlatformMeta {
@@ -216,6 +217,20 @@ export interface Unit3dPlatformMeta {
   apiKeyExpiresAt?: string
 }
 
+export interface AnimeBytesPlatformMeta {
+  potentialHnrs?: number
+  yenPerHour?: number
+  yenPerDay?: number
+  rawUploadedBytes?: number
+  rawDownloadedBytes?: number
+  snatched?: number
+  seedSizeBytes?: number
+  avgSeedTime?: number
+  torrentsUploaded?: number
+  torrentsPruned?: number
+  freeleechUntil?: number
+}
+
 /** Union of all platform-specific metadata types */
 export type PlatformMeta =
   | GGnPlatformMeta
@@ -227,6 +242,7 @@ export type PlatformMeta =
   | HawkePlatformMeta
   | FileListPlatformMeta
   | Unit3dPlatformMeta
+  | AnimeBytesPlatformMeta
 
 /** Maps platformType string → the corresponding PlatformMeta variant */
 export interface PlatformMetaMap {
@@ -239,6 +255,7 @@ export interface PlatformMetaMap {
   hawke: HawkePlatformMeta
   filelist: FileListPlatformMeta
   unit3d: Unit3dPlatformMeta
+  animebytes: AnimeBytesPlatformMeta
 }
 
 /**

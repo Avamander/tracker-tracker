@@ -2,6 +2,7 @@
 
 import type { Agent as HttpAgent } from "node:http"
 import { findRegistryEntry } from "@/data/tracker-registry"
+import { AnimeBytesAdapter } from "./animebytes"
 import { AvistazAdapter } from "./avistaz"
 import { BtnAdapter } from "./btn"
 import { DigitalCoreAdapter } from "./digitalcore"
@@ -20,6 +21,7 @@ export type { PlatformType } from "./constants"
 export { DEFAULT_API_PATHS, VALID_PLATFORM_TYPES } from "./constants"
 
 const adapters: Record<string, TrackerAdapter> = {
+  animebytes: new AnimeBytesAdapter(),
   avistaz: new AvistazAdapter(),
   btn: new BtnAdapter(),
   digitalcore: new DigitalCoreAdapter(),
