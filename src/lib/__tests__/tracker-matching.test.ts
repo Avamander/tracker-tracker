@@ -68,6 +68,10 @@ describe("registry announceHosts", () => {
     expect(trackerAnnounceKeys("https://example.org")).toEqual(["example.org"])
     expect(trackerAnnounceKeys(null)).toEqual([])
   })
+
+  it("matches IPTorrents' bgp.technology announces", () => {
+    expect(announceMatchesTracker("routing.bgp.technology", "https://iptorrents.com")).toBe(true)
+  })
 })
 
 describe("resolveTorrentTracker", () => {

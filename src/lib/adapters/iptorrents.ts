@@ -1,7 +1,8 @@
 // src/lib/adapters/iptorrents.ts
 //
 // Functions: parseIptCredentials, tryParseBytes, valueAfterLabel, parseUpStatCards,
-//            parseIptProfile, fetchHtml, IptorrentsAdapter
+//            parseIptProfile, parseIptProfilePath, parseIptClass, fetchHtml,
+//            IptorrentsAdapter
 
 import { type HTMLElement as ParsedElement, parse as parseHtml } from "node-html-parser"
 import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
@@ -92,6 +93,15 @@ function parseUpStatCards(doc: ParsedElement): {
 }
 
 // ---------------------------------------------------------------------------
+function parseIptUsername(doc: ParsedElement): string {
+  const heading = doc.querySelector("h1.up-username")?.textContent?.trim()
+  if (heading) return heading
+  const uname = doc.querySelector(".uname")
+  if (!uname) return ""
+  for (const tip of uname.querySelectorAll(".tTip")) tip.remove()
+  return uname.textContent.trim()
+}
+
 // Profile page parser
 // ---------------------------------------------------------------------------
 
@@ -117,7 +127,7 @@ export function parseIptProfile(html: string): TrackerStats {
     )
   }
 
-  const username = doc.querySelector(".uname")?.textContent?.trim() ?? ""
+  const username = parseIptUsername(doc)
 
   let uploadedBytes = 0n
   let downloadedBytes = 0n
@@ -153,9 +163,9 @@ export function parseIptProfile(html: string): TrackerStats {
     if (fallback.seedbonus !== undefined) seedbonus = fallback.seedbonus
   }
 
-  let group = "User"
+  let group = doc.querySelector("span.up-class-badge")?.textContent?.trim() || "User"
   const vipEl = doc.querySelector(".hdr-vip")
-  if (vipEl && /VIP/i.test(vipEl.getAttribute("title") ?? "")) {
+  if (group === "User" && vipEl && /VIP/i.test(vipEl.getAttribute("title") ?? "")) {
     group = "VIP"
   }
 
@@ -177,6 +187,15 @@ export function parseIptProfile(html: string): TrackerStats {
     warned: null,
     freeleechTokens: null,
   }
+}
+
+export function parseIptProfilePath(html: string): string | null {
+  const href = parseHtml(html).querySelector(".uname")?.getAttribute("href") ?? ""
+  return /^\/u\/\d+$/.test(href) ? href : null
+}
+
+export function parseIptClass(html: string): string | null {
+  return parseHtml(html).querySelector("span.up-class-badge")?.textContent?.trim() || null
 }
 
 // ---------------------------------------------------------------------------
@@ -219,7 +238,22 @@ export class IptorrentsAdapter implements TrackerAdapter {
     // uid to build).
     const homeUrl = `${baseUrl}/`
     const html = await fetchHtml(homeUrl, creds.cookies, creds.userAgent, options?.proxyAgent)
-    return parseIptProfile(html)
+    const stats = parseIptProfile(html)
+
+    // Best effort: the class is only on the profile page
+    const profilePath = parseIptProfilePath(html)
+    if (profilePath) {
+      try {
+        const profileHtml = await fetchHtml(
+          `${baseUrl}${profilePath}`,
+          creds.cookies,
+          creds.userAgent,
+          options?.proxyAgent
+        )
+        stats.group = parseIptClass(profileHtml) ?? stats.group
+      } catch {}
+    }
+    return stats
   }
 
   async fetchRaw(

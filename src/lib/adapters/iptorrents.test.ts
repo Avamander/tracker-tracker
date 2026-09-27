@@ -15,6 +15,8 @@ const STATS_HTML = `
 
 const FULL_PAGE = `<!doctype html><html><head></head><body>${STATS_HTML}</body></html>`
 
+const PROFILE_PAGE = `<!doctype html><html><body>${STATS_HTML}<h1 class="up-username">testuser</h1><span class="up-class-badge">Power User</span></body></html>`
+
 describe("parseIptProfile", () => {
   it("extracts stats from the header stats bar", () => {
     const stats = parseIptProfile(FULL_PAGE)
@@ -27,6 +29,19 @@ describe("parseIptProfile", () => {
     expect(stats.seedbonus).toBeCloseTo(55.4)
   })
 
+  it("drops the Profile tooltip label from the username", () => {
+    const html = FULL_PAGE.replace(
+      '<a class="uname" href="/u/12345">testuser</a>',
+      '<a class="uname tTipWrap" href="/u/12345"><div class="tTip">Profile</div>testuser</a>'
+    )
+    expect(parseIptProfile(html).username).toBe("testuser")
+  })
+
+  it("prefers the profile heading for the username", () => {
+    const html = FULL_PAGE.replace("<body>", '<body><h1 class="up-username">headinguser</h1>')
+    expect(parseIptProfile(html).username).toBe("headinguser")
+  })
+
   it("computes bufferBytes as upload minus download", () => {
     const stats = parseIptProfile(FULL_PAGE)
     // This fixture is a deficit account (14.5 GB up, 19.6 GB down), the
@@ -37,6 +52,11 @@ describe("parseIptProfile", () => {
   it("defaults group to 'User' with no VIP badge", () => {
     const stats = parseIptProfile(FULL_PAGE)
     expect(stats.group).toBe("User")
+  })
+
+  it("reads the class from the profile's class badge", () => {
+    const html = FULL_PAGE.replace("<body>", '<body><span class="up-class-badge">Power User</span>')
+    expect(parseIptProfile(html).group).toBe("Power User")
   })
 
   it("detects VIP group from the hdr-vip badge title", () => {
@@ -174,20 +194,42 @@ describe("IptorrentsAdapter.fetchStats — network error classification", () => 
   })
 
   it("fetches the homepage with cookie and user-agent headers", async () => {
-    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      text: async () => FULL_PAGE,
-    } as Response)
+    const fetchSpy = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce({ ok: true, status: 200, text: async () => FULL_PAGE } as Response)
+      .mockResolvedValueOnce({ ok: true, status: 200, text: async () => PROFILE_PAGE } as Response)
 
     await adapter.fetchStats("https://iptorrents.com", validToken, "")
 
-    expect(fetchSpy).toHaveBeenCalledTimes(1)
     const [calledUrl, init] = fetchSpy.mock.calls[0]
     expect(calledUrl).toBe("https://iptorrents.com/")
     const headers = init?.headers as Record<string, string>
     expect(headers.Cookie).toBe("uid=123; pass=abc123")
     expect(headers["User-Agent"]).toBe("Mozilla/5.0")
+  })
+
+  it("reads the class from the profile page linked in the header", async () => {
+    const fetchSpy = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce({ ok: true, status: 200, text: async () => FULL_PAGE } as Response)
+      .mockResolvedValueOnce({ ok: true, status: 200, text: async () => PROFILE_PAGE } as Response)
+
+    const stats = await adapter.fetchStats("https://iptorrents.com", validToken, "")
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+    expect(fetchSpy.mock.calls[1][0]).toBe("https://iptorrents.com/u/12345")
+    expect(stats.group).toBe("Power User")
+  })
+
+  it("keeps the homepage's class when the profile page fails", async () => {
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce({ ok: true, status: 200, text: async () => FULL_PAGE } as Response)
+      .mockRejectedValueOnce(new Error("network down"))
+
+    const stats = await adapter.fetchStats("https://iptorrents.com", validToken, "")
+
+    expect(stats.group).toBe("User")
+    expect(stats.uploadedBytes).toBeGreaterThan(0n)
   })
 })
 
@@ -272,6 +314,6 @@ describe("IptorrentsAdapter - redirect handling", () => {
     const adapter = new IptorrentsAdapter()
     const stats = await adapter.fetchStats("https://iptorrents.com", creds, "/")
     expect(stats.username).toBe("testuser")
-    expect(callCount).toBe(2)
+    expect(callCount).toBe(3)
   })
 })
