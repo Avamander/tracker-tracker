@@ -87,6 +87,8 @@ export interface TrackerRegistryEntry {
   statusPageUrl?: string
   /** Announce domains that differ from `url`s. */
   announceHosts?: string[]
+  /** The tracker's own name for bonus points, e.g. "Yen" */
+  bonusName?: string
   draft?: boolean
   warning?: boolean
   warningNote?: string
