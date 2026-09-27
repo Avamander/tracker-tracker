@@ -130,7 +130,6 @@ export const CROSS_SEED_TAG_MAX = 100
 export const UPLOAD_IMAGE_MAX_BYTES = 32 * 1024 * 1024
 export const BACKUP_RESTORE_MAX_BYTES = 50 * 1024 * 1024
 export const AVATAR_FETCH_MAX_BYTES = 5 * 1024 * 1024
-export const MOUSEHOLE_BODY_MAX_BYTES = 256
 
 // ─── Image Hosting ────────────────────────────────────────────────────────────
 export const IMAGE_EXPIRATION_MIN = 60

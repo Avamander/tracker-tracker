@@ -97,6 +97,46 @@ describe("MamAdapter - parsing", () => {
     expect(stats.seedingCount).toBe(18)
   })
 
+  it("reads the snatch categories MAM nests under snatch_summary", async () => {
+    mockFetch({
+      sSat: undefined,
+      seedHnr: undefined,
+      seedUnsat: undefined,
+      upAct: undefined,
+      leeching: undefined,
+      inactHnr: undefined,
+      connectable: undefined,
+      snatch_summary: {
+        connectable: "yes",
+        sSat: { name: "Seeding - Satisfied", count: 3, red: false, size: null },
+        seedHnr: { name: "Seeding - H&R - Not Yet Satisfied", count: 0, red: false, size: null },
+        seedUnsat: { name: "Seeding - Not Yet Satisfied", count: 1, red: false, size: null },
+        upAct: { name: "Seeding -  Uploads", count: 0, red: false, size: null },
+        leeching: { name: "Leeching Torrents", count: 2, red: false, size: null },
+        inactHnr: {
+          name: "Not Seeding - H&R - Not Yet Satisfied",
+          count: 0,
+          red: false,
+          size: null,
+        },
+        unsat: { name: "Unsatisfied", count: 1, red: false, size: null, limit: 50 },
+      },
+    })
+
+    const stats = await adapter.fetchStats(
+      "https://www.myanonamouse.net",
+      "a1b2c3a1b2c3a1b2c3a1b2c3a1b2c3a1",
+      "/jsonLoad.php"
+    )
+
+    expect(stats.seedingCount).toBe(4)
+    expect(stats.leechingCount).toBe(2)
+    expect(stats.hitAndRuns).toBe(0)
+    const meta = stats.platformMeta as { connectable?: string; unsatisfiedLimit?: number }
+    expect(meta.connectable).toBe("yes")
+    expect(meta.unsatisfiedLimit).toBe(50)
+  })
+
   // A deficit account must report its actual shortfall, not 0. Clamping drew a
   // flat line on the buffer chart while the account deteriorated.
   it("returns a negative bufferBytes when downloaded exceeds uploaded", async () => {
