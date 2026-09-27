@@ -54,7 +54,7 @@ export const myanonamouse: TrackerRegistryEntry = {
   rules: {
     minimumRatio: 1.0,
     seedTimeHours: 72,
-    loginIntervalDays: 0,
+    loginIntervalDays: 120,
     fulfillmentPeriodHours: 720,
   },
 

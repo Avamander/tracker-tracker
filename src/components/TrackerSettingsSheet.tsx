@@ -612,10 +612,10 @@ function TrackerSettingsSheet({ open, tracker, onClose, onUpdated }: TrackerSett
                 label="Mousehole URL (optional)"
                 value={form.mouseholeUrl}
                 onChange={(e) => updateField("mouseholeUrl", e.target.value)}
-                placeholder="http://localhost:7001"
+                placeholder="http://:token@mousehole:5010"
               />
               <InfoTip
-                content="If you run Mousehole to manage your MAM seedbox IP, enter its URL here to see status and trigger updates from Tracker Tracker."
+                content="If you run Mousehole to manage your MAM seedbox IP, enter its URL here to see status and trigger updates from Tracker Tracker. Put its API token (MOUSEHOLE_AUTH_TOKEN) in the URL as http://:token@host:port."
                 size="sm"
                 docs={{
                   href: "https://github.com/t-mart/mousehole",

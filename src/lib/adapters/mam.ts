@@ -65,6 +65,9 @@ interface MamJsonLoadResponse {
   }
 
   clientStats?: unknown[]
+
+  /** Where current responses nest the snatch fields above */
+  snatch_summary?: Partial<MamJsonLoadResponse>
 }
 
 // Validate mam_id before interpolation into Cookie header to prevent injection.
@@ -112,23 +115,24 @@ export class MamAdapter implements TrackerAdapter {
 
     const uploaded = floatBytesToBigInt(data.uploaded_bytes)
     const downloaded = floatBytesToBigInt(data.downloaded_bytes)
+    const snatch: Partial<MamJsonLoadResponse> = { ...data, ...data.snatch_summary }
 
     const seedingCount =
-      (data.sSat?.count ?? 0) +
-      (data.seedHnr?.count ?? 0) +
-      (data.seedUnsat?.count ?? 0) +
-      (data.upAct?.count ?? 0)
+      (snatch.sSat?.count ?? 0) +
+      (snatch.seedHnr?.count ?? 0) +
+      (snatch.seedUnsat?.count ?? 0) +
+      (snatch.upAct?.count ?? 0)
 
     const platformMeta: MamPlatformMeta = {
       vipUntil: data.vip_until ?? undefined,
-      connectable: data.connectable ?? undefined,
-      unsatisfiedCount: data.unsat?.count ?? undefined,
-      unsatisfiedLimit: data.unsat?.limit ?? undefined,
-      inactiveSatisfiedCount: data.inactSat?.count ?? undefined,
-      seedingHnrCount: data.seedHnr?.count ?? undefined,
-      inactiveUnsatisfiedCount: data.inactUnsat?.count ?? undefined,
-      trackerErrorCount: data.ite?.count ?? undefined,
-      recentlyDeleted: data.recently_deleted ?? undefined,
+      connectable: snatch.connectable ?? undefined,
+      unsatisfiedCount: snatch.unsat?.count ?? undefined,
+      unsatisfiedLimit: snatch.unsat?.limit ?? undefined,
+      inactiveSatisfiedCount: snatch.inactSat?.count ?? undefined,
+      seedingHnrCount: snatch.seedHnr?.count ?? undefined,
+      inactiveUnsatisfiedCount: snatch.inactUnsat?.count ?? undefined,
+      trackerErrorCount: snatch.ite?.count ?? undefined,
+      recentlyDeleted: snatch.recently_deleted ?? undefined,
       unreadPMs: data.notifs?.pms ?? undefined,
       openTickets: data.notifs?.tickets ?? undefined,
       pendingRequests: data.notifs?.requests ?? undefined,
@@ -146,9 +150,9 @@ export class MamAdapter implements TrackerAdapter {
       ratio: computeRatio(uploaded, downloaded),
       bufferBytes: computeBufferBytes(uploaded, downloaded),
       seedingCount,
-      leechingCount: data.leeching?.count ?? 0,
+      leechingCount: snatch.leeching?.count ?? 0,
       seedbonus: data.seedbonus ?? null,
-      hitAndRuns: data.inactHnr?.count ?? null,
+      hitAndRuns: snatch.inactHnr?.count ?? null,
       requiredRatio: null,
       warned: null,
       freeleechTokens: data.wedges ?? null,
