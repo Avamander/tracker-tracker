@@ -7,19 +7,38 @@ import { NextResponse } from "next/server"
 import { authenticate, parseTrackerId, type RouteContext } from "@/lib/api-helpers"
 import { db } from "@/lib/db"
 import { trackers } from "@/lib/db/schema"
-import { MOUSEHOLE_BODY_MAX_BYTES } from "@/lib/limits"
 import { log } from "@/lib/logger"
+import {
+  type MouseholeResult,
+  type MouseholeStatusResponse,
+  parseMouseholeUrl,
+} from "@/lib/mousehole"
 
 const GET_TIMEOUT_MS = 10_000
 const POST_TIMEOUT_MS = 15_000
 
-// ---------------------------------------------------------------------------
-// Shared guards
-// ---------------------------------------------------------------------------
+interface MouseholeState {
+  hasCookie?: boolean
+  nextContactAt?: string
+  lastMamContact?: {
+    at?: string
+    reached?: boolean
+    ip?: string
+    asn?: number
+    as?: string
+    ipUpdate?: { success?: boolean; msg?: string; httpStatus?: number }
+    error?: { type?: string; message?: string }
+  }
+}
 
-async function resolveMouseholeBase(
+interface MouseholeTarget {
+  baseUrl: string
+  headers: Record<string, string>
+}
+
+async function resolveMousehole(
   params: RouteContext["params"]
-): Promise<NextResponse | { mouseholeBase: string }> {
+): Promise<NextResponse | MouseholeTarget> {
   const trackerId = await parseTrackerId(params)
   if (trackerId instanceof NextResponse) return trackerId
 
@@ -32,149 +51,128 @@ async function resolveMouseholeBase(
   if (!tracker) {
     return NextResponse.json({ error: "Tracker not found" }, { status: 404 })
   }
-
   if (tracker.platformType !== "mam") {
     return NextResponse.json(
       { error: "Mousehole is only available for MAM trackers" },
       { status: 400 }
     )
   }
-
   if (!tracker.mouseholeUrl) {
     return NextResponse.json({ error: "Mousehole URL not configured" }, { status: 400 })
   }
 
+  let parsed: ReturnType<typeof parseMouseholeUrl>
   try {
-    const parsed = new URL(tracker.mouseholeUrl)
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      return NextResponse.json({ error: "Mousehole URL must use http or https" }, { status: 400 })
-    }
+    parsed = parseMouseholeUrl(tracker.mouseholeUrl)
   } catch {
     return NextResponse.json({ error: "Invalid Mousehole URL in database" }, { status: 400 })
   }
+  if (!/^https?:\/\//.test(parsed.baseUrl)) {
+    return NextResponse.json({ error: "Mousehole URL must use http or https" }, { status: 400 })
+  }
 
-  const mouseholeBase = tracker.mouseholeUrl.replace(/\/+$/, "")
-  return { mouseholeBase }
+  const headers: Record<string, string> = { Accept: "application/json" }
+  if (parsed.token) headers.Authorization = `Bearer ${parsed.token}`
+  return { baseUrl: parsed.baseUrl, headers }
 }
 
-// ---------------------------------------------------------------------------
-// GET /api/trackers/[id]/mousehole
-// Combines GET /ok + GET /state from the Mousehole instance
-// ---------------------------------------------------------------------------
+async function errorMessage(res: Response): Promise<string> {
+  const body = (await res.json().catch(() => null)) as { message?: string } | null
+  if (res.status === 401) {
+    return "Mousehole rejected the token. Put MOUSEHOLE_AUTH_TOKEN in the URL as http://:<token>@host:port"
+  }
+  return body?.message?.trim() || `Mousehole returned HTTP ${res.status}`
+}
+
+function toResponse(
+  result: MouseholeResult | null,
+  state: MouseholeState | null,
+  stateError: string | null
+): MouseholeStatusResponse {
+  const contact = state?.lastMamContact
+  return {
+    result,
+    hasCookie: state?.hasCookie ?? null,
+    ip: contact?.ip ?? null,
+    asn: contact?.asn ?? null,
+    asOrg: contact?.as ?? null,
+    nextContactAt: state?.nextContactAt ?? null,
+    lastContactAt: contact?.at ?? null,
+    lastMessage: contact?.ipUpdate?.msg ?? contact?.error?.message ?? null,
+    stateError,
+  }
+}
+
+function failure(route: string, error: unknown): NextResponse {
+  if (error instanceof Error && error.name === "AbortError") {
+    log.warn({ route }, "Mousehole request timed out")
+    return NextResponse.json({ error: "Mousehole request timed out" }, { status: 504 })
+  }
+  log.warn({ route, error: String(error) }, "Mousehole unreachable")
+  return NextResponse.json({ error: "Mousehole unreachable" }, { status: 502 })
+}
 
 export async function GET(_request: Request, { params }: RouteContext) {
   const auth = await authenticate()
   if (auth instanceof NextResponse) return auth
 
-  const resolved = await resolveMouseholeBase(params)
-  if (resolved instanceof NextResponse) return resolved
-
-  const { mouseholeBase } = resolved
+  const target = await resolveMousehole(params)
+  if (target instanceof NextResponse) return target
 
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), GET_TIMEOUT_MS)
 
   try {
-    const [okRes, stateRes] = await Promise.all([
-      fetch(`${mouseholeBase}/ok`, { signal: controller.signal }),
-      fetch(`${mouseholeBase}/state`, { signal: controller.signal }),
+    const [healthRes, stateRes] = await Promise.all([
+      fetch(`${target.baseUrl}/health`, { headers: target.headers, signal: controller.signal }),
+      fetch(`${target.baseUrl}/state`, { headers: target.headers, signal: controller.signal }),
     ])
-
     clearTimeout(timer)
 
-    const [okJson, stateJson] = await Promise.all([
-      okRes.json() as Promise<{ ok: boolean; reason: string }>,
-      stateRes.json() as Promise<{
-        host?: { ip?: string | null; asn?: number | null; as?: string | null }
-        nextUpdateAt?: string | null
-        lastUpdate?: { at?: string | null; mamUpdated?: boolean | null }
-        lastMam?: { response?: { body?: { msg?: string | null } } }
-      }>,
-    ])
+    if (!healthRes.ok) {
+      return NextResponse.json({ error: await errorMessage(healthRes) }, { status: 502 })
+    }
+    const health = (await healthRes.json()) as { lastMamContactResult?: MouseholeResult }
 
-    return NextResponse.json({
-      ok: okJson.ok ?? false,
-      reason: okJson.reason ?? null,
-      ip: stateJson.host?.ip ?? null,
-      asn: stateJson.host?.asn ?? null,
-      asOrg: stateJson.host?.as ?? null,
-      nextUpdateAt: stateJson.nextUpdateAt ?? null,
-      lastUpdateAt: stateJson.lastUpdate?.at ?? null,
-      lastUpdateResult: stateJson.lastMam?.response?.body?.msg ?? null,
-      mamUpdated: stateJson.lastUpdate?.mamUpdated ?? null,
-    })
-  } catch (error) {
-    clearTimeout(timer)
-
-    if (error instanceof Error && error.name === "AbortError") {
-      log.warn({ route: "GET /api/trackers/[id]/mousehole" }, "Mousehole request timed out")
-      return NextResponse.json({ error: "Mousehole request timed out" }, { status: 504 })
+    let state: MouseholeState | null = null
+    let stateError: string | null = null
+    if (stateRes.ok) {
+      state = (await stateRes.json()) as MouseholeState
+    } else {
+      stateError = await errorMessage(stateRes)
     }
 
-    log.warn(
-      { route: "GET /api/trackers/[id]/mousehole", error: String(error) },
-      "Mousehole unreachable"
-    )
-    return NextResponse.json({ error: "Mousehole unreachable" }, { status: 502 })
+    return NextResponse.json(toResponse(health.lastMamContactResult ?? null, state, stateError))
+  } catch (error) {
+    clearTimeout(timer)
+    return failure("GET /api/trackers/[id]/mousehole", error)
   }
 }
 
-// ---------------------------------------------------------------------------
-// POST /api/trackers/[id]/mousehole
-// Proxies POST /update to the Mousehole instance
-// ---------------------------------------------------------------------------
-
-export async function POST(request: Request, { params }: RouteContext) {
+export async function POST(_request: Request, { params }: RouteContext) {
   const auth = await authenticate()
   if (auth instanceof NextResponse) return auth
 
-  const resolved = await resolveMouseholeBase(params)
-  if (resolved instanceof NextResponse) return resolved
-
-  const { mouseholeBase } = resolved
-
-  const contentLength = Number(request.headers.get("content-length") ?? 0)
-  if (contentLength > MOUSEHOLE_BODY_MAX_BYTES) {
-    return NextResponse.json({ error: "Request body too large" }, { status: 413 })
-  }
-
-  let body: { force?: boolean } = {}
-  try {
-    const raw = await request.json()
-    if (raw && typeof raw === "object" && "force" in raw) {
-      body = { force: Boolean(raw.force) }
-    }
-  } catch (_err) {
-    log.warn({ route: "POST /api/trackers/[id]/mousehole" }, "no request body (optional)")
-  }
+  const target = await resolveMousehole(params)
+  if (target instanceof NextResponse) return target
 
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), POST_TIMEOUT_MS)
 
   try {
-    const res = await fetch(`${mouseholeBase}/update`, {
+    const res = await fetch(`${target.baseUrl}/updates`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      headers: target.headers,
       signal: controller.signal,
     })
-
     clearTimeout(timer)
 
-    const data: unknown = await res.json()
-    return NextResponse.json(data, { status: res.status })
+    if (!res.ok) {
+      return NextResponse.json({ error: await errorMessage(res) }, { status: 502 })
+    }
+    return NextResponse.json({ ok: true })
   } catch (error) {
     clearTimeout(timer)
-
-    if (error instanceof Error && error.name === "AbortError") {
-      log.warn({ route: "POST /api/trackers/[id]/mousehole" }, "Mousehole request timed out")
-      return NextResponse.json({ error: "Mousehole request timed out" }, { status: 504 })
-    }
-
-    log.warn(
-      { route: "POST /api/trackers/[id]/mousehole", error: String(error) },
-      "Mousehole unreachable"
-    )
-    return NextResponse.json({ error: "Mousehole unreachable" }, { status: 502 })
+    return failure("POST /api/trackers/[id]/mousehole", error)
   }
 }
