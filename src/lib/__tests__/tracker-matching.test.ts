@@ -68,6 +68,10 @@ describe("registry announceHosts", () => {
     expect(trackerAnnounceKeys("https://example.org")).toEqual(["example.org"])
     expect(trackerAnnounceKeys(null)).toEqual([])
   })
+
+  it("matches Orpheus' opsfet.ch announces", () => {
+    expect(announceMatchesTracker("home.opsfet.ch", "https://orpheus.network")).toBe(true)
+  })
 })
 
 describe("resolveTorrentTracker", () => {
