@@ -23,13 +23,15 @@ describe("scrubSnapshotUsernames", () => {
     vi.clearAllMocks()
   })
 
-  it("returns the number of rows the batch UPDATE changed", async () => {
-    vi.mocked(db.execute).mockResolvedValue(updateResult(5) as never)
+  it("scrubs snapshots and message senders in one batch UPDATE each", async () => {
+    vi.mocked(db.execute)
+      .mockResolvedValueOnce(updateResult(5) as never)
+      .mockResolvedValueOnce(updateResult(2) as never)
 
     const count = await scrubSnapshotUsernames()
 
-    expect(db.execute).toHaveBeenCalledTimes(1)
-    expect(count).toBe(5)
+    expect(db.execute).toHaveBeenCalledTimes(2)
+    expect(count).toBe(7)
   })
 
   it("returns 0 when no rows match", async () => {
