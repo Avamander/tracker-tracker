@@ -38,6 +38,7 @@ export function serializeTrackerResponse(
   tracker: TrackerRow,
   latest: TrackerSnapshotRow | null,
   mask: (val: string | null | undefined) => string | null,
+  newNews = 0,
   prowlarr: TrackerProwlarrState | null = null
 ): TrackerSummary {
   return {
@@ -97,5 +98,16 @@ export function serializeTrackerResponse(
           group: mask(latest.group),
         }
       : null,
+    inbox:
+      tracker.inboxCheckedAt || newNews > 0
+        ? {
+            unreadMessages: tracker.unreadMessages,
+            unreadStaffMessages: tracker.unreadStaffMessages,
+            unreadNotifications: tracker.unreadNotifications,
+            newNews,
+            checkedAt: tracker.inboxCheckedAt?.toISOString() ?? null,
+            links: tracker.inboxLinks ?? null,
+          }
+        : null,
   }
 }

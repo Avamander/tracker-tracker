@@ -166,6 +166,7 @@ describe("GET /api/trackers", () => {
     ;(db.select as ReturnType<typeof vi.fn>)
       .mockReturnValueOnce({ from: mockFromTrackers })
       .mockReturnValueOnce({ from: mockSettingsFrom })
+      .mockReturnValueOnce({ from: () => ({ where: () => ({ groupBy: async () => [] }) }) })
     // DISTINCT ON query via db.selectDistinctOn
     ;(db.selectDistinctOn as ReturnType<typeof vi.fn>).mockReturnValueOnce({
       from: vi.fn().mockReturnValue({
@@ -195,6 +196,7 @@ describe("GET /api/trackers", () => {
     ;(db.select as ReturnType<typeof vi.fn>)
       .mockReturnValueOnce({ from: mockFrom })
       .mockReturnValueOnce({ from: mockSettingsFrom })
+      .mockReturnValueOnce({ from: () => ({ where: () => ({ groupBy: async () => [] }) }) })
     // DISTINCT ON query via db.selectDistinctOn
     ;(db.selectDistinctOn as ReturnType<typeof vi.fn>).mockReturnValueOnce({
       from: vi.fn().mockReturnValue({
@@ -241,6 +243,7 @@ describe("GET /api/trackers", () => {
     ;(db.select as ReturnType<typeof vi.fn>)
       .mockReturnValueOnce({ from: mockFromTrackers })
       .mockReturnValueOnce({ from: mockSettingsFrom })
+      .mockReturnValueOnce({ from: () => ({ where: () => ({ groupBy: async () => [] }) }) })
     // DISTINCT ON query via db.selectDistinctOn
     ;(db.selectDistinctOn as ReturnType<typeof vi.fn>).mockReturnValueOnce({
       from: vi.fn().mockReturnValue({

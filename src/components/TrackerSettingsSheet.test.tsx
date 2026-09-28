@@ -30,6 +30,7 @@ vi.mock("next/navigation", () => ({
 import { TrackerSettingsSheet } from "./TrackerSettingsSheet"
 
 const TRACKER: TrackerSummary = {
+  inbox: null,
   id: 42,
   name: "Aither",
   baseUrl: "https://aither.cc",

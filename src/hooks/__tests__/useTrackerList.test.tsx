@@ -18,6 +18,7 @@ import { sortTrackers, useTrackerList } from "@/hooks/useTrackerList"
 import type { TrackerLatestStats, TrackerSummary } from "@/types/api"
 
 const base: TrackerSummary = {
+  inbox: null,
   id: 1,
   name: "Alpha",
   baseUrl: "https://alpha.example.com",

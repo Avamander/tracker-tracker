@@ -34,6 +34,7 @@ import type { Snapshot, TrackerSummary } from "@/types/api"
 // ---------------------------------------------------------------------------
 
 const mockTracker: TrackerSummary = {
+  inbox: null,
   id: 1,
   name: "Test Tracker",
   baseUrl: "https://example.com",
