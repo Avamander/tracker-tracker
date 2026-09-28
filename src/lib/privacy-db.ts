@@ -49,7 +49,8 @@ export function createPrivacyMaskSync(
 }
 
 /**
- * Scrubs all non-redacted usernames and groups in tracker snapshots.
+ * Scrubs all non-redacted usernames and groups in tracker snapshots, and
+ * message senders.
  * Called when privacy mode is toggled on with scrubExisting=true.
  *
  * Uses a single batch UPDATE instead of SELECT + per-row UPDATE to avoid
@@ -77,5 +78,13 @@ export async function scrubSnapshotUsernames(): Promise<number> {
       (username IS NOT NULL AND username NOT LIKE ${`${prefix}%`})
       OR (group_name IS NOT NULL AND group_name NOT LIKE ${`${prefix}%`})
   `)
-  return (result as { rowCount?: number }).rowCount ?? 0
+  const senders = await db.execute(sql`
+    UPDATE tracker_messages
+    SET sender = CONCAT(${prefix}, CHAR_LENGTH(sender))
+    WHERE sender IS NOT NULL AND sender NOT LIKE ${`${prefix}%`}
+  `)
+  return (
+    ((result as { rowCount?: number }).rowCount ?? 0) +
+    ((senders as { rowCount?: number }).rowCount ?? 0)
+  )
 }
