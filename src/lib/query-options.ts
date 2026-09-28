@@ -13,6 +13,7 @@
 import { queryOptions } from "@tanstack/react-query"
 import type { FleetAggregation } from "@/lib/fleet-aggregation"
 import type {
+  InboxTracker,
   ProwlarrIndexerOption,
   SafeDownloadClient,
   SafeProwlarrInstance,
@@ -75,5 +76,17 @@ export const prowlarrIndexerQueryOptions = queryOptions({
     if (!res.ok) return [] as ProwlarrIndexerOption[]
     const data: unknown = await res.json()
     return Array.isArray(data) ? (data as ProwlarrIndexerOption[]) : []
+  },
+})
+
+export const inboxQueryOptions = queryOptions({
+  queryKey: ["inbox"] as const,
+  queryFn: async ({ signal }) => {
+    const res = await fetch("/api/inbox", {
+      signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]),
+    })
+    if (!res.ok) throw new Error(`Inbox failed: ${res.status}`)
+    const body = (await res.json()) as { trackers: InboxTracker[] }
+    return body.trackers
   },
 })

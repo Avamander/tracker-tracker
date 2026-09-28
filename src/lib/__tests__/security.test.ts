@@ -114,6 +114,7 @@ vi.mock("@/lib/db/schema", () => ({
   appSettings: {},
   trackers: {},
   trackerSnapshots: {},
+  trackerNews: {},
   trackerRoles: {},
   downloadClients: {},
   prowlarrIndexers: {},
@@ -900,6 +901,7 @@ describe("Token leakage prevention", () => {
     ;(db.select as ReturnType<typeof vi.fn>)
       .mockReturnValueOnce({ from: mockFrom })
       .mockReturnValueOnce({ from: mockSettingsFrom })
+      .mockReturnValueOnce({ from: () => ({ where: () => ({ groupBy: async () => [] }) }) })
     // DISTINCT ON query via db.selectDistinctOn
     ;(db.selectDistinctOn as ReturnType<typeof vi.fn>).mockReturnValueOnce({
       from: vi.fn().mockReturnValue({
@@ -1010,6 +1012,7 @@ describe("Token leakage prevention", () => {
       .mockReturnValueOnce({ from: mockTrackerFrom })
       .mockReturnValueOnce({ from: mockSnapshotFrom })
       .mockReturnValueOnce({ from: mockSettingsFrom })
+      .mockReturnValueOnce({ from: () => ({ where: () => ({ groupBy: async () => [] }) }) })
 
     const req = makeRequest("http://localhost/api/trackers/1")
     const res = await TrackerDetailGET(req, { params: MOCK_PARAMS })
