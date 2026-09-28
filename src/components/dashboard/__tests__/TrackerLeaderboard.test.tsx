@@ -35,6 +35,7 @@ const baseStats: TrackerLatestStats = {
 }
 
 const baseTracker: TrackerSummary = {
+  inbox: null,
   id: 1,
   name: "placeholder",
   baseUrl: "https://example.com",
