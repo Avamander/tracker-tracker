@@ -35,6 +35,7 @@ import { maskUsername } from "@/lib/privacy"
 import { recordDatabaseSize } from "@/lib/server-data"
 import { decryptTrackerCredentials } from "@/lib/tracker-credentials/decrypt"
 import { findCredentialValue } from "@/lib/tracker-credentials/lookup"
+import { pruneTrackerInbox, recordTrackerInbox } from "@/lib/tracker-inbox"
 import { pruneTrackerOutages, recordTrackerPollFailure } from "@/lib/tracker-outages"
 import { getPauseState, resolveRequiredRatio } from "@/lib/tracker-status"
 import { buildProxyAgentFromSettings } from "@/lib/tunnel"
@@ -267,6 +268,19 @@ export async function pollTracker(
     }
     if (Object.keys(metaUpdates).length > 0) {
       await db.update(trackers).set(metaUpdates).where(eq(trackers.id, tracker.id))
+    }
+
+    if (stats.inbox) {
+      try {
+        await recordTrackerInbox(tracker.id, stats.inbox, {
+          storeUsernames: !privacyMode,
+          now: timestamp,
+        })
+      } catch (inboxErr) {
+        log.warn(
+          `Inbox recording failed for tracker ${tracker.id}: ${inboxErr instanceof Error ? inboxErr.message : "Unknown"}`
+        )
+      }
     }
 
     // Fetch previous snapshot before inserting the new one (used for change detection in notifications)
@@ -744,6 +758,17 @@ export async function pollAllTrackers(encryptionKey: Buffer): Promise<void> {
       }
     } catch (error) {
       log.error(error, "Tracker outage pruning failed")
+    }
+
+    try {
+      const prunedInbox = await pruneTrackerInbox(settings.snapshotRetentionDays)
+      if (prunedInbox > 0) {
+        log.info(
+          `Pruned ${prunedInbox} read messages and dismissed news older than ${settings.snapshotRetentionDays} days`
+        )
+      }
+    } catch (error) {
+      log.error(error, "Tracker inbox pruning failed")
     }
   }
 
