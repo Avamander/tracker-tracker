@@ -195,6 +195,11 @@ export async function generateBackupPayload(): Promise<BackupPayload> {
       lastErrorAt: _lea,
       consecutiveFailures: _cf,
       pausedAt: _pa,
+      unreadMessages: _um,
+      unreadStaffMessages: _usm,
+      unreadNotifications: _un,
+      inboxCheckedAt: _ica,
+      inboxLinks: _il,
       ...rest
     } = t
     return serializeRow(rest as Record<string, unknown>)

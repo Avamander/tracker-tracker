@@ -452,7 +452,7 @@ describe("POST /api/settings/backup/restore — credential re-encryption", () =>
 
   // ─── 0b. Column drift: the insert lists columns the export does not ───────
 
-  // The five runtime fields backup.ts strips from the tracker export. Anything
+  // The runtime fields backup.ts strips from the tracker export. Anything
   // else in the schema travels in the file, so the insert must name it.
   const TRACKER_RUNTIME_EXCLUSIONS = new Set([
     "lastPolledAt",
@@ -460,6 +460,11 @@ describe("POST /api/settings/backup/restore — credential re-encryption", () =>
     "lastErrorAt",
     "consecutiveFailures",
     "pausedAt",
+    "unreadMessages",
+    "unreadStaffMessages",
+    "unreadNotifications",
+    "inboxCheckedAt",
+    "inboxLinks",
   ])
 
   /** backup.ts serializes BigInt and Date on the way out; undo that to compare. */
