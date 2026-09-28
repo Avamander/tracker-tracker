@@ -7,7 +7,7 @@
 //              requests-filled, groups-contributed, invited, gazelle-bounty, gazelle-comments,
 //              mam-wedges, mam-completed, mam-tracker-errors
 //   badge: warned, donor, disabled, inbox-staff, inbox-unread, inbox-news, ggn-parked, ggn-invites, ggn-irc,
-//          gazelle-paranoia, gazelle-unread, gazelle-announcement,
+//          gazelle-paranoia,
 //          mam-vip, mam-connectable, mam-unread
 //   progress: ggn-achievement-progress, ggn-share-score-progress, ggn-buffs,
 //             mam-health-overview
@@ -606,33 +606,6 @@ const inboxNewsBadgeSlot: SlotDefinition<SlotBadgeProps> = {
   },
 }
 
-const gazelleUnreadBadgeSlot: SlotDefinition<SlotBadgeProps> = {
-  id: "gazelle-unread",
-  category: "badge",
-  component: SlotBadge,
-  priority: 31,
-  resolve(ctx) {
-    if (ctx.tracker.hideUnreadBadges || ctx.tracker.inbox) return null
-    const gazMeta = metaFor(ctx, "gazelle")
-    if (!gazMeta?.notifications) return null
-    if (gazMeta.notifications.messages <= 0) return null
-    return { variant: "warn", label: `${gazMeta.notifications.messages} Unread` }
-  },
-}
-
-const gazelleAnnouncementBadgeSlot: SlotDefinition<SlotBadgeProps> = {
-  id: "gazelle-announcement",
-  category: "badge",
-  component: SlotBadge,
-  priority: 32,
-  resolve(ctx) {
-    if (ctx.tracker.hideUnreadBadges || ctx.tracker.inbox) return null
-    const gazMeta = metaFor(ctx, "gazelle")
-    if (!gazMeta?.notifications?.newAnnouncement) return null
-    return { variant: "accent", label: "New Announcement" }
-  },
-}
-
 // ---------------------------------------------------------------------------
 // Progress slot definitions
 // ---------------------------------------------------------------------------
@@ -1102,8 +1075,6 @@ export const SLOT_DEFINITIONS: AnySlotDefinition[] = [
   inboxStaffBadgeSlot,
   inboxUnreadBadgeSlot,
   inboxNewsBadgeSlot,
-  gazelleUnreadBadgeSlot,
-  gazelleAnnouncementBadgeSlot,
   // MAM slots (badge)
   mamVipBadgeSlot,
   mamConnectableBadgeSlot,

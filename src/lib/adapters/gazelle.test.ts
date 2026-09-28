@@ -276,6 +276,15 @@ describe("GazelleAdapter", () => {
         }),
       } as Response)
 
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ status: "success", response: { messages: [] } }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ status: "success", response: { blogPosts: [] } }),
+      } as Response)
+
     const stats = await adapter.fetchStats("https://redacted.sh", "token", "/ajax.php", {
       authStyle: "raw",
       enrich: true,
@@ -432,5 +441,123 @@ describe("GazelleAdapter - security", () => {
     await expect(adapter.fetchStats("https://example.com", "token", "/ajax.php")).rejects.toThrow(
       "Request to example.com timed out"
     )
+  })
+})
+
+describe("GazelleAdapter inbox", () => {
+  const adapter = new GazelleAdapter()
+  const index = (notifications: Record<string, unknown>) => {
+    const body = mockGazelleResponse()
+    return {
+      ok: true,
+      json: async () => ({ ...body, response: { ...body.response, notifications } }),
+    } as Response
+  }
+  const ok = (response: unknown) =>
+    ({ ok: true, json: async () => ({ status: "success", response }) }) as Response
+
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    vi.spyOn(global, "setTimeout").mockImplementation(((fn: () => void) => {
+      fn()
+      return 0
+    }) as never)
+  })
+
+  it("reports the index counts without extra requests when nothing is new", async () => {
+    const fetchSpy = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce(
+        index({ messages: 0, notifications: 2, newAnnouncement: false, newBlog: false })
+      )
+
+    const stats = await adapter.fetchStats("https://redacted.sh", "token", "/ajax.php")
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    expect(stats.inbox).toMatchObject({
+      unreadMessages: 0,
+      unreadStaffMessages: null,
+      unreadNotifications: 2,
+      newsSeenOnSite: { announcement: true, blog: true },
+      links: { inbox: "https://redacted.sh/inbox.php" },
+    })
+    expect(stats.inbox?.messages).toBeUndefined()
+  })
+
+  it("lists only the unread conversations when there are unread messages", async () => {
+    const fetchSpy = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce(
+        index({ messages: 1, notifications: 0, newAnnouncement: false, newBlog: false })
+      )
+      .mockResolvedValueOnce(
+        ok({
+          messages: [
+            {
+              convId: 7,
+              subject: "Hello",
+              unread: true,
+              username: "alice",
+              date: "2026-09-28 10:00:00",
+            },
+            { convId: 6, subject: "Old", unread: false, username: "bob" },
+          ],
+        })
+      )
+
+    const stats = await adapter.fetchStats("https://redacted.sh", "token", "/ajax.php")
+
+    expect(String(fetchSpy.mock.calls[1][0])).toContain("action=inbox")
+    expect(stats.inbox?.messages).toEqual([
+      {
+        id: "7",
+        subject: "Hello",
+        sender: "alice",
+        sentAt: "2026-09-28 10:00:00",
+        url: "https://redacted.sh/inbox.php?action=viewconv&id=7",
+      },
+    ])
+  })
+
+  it("fetches announcements only when flagged, keeping the newest of each flagged kind", async () => {
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(
+        index({ messages: 0, notifications: 0, newAnnouncement: true, newBlog: false })
+      )
+      .mockResolvedValueOnce(
+        ok({
+          announcements: [
+            { newsId: 12, title: "Site update", newsTime: "2026-09-28 09:00:00" },
+            { newsId: 11, title: "Older news" },
+          ],
+          blogPosts: [{ blogId: 3, title: "Blog post" }],
+        })
+      )
+
+    const stats = await adapter.fetchStats("https://redacted.sh", "token", "/ajax.php")
+
+    expect(stats.inbox?.news).toEqual([
+      {
+        id: "12",
+        kind: "announcement",
+        title: "Site update",
+        publishedAt: "2026-09-28 09:00:00",
+        url: "https://redacted.sh/index.php",
+      },
+    ])
+    expect(stats.inbox?.newsSeenOnSite).toEqual({ announcement: false, blog: true })
+  })
+
+  it("keeps the counts when the inbox request fails", async () => {
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(
+        index({ messages: 3, notifications: 0, newAnnouncement: false, newBlog: false })
+      )
+      .mockRejectedValueOnce(new Error("forbidden"))
+
+    const stats = await adapter.fetchStats("https://redacted.sh", "token", "/ajax.php")
+
+    expect(stats.inbox?.unreadMessages).toBe(3)
+    expect(stats.inbox?.messages).toBeUndefined()
   })
 })

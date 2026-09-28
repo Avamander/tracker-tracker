@@ -1,6 +1,7 @@
 // src/lib/adapters/gazelle.ts
 //
-// Functions: GazelleAdapter, GazelleAdapter.fetchStats, GazelleAdapter.fetchRaw
+// Functions: GazelleAdapter, GazelleAdapter.fetchStats, GazelleAdapter.fetchRaw,
+//            GazelleAdapter.fetchInbox
 
 import {
   computeBufferBytes,
@@ -13,9 +14,39 @@ import type {
   DebugApiCall,
   FetchOptions,
   GazellePlatformMeta,
+  InboxMessage,
+  NewsItem,
   TrackerAdapter,
+  TrackerInbox,
   TrackerStats,
 } from "./types"
+
+type GazelleNotifications = NonNullable<
+  NonNullable<GazelleIndexResponse["response"]>["notifications"]
+>
+
+interface GazelleInboxResponse {
+  status: string
+  response?: {
+    messages?: {
+      convId: number
+      subject: string
+      unread: boolean
+      username?: string
+      date?: string
+    }[]
+  }
+}
+
+interface GazelleAnnouncementsResponse {
+  status: string
+  response?: {
+    announcements?: { newsId: number; title: string; newsTime?: string }[]
+    blogPosts?: { blogId: number; title: string; blogTime?: string }[]
+  }
+}
+
+const pause = () => new Promise((r) => setTimeout(r, 1500))
 
 interface GazelleUserStats {
   uploaded: number
@@ -212,7 +243,102 @@ export class GazelleAdapter implements TrackerAdapter {
       stats.platformMeta = meta
     }
 
+    if (response.notifications) {
+      stats.inbox = await this.fetchInbox(
+        baseUrl,
+        apiPath,
+        authHeader,
+        hostname,
+        response.notifications,
+        options
+      )
+    }
+
     return stats
+  }
+
+  /** Counts from the index, plus the unread messages and new news when there are any. */
+  private async fetchInbox(
+    baseUrl: string,
+    apiPath: string,
+    authHeader: string,
+    hostname: string,
+    notifications: GazelleNotifications,
+    options?: FetchOptions
+  ): Promise<TrackerInbox> {
+    const site = (path: string) => new URL(path, baseUrl).toString()
+    const inbox: TrackerInbox = {
+      unreadMessages: notifications.messages,
+      unreadStaffMessages: null,
+      unreadNotifications: notifications.notifications,
+      newsSeenOnSite: {
+        announcement: !notifications.newAnnouncement,
+        blog: !notifications.newBlog,
+      },
+      links: { inbox: site("/inbox.php"), news: site("/index.php") },
+    }
+    const ajax = (params: Record<string, string>) => {
+      const url = new URL(apiPath, baseUrl)
+      for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value)
+      return url.toString()
+    }
+
+    if (notifications.messages > 0) {
+      try {
+        await pause()
+        const data = await adapterFetch<GazelleInboxResponse>(
+          ajax({ action: "inbox", type: "inbox" }),
+          hostname,
+          options,
+          { Authorization: authHeader }
+        )
+        inbox.messages = (data.response?.messages ?? [])
+          .filter((m) => m.unread)
+          .map((m): InboxMessage => ({
+            id: String(m.convId),
+            subject: m.subject,
+            sender: m.username ?? null,
+            sentAt: m.date,
+            url: site(`/inbox.php?action=viewconv&id=${m.convId}`),
+          }))
+      } catch {}
+    }
+
+    if (notifications.newAnnouncement || notifications.newBlog) {
+      try {
+        await pause()
+        const data = await adapterFetch<GazelleAnnouncementsResponse>(
+          ajax({ action: "announcements" }),
+          hostname,
+          options,
+          { Authorization: authHeader }
+        )
+        const news: NewsItem[] = []
+        const announcement = data.response?.announcements?.[0]
+        if (notifications.newAnnouncement && announcement) {
+          news.push({
+            id: String(announcement.newsId),
+            kind: "announcement",
+            title: announcement.title,
+            publishedAt: announcement.newsTime,
+            url: site("/index.php"),
+          })
+        }
+        const post = data.response?.blogPosts?.[0]
+        if (notifications.newBlog && post) {
+          news.push({
+            id: String(post.blogId),
+            kind: "blog",
+            title: post.title,
+            publishedAt: post.blogTime,
+            url: site("/blog.php"),
+          })
+        }
+        inbox.news = news
+      } catch {}
+    }
+
+    return inbox
   }
 
   async fetchRaw(
