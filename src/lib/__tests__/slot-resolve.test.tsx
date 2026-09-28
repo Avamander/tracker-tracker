@@ -236,11 +236,9 @@ describe("AnimeBytes context", () => {
 
 describe("inbox badges", () => {
   const ctx = (inbox: TrackerSummary["inbox"], hideUnreadBadges = false): SlotContext => ({
-    tracker: makeTracker({ platformType: "gazelle", inbox, hideUnreadBadges }),
+    tracker: makeTracker({ platformType: "mam", inbox, hideUnreadBadges }),
     latestSnapshot: makeSnapshot({}),
-    meta: {
-      notifications: { messages: 9, notifications: 0, newAnnouncement: true, newBlog: false },
-    },
+    meta: { unreadPMs: 9 },
     registry: undefined,
     accentColor: BASE_ACCENT,
   })
@@ -261,19 +259,18 @@ describe("inbox badges", () => {
       "inbox-unread",
       "inbox-news",
     ])
-    expect(ids).not.toContain("gazelle-unread")
-    expect(ids).not.toContain("gazelle-announcement")
+    expect(ids).not.toContain("mam-unread")
   })
 
   it("falls back to the platform badges until the tracker reports an inbox", () => {
     const ids = slotIds(ctx(null), "badge")
-    expect(ids).toContain("gazelle-unread")
+    expect(ids).toContain("mam-unread")
     expect(ids.some((id) => id.startsWith("inbox-"))).toBe(false)
   })
 
   it("hides every unread badge when the tracker hides them", () => {
     const ids = slotIds(ctx(inbox, true), "badge")
-    expect(ids.some((id) => id.startsWith("inbox-") || id === "gazelle-unread")).toBe(false)
+    expect(ids.some((id) => id.startsWith("inbox-") || id === "mam-unread")).toBe(false)
   })
 })
 
@@ -354,10 +351,6 @@ describe("Gazelle context", () => {
     expect(slotIds(ctx, "badge")).toContain("gazelle-paranoia")
   })
 
-  it("resolves gazelle-unread badge", () => {
-    expect(slotIds(ctx, "badge")).toContain("gazelle-unread")
-  })
-
   it("does NOT resolve ggn-specific badges", () => {
     const badges = slotIds(ctx, "badge")
     expect(badges).not.toContain("ggn-parked")
@@ -376,12 +369,6 @@ describe("Gazelle context", () => {
     const map = resolveSlots(ctx)
     const badge = map.get("badge")?.find((s) => s.id === "gazelle-paranoia")
     expect(badge?.props.label).toBe("Paranoia: High")
-  })
-
-  it("unread badge label shows message count", () => {
-    const map = resolveSlots(ctx)
-    const badge = map.get("badge")?.find((s) => s.id === "gazelle-unread")
-    expect(badge?.props.label).toBe("3 Unread")
   })
 
   it("resolves seedbonus, since Gazelle has no bonus card of its own", () => {
@@ -608,20 +595,6 @@ describe("edge cases", () => {
       accentColor: BASE_ACCENT,
     }
     expect(slotIds(ctx, "badge")).not.toContain("gazelle-paranoia")
-  })
-
-  it("gazelle-unread does not fire when messages is 0", () => {
-    const meta: GazellePlatformMeta = {
-      notifications: { messages: 0, notifications: 0, newAnnouncement: false, newBlog: false },
-    }
-    const ctx: SlotContext = {
-      tracker: makeTracker(),
-      latestSnapshot: null,
-      meta,
-      registry: undefined,
-      accentColor: BASE_ACCENT,
-    }
-    expect(slotIds(ctx, "badge")).not.toContain("gazelle-unread")
   })
 
   it("ggn-invites does not fire when invites is 0", () => {
