@@ -47,6 +47,8 @@ const typeConfig: Record<string, { severity: AlertSeverity; icon: string; label:
   "client-error": { severity: "danger", icon: "⏹", label: "Client" },
   "client-warning": { severity: "warn", icon: "⏸", label: "Client" },
   "poll-paused": { severity: "danger", icon: "⏸", label: "Paused" },
+  "staff-message": { severity: "danger", icon: "✉", label: "Staff" },
+  "tracker-news": { severity: "accent", icon: "📰", label: "News" },
 }
 
 function AlertsBanner({ alerts, onDismiss, onDismissAll }: AlertsBannerProps) {
