@@ -19,6 +19,7 @@ import type { SlotContext } from "@/types/slots"
 
 function makeTracker(overrides: Partial<TrackerSummary> = {}): TrackerSummary {
   return {
+    inbox: null,
     id: 1,
     name: "Test Tracker",
     baseUrl: "https://tracker.example.com",

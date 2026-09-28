@@ -12,7 +12,7 @@
 
 import { queryOptions } from "@tanstack/react-query"
 import type { FleetAggregation } from "@/lib/fleet-aggregation"
-import type { SafeDownloadClient, TrackerSummary } from "@/types/api"
+import type { InboxTracker, SafeDownloadClient, TrackerSummary } from "@/types/api"
 
 export const clientQueryOptions = queryOptions({
   queryKey: ["clients"] as const,
@@ -46,5 +46,17 @@ export const trackerQueryOptions = queryOptions({
     })
     if (!res.ok) return [] as TrackerSummary[]
     return res.json() as Promise<TrackerSummary[]>
+  },
+})
+
+export const inboxQueryOptions = queryOptions({
+  queryKey: ["inbox"] as const,
+  queryFn: async ({ signal }) => {
+    const res = await fetch("/api/inbox", {
+      signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]),
+    })
+    if (!res.ok) throw new Error(`Inbox failed: ${res.status}`)
+    const body = (await res.json()) as { trackers: InboxTracker[] }
+    return body.trackers
   },
 })

@@ -52,6 +52,7 @@ function makeStats(overrides: Partial<TrackerLatestStats> = {}): TrackerLatestSt
 
 function makeTracker(overrides: Partial<TrackerSummary> = {}): TrackerSummary {
   return {
+    inbox: null,
     id: 1,
     name: "Aither",
     baseUrl: "https://aither.cc",

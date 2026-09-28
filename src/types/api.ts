@@ -77,6 +77,50 @@ export interface TrackerSummary {
   platformMeta: PlatformMeta | null
   createdAt: string
   latestStats: TrackerLatestStats | null
+  /** Null until the tracker's adapter has reported an inbox */
+  inbox: TrackerInboxSummary | null
+}
+
+export interface InboxLinks {
+  inbox?: string
+  staff?: string
+  news?: string
+}
+
+export interface TrackerInboxSummary {
+  unreadMessages: number | null
+  unreadStaffMessages: number | null
+  unreadNotifications: number | null
+  newNews: number
+  checkedAt: string | null
+  links: InboxLinks | null
+}
+
+export interface InboxMessageView {
+  id: number
+  isStaff: boolean
+  subject: string | null
+  sender: string | null
+  sentAt: string | null
+  url: string | null
+}
+
+export interface InboxNewsView {
+  id: number
+  kind: string
+  title: string
+  url: string | null
+  publishedAt: string | null
+}
+
+export interface InboxTracker extends TrackerInboxSummary {
+  trackerId: number
+  name: string
+  color: string
+  baseUrl: string
+  hideUnreadBadges: boolean
+  messages: InboxMessageView[]
+  news: InboxNewsView[]
 }
 
 export interface Snapshot extends TrackerStatFields {

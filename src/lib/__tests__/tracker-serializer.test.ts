@@ -90,6 +90,32 @@ describe("serializeTrackerResponse", () => {
   })
 })
 
+describe("serializeTrackerResponse inbox", () => {
+  it("has no inbox until the tracker reports one", () => {
+    const result = serializeTrackerResponse(mockTracker, mockSnapshot, (v) => v ?? null)
+    expect(result.inbox).toBeNull()
+  })
+
+  it("summarises the stored counts and undismissed news", () => {
+    const checkedAt = new Date("2026-09-29T10:00:00Z")
+    const tracker = {
+      ...mockTracker,
+      unreadMessages: 2,
+      unreadStaffMessages: 1,
+      inboxCheckedAt: checkedAt,
+    }
+    const result = serializeTrackerResponse(tracker, mockSnapshot, (v) => v ?? null, 3)
+    expect(result.inbox).toEqual({
+      unreadMessages: 2,
+      unreadStaffMessages: 1,
+      unreadNotifications: null,
+      newNews: 3,
+      checkedAt: checkedAt.toISOString(),
+      links: null,
+    })
+  })
+})
+
 describe("serializeTrackerResponse infinite ratio", () => {
   it("reports an infinite ratio, not a stored 0, when nothing was downloaded", () => {
     const snapshot = { ...mockSnapshot, ratio: 0, downloadedBytes: BigInt(0) }
