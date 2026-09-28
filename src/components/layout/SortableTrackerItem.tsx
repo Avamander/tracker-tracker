@@ -38,6 +38,9 @@ function SortableTrackerItem({
   const health = getTrackerHealth(tracker)
   const tc = tracker.color || CHART_THEME.accent
   const stat = formatStatValue(tracker.latestStats, statMode)
+  const inbox = tracker.hideUnreadBadges ? null : tracker.inbox
+  const staffCount = inbox?.unreadStaffMessages ?? 0
+  const unreadCount = staffCount + (inbox?.unreadMessages ?? 0)
 
   const dragStyle: CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -70,6 +73,26 @@ function SortableTrackerItem({
         <PulseDot status={getHealthPulseDot(health)} size="sm" />
       )}
       <span className="flex-1 truncate text-sm font-semibold">{tracker.name}</span>
+      {unreadCount > 0 ? (
+        <span
+          className={clsx(
+            "shrink-0 rounded-full px-1.5 font-mono text-3xs leading-4 tabular-nums",
+            staffCount > 0 ? "bg-danger/20 text-danger" : "bg-warn/20 text-warn"
+          )}
+          title={
+            staffCount > 0
+              ? `${staffCount} unread staff message${staffCount === 1 ? "" : "s"}`
+              : `${unreadCount} unread message${unreadCount === 1 ? "" : "s"}`
+          }
+        >
+          {unreadCount}
+        </span>
+      ) : inbox && inbox.newNews > 0 ? (
+        <span
+          className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent"
+          title={`${inbox.newNews} new announcement${inbox.newNews === 1 ? "" : "s"}`}
+        />
+      ) : null}
       <span className="font-mono text-xs tabular-nums text-tertiary shrink-0">
         {archived ? (
           "Archived"
