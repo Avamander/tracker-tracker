@@ -110,6 +110,44 @@ describe("MamAdapter - parsing", () => {
     }
   })
 
+  it("reports the inbox counts from notifs, tickets as staff messages", async () => {
+    mockFetch({
+      notifs: {
+        pms: 3,
+        aboutToDropClient: 0,
+        tickets: 1,
+        waiting_tickets: 2,
+        requests: 2,
+        topics: 5,
+      },
+    })
+
+    const stats = await adapter.fetchStats(
+      "https://www.myanonamouse.net",
+      "a1b2c3a1b2c3a1b2c3a1b2c3a1b2c3a1",
+      "/jsonLoad.php"
+    )
+
+    expect(stats.inbox).toEqual({
+      unreadMessages: 3,
+      unreadStaffMessages: 3,
+      unreadNotifications: 5,
+      links: { inbox: "https://www.myanonamouse.net/messages.php" },
+    })
+  })
+
+  it("reports no inbox when notifs is missing", async () => {
+    mockFetch({ notifs: undefined })
+
+    const stats = await adapter.fetchStats(
+      "https://www.myanonamouse.net",
+      "a1b2c3a1b2c3a1b2c3a1b2c3a1b2c3a1",
+      "/jsonLoad.php"
+    )
+
+    expect(stats.inbox).toBeUndefined()
+  })
+
   it("aggregates seedingCount from sSat + seedHnr + seedUnsat + upAct", async () => {
     mockFetch()
 
