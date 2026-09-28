@@ -4,7 +4,14 @@
 
 import { getTableConfig } from "drizzle-orm/pg-core"
 import { describe, expect, it } from "vitest"
-import { appCoverageGaps, clientSnapshots, trackerRoles, trackerSnapshots } from "@/lib/db/schema"
+import {
+  appCoverageGaps,
+  clientSnapshots,
+  trackerMessages,
+  trackerNews,
+  trackerRoles,
+  trackerSnapshots,
+} from "@/lib/db/schema"
 
 describe("schema indexes", () => {
   it("trackerSnapshots has composite index on (trackerId, polledAt)", () => {
@@ -41,5 +48,22 @@ describe("schema indexes", () => {
     const config = getTableConfig(trackerRoles)
     const idx = config.indexes.find((i) => i.config.name === "idx_tracker_roles_tracker_id")
     expect(idx).toBeDefined()
+  })
+
+  it("trackerMessages is unique per tracker message and indexed for unread lookups", () => {
+    const names = getTableConfig(trackerMessages).indexes.map((i) => i.config.name)
+    expect(names).toContain("uq_tracker_messages_remote")
+    expect(names).toContain("idx_tracker_messages_tracker_read")
+  })
+
+  it("trackerNews is unique per tracker, kind and item, and indexed for undismissed lookups", () => {
+    const config = getTableConfig(trackerNews)
+    const unique = config.indexes.find((i) => i.config.name === "uq_tracker_news_remote")
+    expect(unique?.config.columns.map((c) => ("name" in c ? c.name : ""))).toEqual([
+      "tracker_id",
+      "kind",
+      "remote_id",
+    ])
+    expect(config.indexes.map((i) => i.config.name)).toContain("idx_tracker_news_tracker_dismissed")
   })
 })

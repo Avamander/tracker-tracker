@@ -141,6 +141,11 @@ export const trackers = pgTable("trackers", {
   useProxy: boolean("use_proxy").default(false).notNull(),
   countCrossSeedUnsatisfied: boolean("count_cross_seed_unsatisfied").default(false).notNull(),
   hideUnreadBadges: boolean("hide_unread_badges").default(false).notNull(),
+  unreadMessages: integer("unread_messages"),
+  unreadStaffMessages: integer("unread_staff_messages"),
+  unreadNotifications: integer("unread_notifications"),
+  inboxCheckedAt: timestamp("inbox_checked_at"),
+  inboxLinks: jsonb("inbox_links").$type<{ inbox?: string; staff?: string; news?: string }>(),
   isFavorite: boolean("is_favorite").default(false).notNull(),
   sortOrder: integer("sort_order"),
   joinedAt: date("joined_at"),
@@ -558,6 +563,49 @@ export const trackerOutages = pgTable(
   ]
 )
 
+export const trackerMessages = pgTable(
+  "tracker_messages",
+  {
+    id: serial("id").primaryKey(),
+    trackerId: integer("tracker_id")
+      .references(() => trackers.id, { onDelete: "cascade" })
+      .notNull(),
+    remoteId: varchar("remote_id", { length: 100 }).notNull(),
+    isStaff: boolean("is_staff").default(false).notNull(),
+    subject: text("subject"),
+    sender: varchar("sender", { length: 255 }),
+    sentAt: timestamp("sent_at"),
+    url: text("url"),
+    firstSeenAt: timestamp("first_seen_at").defaultNow().notNull(),
+    readAt: timestamp("read_at"),
+  },
+  (table) => [
+    uniqueIndex("uq_tracker_messages_remote").on(table.trackerId, table.remoteId),
+    index("idx_tracker_messages_tracker_read").on(table.trackerId, table.readAt),
+  ]
+)
+
+export const trackerNews = pgTable(
+  "tracker_news",
+  {
+    id: serial("id").primaryKey(),
+    trackerId: integer("tracker_id")
+      .references(() => trackers.id, { onDelete: "cascade" })
+      .notNull(),
+    remoteId: varchar("remote_id", { length: 100 }).notNull(),
+    kind: varchar("kind", { length: 20 }).notNull(),
+    title: text("title").notNull(),
+    url: text("url"),
+    publishedAt: timestamp("published_at"),
+    firstSeenAt: timestamp("first_seen_at").defaultNow().notNull(),
+    dismissedAt: timestamp("dismissed_at"),
+  },
+  (table) => [
+    uniqueIndex("uq_tracker_news_remote").on(table.trackerId, table.kind, table.remoteId),
+    index("idx_tracker_news_tracker_dismissed").on(table.trackerId, table.dismissedAt),
+  ]
+)
+
 // ── type exports ──────────────────────────────────────────────
 export type AppSettingsRow = typeof appSettings.$inferSelect
 export type TrackerRow = typeof trackers.$inferSelect
@@ -570,6 +618,8 @@ export type TagGroupMemberRow = typeof tagGroupMembers.$inferSelect
 export type ClientSnapshotRow = typeof clientSnapshots.$inferSelect
 export type BackupHistoryRow = typeof backupHistory.$inferSelect
 export type DismissedAlertRow = typeof dismissedAlerts.$inferSelect
+export type TrackerMessageRow = typeof trackerMessages.$inferSelect
+export type TrackerNewsRow = typeof trackerNews.$inferSelect
 export type NotificationTargetRow = typeof notificationTargets.$inferSelect
 export type NotificationDeliveryStateRow = typeof notificationDeliveryState.$inferSelect
 export type TrackerDailyCheckpointRow = typeof trackerDailyCheckpoints.$inferSelect
