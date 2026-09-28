@@ -1,6 +1,6 @@
 // src/lib/adapters/ggn.ts
 
-import { computeBufferBytes, floatBytesToBigInt } from "@/lib/data-transforms"
+import { computeBufferBytes, computeRatio, floatBytesToBigInt } from "@/lib/data-transforms"
 import { adapterFetch } from "./adapter-fetch"
 import type {
   DebugApiCall,
@@ -121,7 +121,11 @@ export class GGnAdapter implements TrackerAdapter {
     const uploaded = floatBytesToBigInt(resp.stats.uploaded)
     const downloaded = floatBytesToBigInt(resp.stats.downloaded)
     const ratio =
-      typeof resp.stats.ratio === "number" ? resp.stats.ratio : parseFloat(resp.stats.ratio) || 0
+      downloaded === 0n
+        ? computeRatio(uploaded, downloaded)
+        : typeof resp.stats.ratio === "number"
+          ? resp.stats.ratio
+          : parseFloat(resp.stats.ratio) || 0
 
     const platformMeta: GGnPlatformMeta = {
       donor: resp.personal?.donor ?? false,
