@@ -119,6 +119,13 @@ function DashboardSettingsSheet({
             onChange={(checked) => dashSettings.update("showLoginTimers", checked)}
             disabled={!dashSettings.loaded}
           />
+          <Toggle
+            label="Show inbox & news"
+            description="Display unread messages, staff messages and new site news from every tracker."
+            checked={dashSettings.settings.showInbox}
+            onChange={(checked) => dashSettings.update("showInbox", checked)}
+            disabled={!dashSettings.loaded}
+          />
         </div>
 
         <Divider compact />
