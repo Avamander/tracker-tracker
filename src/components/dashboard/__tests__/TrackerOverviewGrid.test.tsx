@@ -34,6 +34,7 @@ const baseStats: TrackerLatestStats = {
 }
 
 const baseTracker: TrackerSummary = {
+  inbox: null,
   id: 1,
   name: "ZeroDownload",
   baseUrl: "https://example.com",

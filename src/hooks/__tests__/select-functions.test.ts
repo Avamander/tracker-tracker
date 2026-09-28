@@ -44,6 +44,7 @@ function makeClient(overrides: Partial<SafeDownloadClient> = {}): SafeDownloadCl
 
 function makeTracker(overrides: Partial<TrackerSummary> = {}): TrackerSummary {
   return {
+    inbox: null,
     id: 1,
     name: "Tracker A",
     baseUrl: "https://example.com",
