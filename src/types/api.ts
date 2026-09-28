@@ -172,6 +172,7 @@ export interface DashboardSettings {
   showHealthIndicators: boolean
   showLoginTimers: boolean
   showRankStacks: boolean
+  showInbox: boolean
   showTodayAtAGlance: boolean
   /** When false, WebGL charts are swapped for 2D substitutes. Defaults to true. */
   enable3DCharts: boolean
@@ -250,6 +251,7 @@ export const DASHBOARD_SETTINGS_DEFAULTS: DashboardSettings = {
   showHealthIndicators: true,
   showLoginTimers: true,
   showRankStacks: true,
+  showInbox: true,
   showTodayAtAGlance: true,
   enable3DCharts: true,
   showOutageBands: true,
