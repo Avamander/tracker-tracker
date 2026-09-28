@@ -14,6 +14,7 @@ import { DashboardEmptyState } from "@/components/dashboard/DashboardEmptyState"
 import { DayRangeSidebar } from "@/components/dashboard/DayRangeSidebar"
 import { EcosystemStatsSection } from "@/components/dashboard/EcosystemStatsSection"
 import { FleetDashboard } from "@/components/dashboard/FleetDashboard"
+import { InboxNewsCard } from "@/components/dashboard/InboxNewsCard"
 import { LoginTimers } from "@/components/dashboard/LoginTimers"
 import { PollAllButton } from "@/components/dashboard/PollAllButton"
 import { ProwlarrFailures } from "@/components/dashboard/ProwlarrFailures"
@@ -130,6 +131,7 @@ export function DashboardClient({
   const ecosystemStatsExpanded = isExpanded("ecosystem-stats")
   const loginTimersExpanded = isExpanded("login-timers")
   const rankStacksExpanded = isExpanded("rank-stacks")
+  const inboxExpanded = isExpanded("inbox")
   const tagGroupsExpanded = isExpanded("tag-groups")
 
   if (data.loading) {
@@ -222,6 +224,14 @@ export function DashboardClient({
           alerts={data.alerts}
           onDismiss={data.dismissAlert}
           onDismissAll={data.dismissAllAlerts}
+        />
+      )}
+
+      {dashSettings.settings.showInbox && (
+        <InboxNewsCard
+          trackers={data.trackers}
+          expanded={inboxExpanded}
+          onToggleExpanded={() => sectionCollapse.toggle("inbox")}
         />
       )}
 
