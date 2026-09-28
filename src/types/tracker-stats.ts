@@ -7,6 +7,38 @@
 
 import type { PlatformType } from "@/data/platform-types"
 
+export interface InboxMessage {
+  /** Stable per-tracker id, so a message is recorded once however often it is polled */
+  id: string
+  subject: string
+  sender: string | null
+  sentAt?: string
+  url?: string
+  /** Staff PMs and support tickets, which outrank ordinary messages */
+  staff?: boolean
+}
+
+export interface NewsItem {
+  id: string
+  kind: "announcement" | "blog" | "news"
+  title: string
+  publishedAt?: string
+  url?: string
+}
+
+/** Counts are null when the tracker does not report them. */
+export interface TrackerInbox {
+  unreadMessages: number | null
+  unreadStaffMessages: number | null
+  unreadNotifications: number | null
+  /** The currently unread messages, when the tracker lists them */
+  messages?: InboxMessage[]
+  news?: NewsItem[]
+  /** Kinds of news the tracker reports as already read */
+  newsSeenOnSite?: Partial<Record<NewsItem["kind"], boolean>>
+  links?: { inbox?: string; staff?: string; news?: string }
+}
+
 export interface TrackerStats {
   username: string
   // null when the response carries no class. A placeholder such as "Unknown"
@@ -31,6 +63,7 @@ export interface TrackerStats {
   lastAccessDate?: string
   shareScore?: number
   avatarUrl?: string
+  inbox?: TrackerInbox
   // Declared once, below, so a new meta type cannot be added to one list and
   // missed in another.
   platformMeta?: PlatformMeta
