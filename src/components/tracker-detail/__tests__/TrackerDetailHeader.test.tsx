@@ -43,6 +43,7 @@ function makeTracker(overrides: Partial<TrackerSummary> = {}): TrackerSummary {
     remoteUserId: null,
     platformMeta: null,
     createdAt: "2026-01-01T00:00:00.000Z",
+    inbox: null,
     latestStats: null,
     ...overrides,
   }

@@ -25,7 +25,7 @@ import {
   type TrackerRegistryEntry,
 } from "@/data/tracker-registry"
 import { db } from "@/lib/db"
-import { appSettings, trackers } from "@/lib/db/schema"
+import { appSettings, trackerNews, trackers } from "@/lib/db/schema"
 import { getTrackerForClient, getTrackerListForDashboard } from "@/lib/server-data"
 
 function entryWhere(what: string, test: (entry: TrackerRegistryEntry) => boolean) {
@@ -114,7 +114,10 @@ beforeEach(() => {
       return {
         orderBy: async () => rows(),
         limit: async () => rows(),
-        where: ({ eq: [column, value] }: { eq: [unknown, unknown] }) => {
+        where: (condition: { eq?: [unknown, unknown] }) => {
+          // Main's news count groups unread news by tracker; none are stored here.
+          if (source === trackerNews) return { groupBy: async () => [] }
+          const [column, value] = condition.eq ?? []
           const keep = (r: Row) => r[columnKey(column)] === value
           return {
             limit: async (n: number) => rows(keep).slice(0, n),

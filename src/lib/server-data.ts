@@ -27,7 +27,7 @@
 
 import "server-only"
 
-import { and, asc, desc, eq, gte, sql } from "drizzle-orm"
+import { and, asc, desc, eq, gte, isNull, sql } from "drizzle-orm"
 import { trackerSiteFor } from "@/data/tracker-registry"
 import { DEFAULT_TRACKER_COLOR } from "@/lib/constants"
 import { db } from "@/lib/db"
@@ -41,6 +41,7 @@ import {
   prowlarrInstances,
   tagGroupMembers,
   tagGroups as tagGroupsTable,
+  trackerNews,
   trackerSnapshots,
   trackers,
 } from "@/lib/db/schema"
@@ -363,18 +364,33 @@ export const trackerColumns = {
   updatedAt: trackers.updatedAt,
 }
 
+/** Undismissed news per tracker. */
+async function countNewNews(trackerId?: number): Promise<Map<number, number>> {
+  const rows = await db
+    .select({ trackerId: trackerNews.trackerId, count: sql<number>`count(*)::int` })
+    .from(trackerNews)
+    .where(
+      trackerId === undefined
+        ? isNull(trackerNews.dismissedAt)
+        : and(isNull(trackerNews.dismissedAt), eq(trackerNews.trackerId, trackerId))
+    )
+    .groupBy(trackerNews.trackerId)
+  return new Map(rows.map((r) => [r.trackerId, r.count]))
+}
+
 /**
  * Fetches all trackers with their latest snapshot for the dashboard.
  * Applies privacy masking at response time. Never returns encryptedApiToken.
  */
 export async function getTrackerListForDashboard(): Promise<TrackerSummary[]> {
-  const [allTrackers, [privacySettings], latestSnapshots] = await Promise.all([
+  const [allTrackers, [privacySettings], latestSnapshots, newNews] = await Promise.all([
     db.select(trackerColumns).from(trackers).orderBy(trackers.createdAt),
     db.select({ storeUsernames: appSettings.storeUsernames }).from(appSettings).limit(1),
     db
       .selectDistinctOn([trackerSnapshots.trackerId])
       .from(trackerSnapshots)
       .orderBy(trackerSnapshots.trackerId, desc(trackerSnapshots.polledAt)),
+    countNewNews(),
   ])
 
   // Enforce masking at response time
@@ -393,7 +409,14 @@ export async function getTrackerListForDashboard(): Promise<TrackerSummary[]> {
     const prowlarr = prowlarrByTracker.get(tracker.id) ?? null
     const entry = storedAddressEntry(tracker)
     const duplicateOf = entry && held.has(entry.slug) ? entry.name : null
-    return serializeTrackerResponse(tracker, latest, mask, prowlarr, duplicateOf)
+    return serializeTrackerResponse(
+      tracker,
+      latest,
+      mask,
+      newNews.get(tracker.id) ?? 0,
+      prowlarr,
+      duplicateOf
+    )
   })
 }
 
@@ -429,7 +452,7 @@ export async function isRegistrySlugHeld(slug: string): Promise<boolean> {
  * Applies privacy masking. Never returns encryptedApiToken.
  */
 export async function getTrackerForClient(id: number): Promise<TrackerSummary | null> {
-  const [[tracker], [latest], [privacySettings]] = await Promise.all([
+  const [[tracker], [latest], [privacySettings], newNews] = await Promise.all([
     db.select(trackerColumns).from(trackers).where(eq(trackers.id, id)).limit(1),
     db
       .select()
@@ -438,6 +461,7 @@ export async function getTrackerForClient(id: number): Promise<TrackerSummary | 
       .orderBy(desc(trackerSnapshots.polledAt))
       .limit(1),
     db.select({ storeUsernames: appSettings.storeUsernames }).from(appSettings).limit(1),
+    countNewNews(id),
   ])
 
   if (!tracker) return null
@@ -450,7 +474,14 @@ export async function getTrackerForClient(id: number): Promise<TrackerSummary | 
   const duplicateOf = entry && (await isRegistrySlugHeld(entry.slug)) ? entry.name : null
 
   // security-audit-ignore: serializeTrackerResponse omits encryptedApiToken by design
-  return serializeTrackerResponse(tracker, latest ?? null, mask, prowlarr, duplicateOf)
+  return serializeTrackerResponse(
+    tracker,
+    latest ?? null,
+    mask,
+    newNews.get(id) ?? 0,
+    prowlarr,
+    duplicateOf
+  )
 }
 
 // ---------------------------------------------------------------------------

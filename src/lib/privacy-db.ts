@@ -1,13 +1,36 @@
 // src/lib/privacy-db.ts
 //
-// Functions: createPrivacyMaskSync, scrubSnapshotUsernames
+// Functions: createPrivacyMask, createPrivacyMaskSync, scrubSnapshotUsernames
 //
 // DB-aware privacy operations. Pure helpers (maskUsername, isRedacted) live
 // in privacy.ts to keep that module free of I/O dependencies.
 
 import { sql } from "drizzle-orm"
 import { db } from "@/lib/db"
-import { maskUsername, REDACTED_PREFIX } from "@/lib/privacy"
+import { appSettings } from "@/lib/db/schema"
+import { isRedacted, maskUsername, REDACTED_PREFIX } from "@/lib/privacy"
+
+/**
+ * Fetches the current privacy setting and returns a masking function.
+ * When privacy mode is on (storeUsernames=false), the returned function
+ * replaces plaintext values with redacted markers. When off, values
+ * pass through unchanged. Already-redacted values are never double-masked.
+ */
+export async function createPrivacyMask(): Promise<
+  (value: string | null | undefined) => string | null
+> {
+  const [settings] = await db
+    .select({ storeUsernames: appSettings.storeUsernames })
+    .from(appSettings)
+    .limit(1)
+  const privacyMode = settings ? !settings.storeUsernames : false
+
+  return (value: string | null | undefined): string | null => {
+    if (!value) return null
+    if (!privacyMode || isRedacted(value)) return value
+    return maskUsername(value)
+  }
+}
 
 /**
  * Returns a masking function for a pre-fetched storeUsernames boolean, so a
