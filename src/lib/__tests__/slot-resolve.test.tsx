@@ -228,6 +228,49 @@ describe("AnimeBytes context", () => {
   })
 })
 
+describe("inbox badges", () => {
+  const ctx = (inbox: TrackerSummary["inbox"], hideUnreadBadges = false): SlotContext => ({
+    tracker: makeTracker({ platformType: "gazelle", inbox, hideUnreadBadges }),
+    latestSnapshot: makeSnapshot({}),
+    meta: {
+      notifications: { messages: 9, notifications: 0, newAnnouncement: true, newBlog: false },
+    },
+    registry: undefined,
+    accentColor: BASE_ACCENT,
+  })
+  const inbox = {
+    unreadMessages: 2,
+    unreadStaffMessages: 1,
+    unreadNotifications: null,
+    newNews: 1,
+    checkedAt: null,
+    links: null,
+  }
+
+  it("shows staff, unread and news badges from the inbox, staff first", () => {
+    const badges = resolveSlots(ctx(inbox)).get("badge") ?? []
+    const ids = badges.map((s) => s.id)
+    expect(ids.filter((id) => id.startsWith("inbox-"))).toEqual([
+      "inbox-staff",
+      "inbox-unread",
+      "inbox-news",
+    ])
+    expect(ids).not.toContain("gazelle-unread")
+    expect(ids).not.toContain("gazelle-announcement")
+  })
+
+  it("falls back to the platform badges until the tracker reports an inbox", () => {
+    const ids = slotIds(ctx(null), "badge")
+    expect(ids).toContain("gazelle-unread")
+    expect(ids.some((id) => id.startsWith("inbox-"))).toBe(false)
+  })
+
+  it("hides every unread badge when the tracker hides them", () => {
+    const ids = slotIds(ctx(inbox, true), "badge")
+    expect(ids.some((id) => id.startsWith("inbox-") || id === "gazelle-unread")).toBe(false)
+  })
+})
+
 describe("bonus name", () => {
   const ctx = (registry: SlotContext["registry"]): SlotContext => ({
     tracker: makeTracker({ platformType: "torrentleech" }),

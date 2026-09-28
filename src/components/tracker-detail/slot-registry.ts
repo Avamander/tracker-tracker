@@ -2,11 +2,11 @@
 //
 // Exports: SLOT_DEFINITIONS, renderSlotElement, AnySlotDefinition
 // Slot IDs defined:
-//   stat-card: login-deadline, api-key-expiry, gold, snatched-nebulance, seedbonus, ggn-share-score-card,
+//   stat-card: login-deadline, api-key-expiry, gold, yen, snatched-nebulance, seedbonus, ggn-share-score-card,
 //              gazelle-tokens, perfect-flacs, snatched-gazelle, torrents-uploaded,
 //              requests-filled, groups-contributed, invited, gazelle-bounty, gazelle-comments,
 //              mam-wedges, mam-completed, mam-tracker-errors
-//   badge: warned, donor, disabled, ggn-parked, ggn-invites, ggn-irc,
+//   badge: warned, donor, disabled, inbox-staff, inbox-unread, inbox-news, ggn-parked, ggn-invites, ggn-irc,
 //          gazelle-paranoia, gazelle-unread, gazelle-announcement,
 //          mam-vip, mam-connectable, mam-unread
 //   progress: ggn-achievement-progress, ggn-share-score-progress, ggn-buffs,
@@ -567,13 +567,52 @@ const gazelleParanoiaBadgeSlot: SlotDefinition<SlotBadgeProps> = {
   },
 }
 
+const inboxStaffBadgeSlot: SlotDefinition<SlotBadgeProps> = {
+  id: "inbox-staff",
+  category: "badge",
+  component: SlotBadge,
+  priority: 27,
+  resolve(ctx) {
+    const count = ctx.tracker.hideUnreadBadges ? 0 : (ctx.tracker.inbox?.unreadStaffMessages ?? 0)
+    if (count <= 0) return null
+    return { variant: "danger", label: `${count} Staff` }
+  },
+}
+
+const inboxUnreadBadgeSlot: SlotDefinition<SlotBadgeProps> = {
+  id: "inbox-unread",
+  category: "badge",
+  component: SlotBadge,
+  priority: 28,
+  resolve(ctx) {
+    const count = ctx.tracker.hideUnreadBadges ? 0 : (ctx.tracker.inbox?.unreadMessages ?? 0)
+    if (count <= 0) return null
+    return { variant: "warn", label: `${count} Unread` }
+  },
+}
+
+const inboxNewsBadgeSlot: SlotDefinition<SlotBadgeProps> = {
+  id: "inbox-news",
+  category: "badge",
+  component: SlotBadge,
+  priority: 29,
+  resolve(ctx) {
+    const count = ctx.tracker.hideUnreadBadges ? 0 : (ctx.tracker.inbox?.newNews ?? 0)
+    if (count <= 0) return null
+    return {
+      variant: "accent",
+      label: count === 1 ? "New Announcement" : `${count} New Announcements`,
+    }
+  },
+}
+
 const gazelleUnreadBadgeSlot: SlotDefinition<SlotBadgeProps> = {
   id: "gazelle-unread",
   category: "badge",
   component: SlotBadge,
   priority: 31,
   resolve(ctx) {
-    if (ctx.tracker.hideUnreadBadges) return null
+    if (ctx.tracker.hideUnreadBadges || ctx.tracker.inbox) return null
     const gazMeta = metaFor(ctx, "gazelle")
     if (!gazMeta?.notifications) return null
     if (gazMeta.notifications.messages <= 0) return null
@@ -587,7 +626,7 @@ const gazelleAnnouncementBadgeSlot: SlotDefinition<SlotBadgeProps> = {
   component: SlotBadge,
   priority: 32,
   resolve(ctx) {
-    if (ctx.tracker.hideUnreadBadges) return null
+    if (ctx.tracker.hideUnreadBadges || ctx.tracker.inbox) return null
     const gazMeta = metaFor(ctx, "gazelle")
     if (!gazMeta?.notifications?.newAnnouncement) return null
     return { variant: "accent", label: "New Announcement" }
@@ -736,7 +775,7 @@ const mamUnreadBadgeSlot: SlotDefinition<SlotBadgeProps> = {
   component: SlotBadge,
   priority: 30,
   resolve(ctx) {
-    if (ctx.tracker.hideUnreadBadges) return null
+    if (ctx.tracker.hideUnreadBadges || ctx.tracker.inbox) return null
     const mamMeta = metaFor(ctx, "mam")
     if (!mamMeta) return null
     const count = (mamMeta.unreadPMs ?? 0) + (mamMeta.unreadTopics ?? 0)
@@ -1060,6 +1099,9 @@ export const SLOT_DEFINITIONS: AnySlotDefinition[] = [
   ggnInvitesBadgeSlot,
   ggnIrcBadgeSlot,
   gazelleParanoiaBadgeSlot,
+  inboxStaffBadgeSlot,
+  inboxUnreadBadgeSlot,
+  inboxNewsBadgeSlot,
   gazelleUnreadBadgeSlot,
   gazelleAnnouncementBadgeSlot,
   // MAM slots (badge)

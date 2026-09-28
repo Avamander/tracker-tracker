@@ -13,6 +13,7 @@ import { TrackerSettingsSheet } from "@/components/TrackerSettingsSheet"
 import { AnalyticsTab } from "@/components/tracker-detail/AnalyticsTab"
 import type { DebugData } from "@/components/tracker-detail/DebugResponseDialog"
 import { DebugResponseDialog } from "@/components/tracker-detail/DebugResponseDialog"
+import { InboxCard } from "@/components/tracker-detail/InboxCard"
 import { resolveSlots } from "@/components/tracker-detail/resolve-slots"
 import { TrackerDetailHeader } from "@/components/tracker-detail/TrackerDetailHeader"
 import { TrackerInfoTab } from "@/components/tracker-detail/TrackerInfoTab"
@@ -303,6 +304,8 @@ export function TrackerDetailClient({
         onDismissPollError={() => setPollError(null)}
         onResume={handleResume}
       />
+
+      <InboxCard tracker={tracker} />
 
       {/* Tabs */}
       <div className="flex items-center gap-1 border-b border-border">
