@@ -157,6 +157,14 @@ export class MamAdapter implements TrackerAdapter {
       warned: null,
       freeleechTokens: data.wedges ?? null,
       platformMeta,
+      inbox: data.notifs
+        ? {
+            unreadMessages: data.notifs.pms,
+            unreadStaffMessages: (data.notifs.tickets ?? 0) + (data.notifs.waiting_tickets ?? 0),
+            unreadNotifications: data.notifs.topics,
+            links: { inbox: new URL("/messages.php", baseUrl).toString() },
+          }
+        : undefined,
     }
   }
 

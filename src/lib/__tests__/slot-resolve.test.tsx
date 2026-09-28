@@ -253,18 +253,15 @@ describe("inbox badges", () => {
       "inbox-unread",
       "inbox-news",
     ])
-    expect(ids).not.toContain("mam-unread")
   })
 
-  it("falls back to the platform badges until the tracker reports an inbox", () => {
-    const ids = slotIds(ctx(null), "badge")
-    expect(ids).toContain("mam-unread")
-    expect(ids.some((id) => id.startsWith("inbox-"))).toBe(false)
+  it("shows no inbox badges until the tracker reports an inbox", () => {
+    expect(slotIds(ctx(null), "badge").some((id) => id.startsWith("inbox-"))).toBe(false)
   })
 
   it("hides every unread badge when the tracker hides them", () => {
     const ids = slotIds(ctx(inbox, true), "badge")
-    expect(ids.some((id) => id.startsWith("inbox-") || id === "mam-unread")).toBe(false)
+    expect(ids.some((id) => id.startsWith("inbox-"))).toBe(false)
   })
 })
 

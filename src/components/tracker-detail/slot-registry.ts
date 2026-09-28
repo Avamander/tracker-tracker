@@ -8,7 +8,7 @@
 //              mam-wedges, mam-completed, mam-tracker-errors
 //   badge: warned, donor, disabled, inbox-staff, inbox-unread, inbox-news, ggn-parked, ggn-invites, ggn-irc,
 //          gazelle-paranoia,
-//          mam-vip, mam-connectable, mam-unread
+//          mam-vip, mam-connectable
 //   progress: ggn-achievement-progress, ggn-share-score-progress, ggn-buffs,
 //             mam-health-overview
 //   avistaz stat-card: avistaz-activity
@@ -742,21 +742,6 @@ const mamConnectableBadgeSlot: SlotDefinition<SlotBadgeProps> = {
   },
 }
 
-const mamUnreadBadgeSlot: SlotDefinition<SlotBadgeProps> = {
-  id: "mam-unread",
-  category: "badge",
-  component: SlotBadge,
-  priority: 30,
-  resolve(ctx) {
-    if (ctx.tracker.hideUnreadBadges || ctx.tracker.inbox) return null
-    const mamMeta = metaFor(ctx, "mam")
-    if (!mamMeta) return null
-    const count = (mamMeta.unreadPMs ?? 0) + (mamMeta.unreadTopics ?? 0)
-    if (count <= 0) return null
-    return { variant: "warn", label: `${count} Unread` }
-  },
-}
-
 const mamHealthOverviewSlot: SlotDefinition<MamHealthOverviewProps> = {
   id: "mam-health-overview",
   category: "progress",
@@ -1078,7 +1063,6 @@ export const SLOT_DEFINITIONS: AnySlotDefinition[] = [
   // MAM slots (badge)
   mamVipBadgeSlot,
   mamConnectableBadgeSlot,
-  mamUnreadBadgeSlot,
   // progress slots
   ggnAchievementProgressSlot,
   ggnShareScoreProgressSlot,
