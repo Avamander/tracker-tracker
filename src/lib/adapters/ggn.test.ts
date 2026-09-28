@@ -121,6 +121,14 @@ describe("GGnAdapter", () => {
     expect(stats.hitAndRuns).toBe(3)
   })
 
+  it("reports an infinite ratio when nothing has been downloaded", async () => {
+    mockBothCalls({ stats: { uploaded: 1000, downloaded: 0, ratio: 0 } })
+
+    const stats = await adapter.fetchStats("https://gazellegames.net", "key", "/api.php")
+
+    expect(stats.ratio).toBe(Number.POSITIVE_INFINITY)
+  })
+
   it("calculates positive buffer when uploaded > downloaded", async () => {
     mockBothCalls({ stats: { uploaded: 1000, downloaded: 400 } })
 
