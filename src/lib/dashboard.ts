@@ -40,6 +40,8 @@ export const VALID_ALERT_TYPES = new Set([
   "backup-failed",
   "client-error",
   "retention-unconfigured",
+  "staff-message",
+  "tracker-news",
 ] as const)
 
 export type AlertType = typeof VALID_ALERT_TYPES extends Set<infer T> ? T : never
@@ -189,6 +191,36 @@ export function computeAlerts(trackers: TrackerSummary[]): DashboardAlert[] {
         trackerColor: tracker.color,
         message: "You have an active warning on this tracker",
         timestamp: tracker.lastPolledAt ?? undefined,
+        dismissible: true,
+      })
+    }
+
+    // --- Inbox: staff messages, then news. A new arrival changes the key, so it
+    // resurfaces after a dismissal ---
+    const inbox = tracker.hideUnreadBadges ? null : tracker.inbox
+    const staffCount = inbox?.unreadStaffMessages ?? 0
+    if (staffCount > 0) {
+      alerts.push({
+        key: `staff-message-${tracker.id}-${staffCount}`,
+        type: "staff-message",
+        trackerId: tracker.id,
+        trackerName: tracker.name,
+        trackerColor: tracker.color,
+        message: `${staffCount} unread staff message${staffCount === 1 ? "" : "s"}`,
+        timestamp: inbox?.checkedAt ?? undefined,
+        dismissible: true,
+      })
+    }
+    const newsCount = inbox?.newNews ?? 0
+    if (newsCount > 0) {
+      alerts.push({
+        key: `tracker-news-${tracker.id}-${newsCount}`,
+        type: "tracker-news",
+        trackerId: tracker.id,
+        trackerName: tracker.name,
+        trackerColor: tracker.color,
+        message: `${newsCount} new announcement${newsCount === 1 ? "" : "s"}`,
+        timestamp: inbox?.checkedAt ?? undefined,
         dismissible: true,
       })
     }

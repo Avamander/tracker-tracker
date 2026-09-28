@@ -381,6 +381,42 @@ describe("computeAlerts", () => {
     mockFindRegistryEntry.mockReset()
   })
 
+  it("alerts on staff messages and new news, not ordinary unread messages", () => {
+    const tracker = makeTracker({
+      inbox: {
+        unreadMessages: 4,
+        unreadStaffMessages: 1,
+        unreadNotifications: null,
+        newNews: 2,
+        checkedAt: null,
+        links: null,
+      },
+    })
+    const alerts = computeAlerts([tracker]).filter((a) =>
+      ["staff-message", "tracker-news"].includes(a.type)
+    )
+    expect(alerts.map((a) => a.key)).toEqual(["staff-message-1-1", "tracker-news-1-2"])
+    expect(alerts[0].message).toBe("1 unread staff message")
+    expect(alerts[1].message).toBe("2 new announcements")
+  })
+
+  it("does not alert on the inbox of a tracker that hides unread badges", () => {
+    const tracker = makeTracker({
+      hideUnreadBadges: true,
+      inbox: {
+        unreadMessages: 0,
+        unreadStaffMessages: 3,
+        unreadNotifications: null,
+        newNews: 1,
+        checkedAt: null,
+        links: null,
+      },
+    })
+    const types = computeAlerts([tracker]).map((a) => a.type)
+    expect(types).not.toContain("staff-message")
+    expect(types).not.toContain("tracker-news")
+  })
+
   it("returns no alerts for a healthy tracker", () => {
     mockFindRegistryEntry.mockReturnValue(
       makeRegistryEntry({ rules: { minimumRatio: 0.4, seedTimeHours: 72, loginIntervalDays: 90 } })
