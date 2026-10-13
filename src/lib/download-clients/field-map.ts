@@ -24,9 +24,8 @@ const FIELD_MAP: Record<string, string> = {
 
 /**
  * Every non-optional number on TorrentRecord. A field left out of this set has
- * no gate at all, so a host sending a string put NaN into the arithmetic and
- * null into the serialized cachedTorrents column once it round-tripped through
- * JSON.
+ * no gate, so a string from the host becomes NaN in the arithmetic and null in
+ * cachedTorrents after a JSON round trip.
  */
 const REQUIRED_NUMERIC = new Set([
   "uploadSpeed",

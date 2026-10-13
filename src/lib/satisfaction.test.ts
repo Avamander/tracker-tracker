@@ -29,9 +29,8 @@ describe("resolveSatisfaction", () => {
   })
 
   it("ignores minimumRatio for an entry that declares no mode", () => {
-    // The compatibility guarantee. minimumRatio has always been an ACCOUNT-level
-    // figure here; reading it per-torrent for the 55 entries that predate this
-    // field would re-interpret rules nobody has re-read.
+    // minimumRatio is an account-level figure. Reading it per torrent for an
+    // entry with no declared mode would re-interpret rules nobody has re-read.
     const req = resolveSatisfaction(rules({ minimumRatio: 1.0, seedTimeHours: 72 }))
     expect(req).toEqual({ requiredSeedSeconds: 72 * HOUR, requiredRatio: null, mode: "all" })
   })
@@ -172,9 +171,7 @@ describe("ratioProgress", () => {
 
   it("treats an infinite ratio as no progress, not as complete", () => {
     // A torrent that has downloaded nothing reports Infinity in some clients.
-    // Reading that as "1000% of the requirement" would mark it satisfied, which
-    // is the unsafe direction — this is exactly how the TorrentLeech adapter's
-    // zero-download parse would have poisoned the table.
+    // Reading that as satisfied is the unsafe direction.
     expect(ratioProgress(Number.POSITIVE_INFINITY, req)).toBe(0)
   })
 
@@ -265,7 +262,7 @@ describe("remainingSeedSeconds", () => {
   })
 
   it("reports null once the torrent is satisfied by ratio", () => {
-    // Not "200 hours remaining". Nothing is owed — the torrent is free to go.
+    // Not "200 hours remaining". Nothing is owed, so the torrent is free to go.
     expect(remainingSeedSeconds(torrent(40 * HOUR, 1.5), req)).toBeNull()
   })
 
@@ -289,8 +286,7 @@ describe("remainingSeedSeconds", () => {
 })
 
 describe("TorrentLeech, end to end", () => {
-  // The case that motivated this: seedTimeHours was 0, so the whole unsatisfied
-  // table silently disappeared for TorrentLeech.
+  // A TorrentLeech entry with no requirement hides the whole unsatisfied table.
   it("produces a real requirement from the registry entry", async () => {
     const { getTrackerBySlug } = await import("@/data/tracker-registry")
     const tl = getTrackerBySlug("torrentleech")

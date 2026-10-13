@@ -95,8 +95,6 @@ function makeRegistryEntry(overrides: Partial<TrackerRegistryEntry> = {}): Track
   }
 }
 
-// Reset the registry mock before each test in the computeAlerts suite
-
 const makeSnapshot = (overrides: Partial<Snapshot> = {}): Snapshot => ({
   polledAt: new Date().toISOString(),
   uploadedBytes: "1000",

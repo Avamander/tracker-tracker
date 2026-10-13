@@ -3,12 +3,9 @@
 // Functions: formatFieldList, parseCredentialJson
 
 // ---------------------------------------------------------------------------
-// Credential parsing for adapters whose tracker has no API.
-//
-// These adapters take a JSON blob in the apiToken field rather than a plain
-// token, and the cookie-based ones repeated the same hygiene checks verbatim.
-// Keeping the checks here means a new scraping adapter inherits them, and the
-// wording users see when they paste something wrong stays consistent.
+// Credential parsing for adapters whose tracker has no API. They take a JSON
+// blob in the apiToken field, and sharing the checks keeps the wording users
+// see consistent.
 // ---------------------------------------------------------------------------
 
 /** "a, b, and c" / "a and b" / "a" */

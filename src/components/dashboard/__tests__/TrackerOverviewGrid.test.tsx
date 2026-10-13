@@ -1,9 +1,8 @@
 // src/components/dashboard/__tests__/TrackerOverviewGrid.test.tsx
 //
 // Regression coverage: an infinite ratio (uploaded > 0, downloaded === 0)
-// crosses the wire as `ratio: null` plus `ratioIsInfinite`. The overview
-// card used to read `ratio` alone and render it as "—", identical to a
-// tracker with no stats at all.
+// crosses the wire as `ratio: null` plus `ratioIsInfinite`. Reading `ratio`
+// alone renders it as a dash, identical to a tracker with no stats at all.
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, screen } from "@testing-library/react"

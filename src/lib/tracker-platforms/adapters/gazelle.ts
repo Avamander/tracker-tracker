@@ -104,9 +104,8 @@ interface GazelleUserResponse {
 }
 
 /**
- * Most forks want the "token " prefix; a few reject it and take the key raw,
- * which is what the registry's auth style pins. Both methods need the same
- * answer, and a conditional copied into each is how they come to disagree.
+ * Most forks want the "token " prefix; a few take the key raw, which the
+ * registry's auth style pins.
  */
 function gazelleAuthHeader(apiToken: string, options?: FetchOptions): string {
   return options?.authStyle === "raw" ? apiToken : `token ${apiToken}`
@@ -154,9 +153,8 @@ export class GazelleAdapter implements TrackerAdapter {
       // Derived from byte totals. Gazelle reports -1 for infinite ratio.
       ratio: computeRatio(uploaded, downloaded),
       bufferBytes: computeBufferBytes(uploaded, downloaded),
-      // Redacted's index carries neither field. Coercing to 0 made a poll whose
-      // enrichment call fails look like an account that stopped seeding, which
-      // trips the zero-seeding alert and the no-seeds health badge.
+      // Redacted's index carries neither field, so both stay null unless
+      // enrichment supplies a count.
       seedingCount: userStats.seedingcount ?? null,
       leechingCount: userStats.leechingcount ?? null,
       seedbonus: userStats.bonusPoints ?? userStats.bonuspoints ?? null,

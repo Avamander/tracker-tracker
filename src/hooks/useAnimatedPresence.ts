@@ -12,10 +12,9 @@ const ENTRY_FALLBACK_MS = 150
 
 /**
  * Longest exit transition among consumers (Sheet, 300ms) plus slack. A
- * transitionend can only arrive if a transition actually ran; when the entry
- * never completed (hidden tab) or the browser skipped the exit transition,
- * nothing fires, and without this fallback the overlay stayed mounted forever
- * as a ghost behind the page.
+ * transitionend arrives only if a transition ran. When the entry never
+ * completed (hidden tab) or the browser skipped the exit transition, nothing
+ * fires, and this fallback unmounts the overlay.
  */
 const EXIT_FALLBACK_MS = 500
 

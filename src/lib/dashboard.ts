@@ -172,7 +172,7 @@ export function computeAlerts(trackers: TrackerSummary[]): DashboardAlert[] {
     // --- Stale data (skip if paused: staleness is expected) ---
     if (!tracker.pausedAt && !tracker.userPausedAt && tracker.lastPolledAt) {
       const lastPolled = new Date(tracker.lastPolledAt)
-      const thresholdMs = 2 * 60 * 60 * 1000 // 2 hours
+      const thresholdMs = 2 * 60 * 60 * 1000
       const ageMs = Date.now() - lastPolled.getTime()
       if (ageMs > thresholdMs) {
         alerts.push({
@@ -264,12 +264,10 @@ export function detectRankChanges(
       // Skip if no group data or redacted (privacy mode)
       if (!current.group || !previous.group) continue
       if (isRedacted(current.group) || isRedacted(previous.group)) continue
-      // Skip if same group
       if (current.group === previous.group) continue
 
-      // Found a rank change. check freshness
       const changeTime = new Date(current.polledAt).getTime()
-      if (changeTime < cutoff) break // Older than freshness window, stop looking
+      if (changeTime < cutoff) break
 
       alerts.push({
         key: `rank-change-${t.id}-${current.group}`,

@@ -72,12 +72,11 @@ export function buildBaseUrl(host: string, port: number, ssl: boolean): string {
 // ---------------------------------------------------------------------------
 
 /**
- * Characters that must never reach a Cookie header. `split(";", 1)` already
- * drops anything after a semicolon and `trim()` strips the ends, so only an
- * interior control character could survive, and undici rejects CR and LF
- * inside a parsed response header before getSetCookie() returns. That makes
- * this unreachable today, which is the point: the guarantee currently lives in
- * a dependency, and authHeaders interpolates the value straight into a header.
+ * Characters that must never reach a Cookie header. `split(";", 1)` and
+ * `trim()` leave only an interior control character, and undici rejects CR and
+ * LF in a parsed response header, so this is unreachable today. It keeps the
+ * guarantee in this file because authHeaders interpolates the value straight
+ * into a header.
  */
 // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional control-char check
 const unsafeChars = /[;\r\n\x00-\x1F\x7F]/
@@ -111,10 +110,8 @@ export async function getSession(
 ): Promise<{ baseUrl: string; sid: SidCookie }> {
   const baseUrl = buildBaseUrl(host, port, ssl)
   // Keyed by credentials as well as origin, the same way authBlocks is. Keyed
-  // by baseUrl alone, two client rows pointing at one host shared whichever
-  // session was minted first, so the second row's credentials were never sent
-  // and never validated: a row saved with a revoked password polled green
-  // using the other row's access.
+  // by baseUrl alone, a second client row on the same host would ride the first
+  // row's session, and a row with a revoked password would still poll green.
   const cacheKey = blockKeyFor(baseUrl, username, password)
   const cached = sidCache.get(cacheKey)
   if (cached) return { baseUrl, sid: cached }
@@ -147,24 +144,16 @@ export function clearAllSessions(): void {
 // ---------------------------------------------------------------------------
 // Auth-failure circuit breaker.
 //
-// qBittorrent bans the calling IP for MaxAuthenticationFailCount (default 5)
-// failed logins and keeps rejecting for BanDuration (default 3600s) even once
-// the correct password is supplied. The heartbeat runs every 5 seconds, so a
-// client saved with bad credentials would be banned within ~25 seconds and the
-// user locked out for an hour after fixing it. Once a login is rejected we
-// therefore stop attempting it, no timer, no backoff, just "don't ask again".
+// qBittorrent bans the calling IP after MaxAuthenticationFailCount (default 5)
+// failed logins and keeps rejecting for BanDuration (default 3600s), even once
+// the password is fixed. The 5s heartbeat would get there in about 25 seconds,
+// so a rejected login is not retried.
 //
-// The block is keyed by baseUrl AND a fingerprint of the credentials, so a
-// user who edits the username or password is never stuck: different
-// credentials hash to a different key and simply are not blocked. It also
-// clears on process restart and on an explicit Test Connection.
+// The block is keyed by baseUrl and a credential fingerprint, so an edited
+// credential is not blocked. It also clears on restart and on Test Connection.
 //
-// Deliberately NOT applied to the 403 ban response. A ban is only ever
-// observed after this app has already stopped trying, so re-attempting cannot
-// prolong it, and requests made during a ban are rejected before credentials
-// are validated, so they cannot trip the counter again. Leaving the ban
-// unblocked is what lets a user who fixes their password mid-ban recover
-// automatically the moment the ban expires.
+// The 403 ban response is not blocked. Retrying during a ban cannot extend it,
+// and leaving it unblocked lets a fixed password recover once the ban expires.
 // ---------------------------------------------------------------------------
 
 const gBlocks = globalThis as typeof globalThis & {
@@ -179,34 +168,11 @@ const authBlocks = gBlocks.__qbtAuthBlocks
  * logged or persisted, it exists so a credential edit is detectable without
  * holding the plaintext.
  *
- * ── SHA-256 IS CORRECT HERE. Do not "upgrade" this to a slow KDF. ──────────
- * CodeQL flags this as "use of password hash with insufficient computational
- * effort" and suggests PBKDF2. That alert has been reviewed and dismissed as a
- * false positive; the rule is aimed at a threat model this code does not have.
- *
- * That rule protects CREDENTIAL STORAGE: you persist hash(password), an
- * attacker steals the store, and brute-forces it offline. A slow KDF makes that
- * expensive. None of that shape applies:
- *
- *   - The digest is a key in an in-memory Map (`authBlocks`) whose values are
- *     error strings to replay. It is never persisted, never logged, never sent.
- *   - It authenticates nobody. It answers one question, "are these the same
- *     credentials that were just rejected?", so a user who fixes a password is
- *     not held by the circuit breaker.
- *   - Anyone able to read that Map has this process's memory, where the
- *     plaintext password already lives (login() builds it into a URLSearchParams
- *     body a few lines below). The digest discloses nothing new.
- *
- * And the suggested fix has a real cost. blockKeyFor() runs inside qbtFetch(),
- * which every qBittorrent API call passes through. Measured: SHA-256 is
- * ~0.0026 ms/call, PBKDF2 at 210k iterations is ~31.8 ms, about 12,000x
- * slower. That is ~32 ms of CPU added to every poll, permanently, to defend
- * against an attacker who by construction already holds the plaintext.
- *
- * If this ever needs to satisfy the scanner, the right move is HMAC-SHA256 under
- * a random per-process key (fast, and unbruteforceable even in principle, the
- * Map does not outlive the process, so a per-process key loses nothing). NOT a
- * slow KDF on a per-request path.
+ * SHA-256 is deliberate. Do not swap in a slow KDF. The digest keys an
+ * in-memory Map in a process that already holds the plaintext, and blockKeyFor
+ * runs on the request path, so a slow KDF adds per-request cost and protects
+ * nothing. The CodeQL insufficient-effort alert on this was reviewed and
+ * dismissed as a false positive.
  */
 function credentialFingerprint(username: string, password: string): string {
   return createHash("sha256").update(`${username}\u0000${password}`).digest("hex")
@@ -280,9 +246,8 @@ const API_KEY_REJECTED =
 
 /**
  * The caller's deadline and this transport's own ceiling, whichever fires
- * first. Without the caller's signal a client that blew its deadline was
- * abandoned rather than cancelled, so its socket and its response buffer
- * stayed open for the remaining seconds.
+ * first. Without the caller's signal, a client past its deadline is abandoned
+ * rather than cancelled and keeps its socket and response buffer open.
  */
 function fetchSignal(signal?: AbortSignal): AbortSignal {
   return signal
@@ -362,14 +327,10 @@ export async function login(
     throw new Error(rejection)
   }
 
-  // qBittorrent 5.2+ names its session cookie `QBT_SID_<port>` (the WebUI's
-  // own listen port baked into the name) instead of the legacy plain `SID`,
-  // so match that pattern specifically, the server rejects the value if sent
-  // back under a different cookie name (confirmed live: sending the correct
-  // value under the wrong name returns 403). `getSetCookie()` returns each
-  // Set-Cookie response header as its own array element, unlike `.get()`
-  // which comma-joins them into a single string that's unsafe to regex
-  // across (cookie values can legally contain commas).
+  // qBittorrent 5.2+ names its session cookie `QBT_SID_<port>` instead of the
+  // legacy `SID`, and rejects the value under any other name. getSetCookie()
+  // keeps each Set-Cookie header separate; .get() comma-joins them, and cookie
+  // values can contain commas.
   const sid = response.headers
     .getSetCookie()
     .map((cookie): SidCookie | null => {
@@ -452,7 +413,7 @@ async function qbtFetch(
   // stuck. Both 401 and 403 count, because qBittorrent has used each for an
   // unauthenticated WebAPI request across 5.x.
   //
-  // An IP ban is the one 403 that must NOT latch, exactly as on the password
+  // An IP ban is the one 403 that must not latch, exactly as on the password
   // path: the ban expires on its own, requests made during it are refused
   // before the credential is even looked at, and a ban is reachable without
   // this key being wrong at all, a sibling password client on the same host
@@ -533,7 +494,8 @@ class ResponseTooLargeError extends Error {
 /**
  * Read a qBittorrent response body, refusing one that runs past
  * QBT_RESPONSE_MAX_BYTES. The timeout bounds how long a host may take, not how
- * much it may send, so a slow endless body was read into memory unbounded.
+ * much it may send, so without the cap a slow endless body is read into memory
+ * unbounded.
  *
  * Returns null when the response carries no stream: nothing to read
  * incrementally, nothing to cap, so the caller's own reader handles it.
@@ -601,9 +563,8 @@ export async function getTorrents(
   const url = `${baseUrl}/api/v2/torrents/info${qs ? `?${qs}` : ""}`
   const host = new URL(baseUrl).hostname
   const response = await qbtFetch(url, host, baseUrl, auth, signal)
-  // syncMaindata already shape-checks its body; this one used to cast straight
-  // to QbtTorrent[], so a host answering with an object, or with entries of the
-  // wrong shape, reached mapQbtTorrent unchecked.
+  // Shape-checked like syncMaindata's body, so an object or a wrongly shaped
+  // entry never reaches mapQbtTorrent.
   const data = await readCappedJson<unknown>(response, host)
   if (!Array.isArray(data)) {
     throw new Error(`Unexpected response from ${host}: torrent list was not an array`)

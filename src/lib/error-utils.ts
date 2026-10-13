@@ -41,8 +41,7 @@ export function sanitizeNetworkError(raw: string, fallback = "Connection failed"
     return "Banned by qBittorrent after too many failed logins. It will clear on its own"
   }
   // Three refusals the qBittorrent transport raises on a host that did answer.
-  // Each fell to the fallback, and isUnreachableMessage reads that as a host
-  // that never answered, so the card blamed the network for a refused body.
+  // The fallback would read as unreachable to isUnreachableMessage.
   if (/exceeded \d+ bytes and was refused/i.test(raw)) {
     return "qBittorrent returned an oversized response"
   }

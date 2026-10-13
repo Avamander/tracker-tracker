@@ -14,9 +14,7 @@ export const redacted: TrackerRegistryEntry = {
   // ── Platform & API ──────────────────────────────────────────────────
   platform: "gazelle",
   // RED expects a bare `Authorization: <key>` with no `token ` prefix.
-  // Upstream Gazelle carries a dedicated code path for this, commented
-  // "this first case is for compatibility with RED". The bare form is
-  // RED-specific, not the Gazelle norm. Sending the prefix returns 401.
+  // Sending the prefix returns 401.
   gazelleAuthStyle: "raw",
   gazelleEnrich: true,
   apiPath: "/ajax.php",
@@ -35,10 +33,10 @@ export const redacted: TrackerRegistryEntry = {
   statusPageUrl: "https://red.trackerstatus.info/",
 
   // ── Community ───────────────────────────────────────────────────────
-  // wiki.php?action=article&name=classes (r27), read 2026-09-04. Counts are
-  // torrents uploaded, not seeding, and every earned class demotes to User
-  // below ratio 0.60. Secondary classes (FLS, Interviewer, TC, PT...) are not
-  // primary classes and never come back as `class` from the API.
+  // wiki.php?action=article&name=classes (r27). Counts are torrents uploaded,
+  // not seeding, and every earned class demotes to User below ratio 0.60.
+  // Secondary classes (FLS, Interviewer, TC, PT) are not primary classes and
+  // never come back as `class` from the API.
   userClasses: [
     { name: "User", requirements: "Default class on registration" },
     {

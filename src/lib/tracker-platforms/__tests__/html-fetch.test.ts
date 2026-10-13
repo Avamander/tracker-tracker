@@ -85,8 +85,7 @@ describe("fetchTrackerHtml - redirects", () => {
   })
 
   // The TorrentLeech retry and the DigitalCore enrichment rethrow both branch
-  // on this type. They used to match the message text, which quietly made a
-  // string shown to the user part of the control flow.
+  // on this type, so rewording the message cannot change control flow.
   it("raises an expired session as a type a caller can branch on", async () => {
     vi.spyOn(global, "fetch").mockResolvedValueOnce(redirectResponse("/login"))
 
@@ -252,10 +251,9 @@ describe("fetchTrackerHtml - errors", () => {
 })
 
 // ---------------------------------------------------------------------------
-// The proxy branch used to return before any redirect handling, so the
-// followRedirects option three adapters opted into was dead for a proxied
-// user, and a bounce to the login page surfaced as a raw status string that
-// no sanitizer rule matched.
+// The proxy branch runs the same redirect handling as the direct one, or
+// followRedirects is dead for a proxied user and a login bounce surfaces as a
+// raw status.
 // ---------------------------------------------------------------------------
 
 describe("fetchTrackerHtml - through a proxy", () => {

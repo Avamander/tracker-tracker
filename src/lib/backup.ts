@@ -112,7 +112,6 @@ export const BACKUP_CLIENT_COLUMNS = {
 export async function generateBackupPayload(): Promise<BackupPayload> {
   const now = new Date().toISOString()
 
-  // Parallel fetch with all tables independent
   const [
     [rawSettings],
     rawTrackers,
@@ -141,26 +140,18 @@ export async function generateBackupPayload(): Promise<BackupPayload> {
     // sitting next to it, and a restored history without its explanations reads
     // as "these zeroes were real".
     //
-    // app_liveness DELIBERATELY DOES NOT!
-    // It is a single mutable row whose whole meaning is "the live process was
-    // here at this instant". Restoring a months-old lastSeenAt would make the
-    // very next touchAppLiveness() measure the distance to now and write one
-    // enormous fabricated outage across every chart. The ledger must always be
-    // rebuilt by the running process, never carried in from a file. Do not add
-    // it to this list.
+    // app_liveness stays out. It is one mutable row meaning "the live process
+    // was here at this instant", and restoring an old lastSeenAt would make the
+    // next touchAppLiveness() write one enormous fabricated outage across every
+    // chart.
     db.select().from(appCoverageGaps).orderBy(appCoverageGaps.id),
-    // tracker_outages travels for the same reason app_coverage_gaps does: it
-    // explains the tracker snapshots restored beside it. Without it a restore
-    // hands back the flat stretches with every explanation cascade-deleted,
-    // which is exactly the "these zeroes were real" reading this feature exists
-    // to prevent. Unlike app_liveness it is pure closed history, so carrying it
-    // in from a file can never fabricate an outage.
+    // tracker_outages travels for the same reason as app_coverage_gaps, and as
+    // closed history it cannot fabricate an outage on restore.
     db.select().from(trackerOutages).orderBy(trackerOutages.id),
     db.select().from(dismissedAlerts).orderBy(dismissedAlerts.id),
     db.select().from(notificationTargets).orderBy(notificationTargets.id),
   ])
 
-  // appSettings, exclude: id, passwordHash, failedLoginAttempts, encryptedSchedulerKey, createdAt
   const settingsPayload: Record<string, unknown> = {}
   if (rawSettings) {
     const {
@@ -391,7 +382,7 @@ export function validateBackupJson(payload: unknown): asserts payload is BackupP
       assertValidIso(o.endedAt, `${prefix}.endedAt`)
       assertString(o.reason, `${prefix}.reason`)
       // Closed intervals only, same as coverage gaps. A zero-length row is
-      // legitimate here (one observed failure) so only INVERSION is rejected.
+      // legitimate here (one observed failure) so only inversion is rejected.
       if (new Date(o.endedAt).getTime() < new Date(o.startedAt).getTime()) {
         throw new Error(`Backup validation: ${prefix}.endedAt must not precede startedAt`)
       }
@@ -553,7 +544,7 @@ export async function encryptBackupPayload(
   payload: BackupPayload,
   password: string
 ): Promise<EncryptedBackupEnvelope> {
-  const encryptionSalt = generateSalt() // Generate random salt per backup
+  const encryptionSalt = generateSalt()
   const encryptionKey = await deriveKey(password, encryptionSalt)
   const jsonString = JSON.stringify(payload)
   const ciphertext = encrypt(jsonString, encryptionKey)

@@ -250,9 +250,8 @@ export function parseRetrotoonBonus(html: string): RetrotoonBonusSummary {
 // ---------------------------------------------------------------------------
 // Hit and run parser (myhr.php)
 //
-// Only the empty "Pending Hit & Runs" card has been observed, so that is all
-// this claims to know. Anything else returns null ("unknown"), which the schema
-// already treats as distinct from 0. Fill in against a live pending H&R.
+// Only the empty "Pending Hit & Runs" card is recognised; anything else
+// returns null, meaning unknown.
 // ---------------------------------------------------------------------------
 
 export function parseRetrotoonHitAndRuns(html: string): number | null {
@@ -347,7 +346,7 @@ export class RetrotoonAdapter implements TrackerAdapter {
     if (bonus.bonusPerHour !== undefined) meta.bonusPerHour = bonus.bonusPerHour
 
     // Non-fatal apart from the session check below: the profile above has every
-    // core figure, so hitAndRuns simply stays null, meaning "unknown".
+    // core figure, so hitAndRuns stays null, meaning unknown.
     try {
       const hnrHtml = await fetchHtml(`${baseUrl}${HNR_PATH}`, creds, options?.proxyAgent)
       stats.hitAndRuns = parseRetrotoonHitAndRuns(hnrHtml)

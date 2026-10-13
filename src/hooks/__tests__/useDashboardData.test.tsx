@@ -1,7 +1,6 @@
 // src/hooks/__tests__/useDashboardData.test.tsx
 //
 // Tests for useDashboardData TanStack Query integration:
-// - Polling interval is 60_000ms (not 60)
 // - Loading state with/without initialTrackers
 // - snapshotMap built correctly from useQueries
 // - dayRange change triggers snapshot refetch with correct query param
@@ -213,7 +212,6 @@ describe("useDashboardData", () => {
       expect(result.current.snapshotMap.size).toBe(1)
     })
 
-    // Change day range
     act(() => {
       result.current.setDayRange(7)
     })
@@ -226,10 +224,9 @@ describe("useDashboardData", () => {
     })
   })
 
-  // Regression: "All" (DayRange 0) used to OMIT the days param entirely. The route
-  // parses it with parseIntClamped(raw, 0, MAX, 30), and a MISSING param takes the
-  // 30 default rather than becoming 0, so "All" silently requested 30 days.
-  // 0 must be sent explicitly; it is the only value that round-trips unchanged.
+  // "All" (DayRange 0) must send days=0 explicitly. The route parses the param with
+  // parseIntClamped(raw, 0, MAX, 30), so an omitted param takes the 30 default and
+  // "All" silently requests 30 days.
   it("sends days=0 explicitly when dayRange is 0 (All)", async () => {
     const { result } = renderHook(() => useDashboardData({ initialTrackers: [mockTracker] }), {
       wrapper: createWrapper(),

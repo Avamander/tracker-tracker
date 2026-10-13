@@ -78,7 +78,7 @@ export const blutopia: TrackerRegistryEntry = {
       requirements:
         "Seed size ≥ 20 TiB, age ≥ 90 days, avg seedtime ≥ 90 days. H&R immune, global freeleech, global 2x upload, 150 download slots",
     },
-    // Static — staff-assigned
+    // Staff-assigned
     {
       name: "Junior Uploader",
       requirements: "Staff — brings fresh content",

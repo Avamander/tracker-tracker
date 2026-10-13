@@ -13,10 +13,7 @@ import type { TrackerLatestStats } from "@/types/api"
  * Returns "—" for null/undefined/empty values.
  *
  * Scales on the magnitude and re-attaches the sign, the way formatBytesNum
- * does. Buffer is signed, and comparing the scaled value against `>= 1`
- * directly is false for every negative. So a -2.39 TiB buffer fell through to
- * the MiB branch and rendered "-2505575 MiB". Positive output is unchanged,
- * which matters because uploaded/downloaded flow through here too.
+ * does: buffer is signed, and a negative never passes a `>= 1` check.
  */
 export function formatBytesFromString(bytesStr: string | null | undefined): string {
   if (!bytesStr) return "—"

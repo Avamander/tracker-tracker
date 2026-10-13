@@ -673,7 +673,6 @@ describe("DigitalCoreAdapter.fetchStats - enrichment", () => {
   })
 
   it("overrides warned with user profile value (more authoritative)", async () => {
-    // Status says not warned, profile says warned, profile wins
     vi.spyOn(global, "fetch")
       .mockResolvedValueOnce(mockResponse(mockStatusResponse({ warned: "no" })))
       .mockResolvedValueOnce(mockResponse(mockUserProfileResponse({ warned: "yes" })))
@@ -709,7 +708,6 @@ describe("DigitalCoreAdapter.fetchStats - enrichment", () => {
     const stats = await adapter.fetchStats("https://digitalcore.club", validToken, "")
     const meta = stats.platformMeta as DigitalCorePlatformMeta
 
-    // baseMeta fields must survive the enrichment merge
     expect(meta.donor).toBe(true)
     expect(meta.crown).toBe(true)
     expect(meta.pokal).toBe(true)
@@ -797,7 +795,7 @@ describe("DigitalCoreAdapter.fetchStats - enrichment failure fallback", () => {
 
     const stats = await adapter.fetchStats("https://digitalcore.club", validToken, "")
 
-    // leechingCount comes only from enrichment; falls back to initialised-to-0 value
+    // leechingCount comes only from enrichment, so it stays null when that call fails.
     expect(stats.leechingCount).toBeNull()
   })
 
@@ -852,7 +850,7 @@ describe("DigitalCoreAdapter.fetchStats - HTTP error handling", () => {
       .mockResolvedValueOnce(mockResponse(mockStatusResponse()))
       .mockResolvedValueOnce(mockErrorResponse(401))
 
-    // Auth failures during enrichment are NOT swallowed. They propagate so
+    // Auth failures during enrichment are not swallowed. They propagate so
     // the user knows their cookies need refreshing.
     await expect(adapter.fetchStats("https://digitalcore.club", validToken, "")).rejects.toThrow(
       "Session expired"
@@ -1101,7 +1099,7 @@ describe("DigitalCoreAdapter - connectable (issue #167)", () => {
   })
 
   const run = async (unconnectable: number | undefined) => {
-    // Status says NOT connectable; the profile endpoint is the tie-breaker.
+    // Status says not connectable; the profile endpoint is the tie-breaker.
     const status = mockStatusResponse({ connectable: 0 })
     const profile = mockUserProfileResponse() as Record<string, unknown>
     if (unconnectable === undefined) delete profile.unconnectable
@@ -1139,9 +1137,8 @@ describe("DigitalCoreAdapter - connectable (issue #167)", () => {
 })
 
 // ---------------------------------------------------------------------------
-// DigitalCore routes through the shared adapterRequest helper. It previously
-// hand-rolled its own proxy branch, which duplicated the 401 and non-ok
-// handling verbatim and sent no User-Agent through the tunnel.
+// DigitalCore routes through the shared adapterRequest helper, so the proxy
+// path sends the app User-Agent and handles a 401 like the direct path.
 // ---------------------------------------------------------------------------
 
 describe("DigitalCoreAdapter - proxy routing", () => {
@@ -1271,11 +1268,9 @@ describe("DigitalCoreAdapter - stored userAgent", () => {
   })
 })
 
-// The wording is load-bearing, not cosmetic. sanitizeNetworkError picks a rule
-// by matching the raw message, and its credentials rule matches a bare
-// "invalid" anywhere in the string, so the old "returned invalid JSON" wording
-// reached the user as "Invalid credentials" and pointed them at a key that was
-// never the problem.
+// sanitizeNetworkError picks a rule by matching the raw message. A body error
+// that says "invalid" without the "Unexpected response from" prefix falls into
+// the credentials rule and reaches the user as "Invalid credentials".
 describe("DigitalCore body errors classify as a tracker fault, not a credential one", () => {
   const adapter = new DigitalCoreAdapter()
   const validToken = JSON.stringify({ uid: "54321", pass: "abc123xyz" })
@@ -1305,11 +1300,8 @@ describe("DigitalCore body errors classify as a tracker fault, not a credential 
   }
 })
 
-// DigitalCore spells booleans as "yes"/"no" or 0/1. A bare equality test read
-// an absent key as "no", so a response that simply omitted a flag reported the
-// account as not a donor, not connectable and unbanned, none of which the API
-// had said. Every flag on DigitalCorePlatformMeta is optional so it can stay
-// unknown, and TrackerStats.warned is boolean | null for the same reason.
+// An omitted flag must stay unknown, not read as "no", so every
+// DigitalCorePlatformMeta flag is optional and warned can be null.
 describe("DigitalCore keeps an omitted flag unknown rather than false", () => {
   const adapter = new DigitalCoreAdapter()
   const validToken = JSON.stringify({ uid: "54321", pass: "abc123xyz" })

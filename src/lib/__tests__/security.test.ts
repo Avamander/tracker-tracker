@@ -843,15 +843,6 @@ describe("Auth enforcement: every protected route returns 401 without valid sess
 })
 
 // ---------------------------------------------------------------------------
-// 2. Public endpoint documentation
-// ---------------------------------------------------------------------------
-
-// NOTE: POST /api/verify-report and /api/verify-report/fetch-image are
-// intentionally public endpoints. They use in-memory rate limiting instead of
-// authentication. Moderators verify reports without needing an account.
-// Do NOT add authenticate() to these routes.
-
-// ---------------------------------------------------------------------------
 // 3. Encrypted tokens never leak in API responses
 // ---------------------------------------------------------------------------
 
@@ -975,7 +966,7 @@ describe("Token leakage prevention", () => {
       remoteUserId: null,
       platformMeta: null,
       createdAt: new Date(),
-      // Secrets that MUST NOT appear in the response
+      // Secrets that must not appear in the response
       encryptedApiToken: "SECRET_API_TOKEN_CIPHERTEXT",
       apiPath: "/api/user",
     }
@@ -1010,7 +1001,7 @@ describe("Token leakage prevention", () => {
     expect(json).not.toContain("SECRET_API_TOKEN_CIPHERTEXT")
     expect(json).not.toContain("encryptedApiToken")
     expect(json).not.toContain("apiPath")
-    // Verify slot-critical fields ARE present
+    // Verify slot-critical fields are present
     expect(body).toHaveProperty("lastAccessAt")
     expect(body).toHaveProperty("platformMeta")
     expect(body).toHaveProperty("platformType")
@@ -1381,7 +1372,7 @@ describe("Encryption key zeroing", () => {
     const { stopTrackerPolling, _getSchedulerKeyForTest } =
       await vi.importActual<typeof import("@/lib/tracker-scheduler")>("@/lib/tracker-scheduler")
 
-    // Ensure clean state
+    // Start from a stopped scheduler
     stopTrackerPolling()
     expect(_getSchedulerKeyForTest()).toBeNull()
     // Should not throw
@@ -1657,7 +1648,7 @@ describe("Backup restore authenticated flows", () => {
 })
 
 // ---------------------------------------------------------------------------
-// 9. Backup/restore round-trip for new notify* columns
+// 9. Backup/restore round-trip for the notify* columns older backups lack
 // ---------------------------------------------------------------------------
 
 describe("Backup restore: new notify* column round-trip", () => {
@@ -1731,7 +1722,7 @@ describe("Backup restore: new notify* column round-trip", () => {
     vi.mocked(verifyPassword).mockResolvedValue(true)
     vi.mocked(validateBackupJson).mockImplementation(() => undefined)
 
-    // Backup payload includes a notificationTarget with all 5 new notify* flags set to true
+    // Backup payload with notifyWarned through notifyAnniversary set to true
     const backupWithNotifyFlags = {
       ...BASE_BACKUP,
       notificationTargets: [
@@ -1789,12 +1780,12 @@ describe("Backup restore: new notify* column round-trip", () => {
     const req = createRestoreRequest(JSON.stringify(backupWithNotifyFlags), "correct_password")
     await POST(req)
 
-    // Find the insert call for notificationTargets (it should include the 5 new flags)
+    // Find the notificationTargets insert
     const ntInsert = insertedValues.find(
       (v) => typeof v === "object" && v !== null && "notifyWarned" in v
     )
 
-    // The insert must have preserved all 5 new notify* columns as true
+    // The insert keeps all five flags true
     expect(ntInsert).toBeDefined()
     expect(ntInsert?.notifyWarned).toBe(true)
     expect(ntInsert?.notifyRatioDanger).toBe(true)
@@ -1827,7 +1818,7 @@ describe("Backup restore: new notify* column round-trip", () => {
     vi.mocked(verifyPassword).mockResolvedValue(true)
     vi.mocked(validateBackupJson).mockImplementation(() => undefined)
 
-    // Older backup: notificationTarget missing all 5 new notify* fields
+    // Older backup whose notificationTarget lacks notifyWarned through notifyAnniversary
     const olderBackup = {
       ...BASE_BACKUP,
       notificationTargets: [
@@ -1886,7 +1877,7 @@ describe("Backup restore: new notify* column round-trip", () => {
         (v as Record<string, unknown>).name === "Legacy Discord"
     )
 
-    // All 5 new columns must default to false when absent from the backup payload
+    // Each flag absent from the backup must default to false
     expect(ntInsert).toBeDefined()
     expect(ntInsert?.notifyWarned).toBe(false)
     expect(ntInsert?.notifyRatioDanger).toBe(false)
@@ -2142,7 +2133,7 @@ describe("Backup restore security hardening", () => {
     expect(res.status).toBe(500)
     const data = await res.json()
     expect(data.error).toContain("derive encryption keys")
-    // Must NOT start the destructive transaction
+    // Must not start the destructive transaction
     expect(db.transaction).not.toHaveBeenCalled()
   })
 

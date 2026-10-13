@@ -26,11 +26,8 @@ interface TrackerStatFields {
    * represent Infinity. Without this flag, an infinite ratio is indistinguishable
    * from "never measured".
    *
-   * Lives on the shared base rather than on TrackerLatestStats alone. When the
-   * latter carried it alone, every Snapshot consumer had to re-derive the state
-   * from byte totals or, more often, silently drop the point. RatioStabilityChart
-   * filtered `ratio !== null` and rendered an empty chart for exactly the accounts
-   * issues #154 and #172 were filed about.
+   * On the shared base so a Snapshot consumer can tell an infinite ratio from a
+   * missing one without re-deriving it from byte totals (issues #154 and #172).
    */
   ratioIsInfinite: boolean
   seedingCount: number | null
@@ -136,7 +133,7 @@ export interface DashboardSettings {
   /**
    * Hatched background bands marking ranges where nothing was being collected.
    * On by default: a flat region with no explanation is the failure this
-   * feature exists to prevent, so the explanation has to be opt-OUT.
+   * feature exists to prevent, so the explanation has to be opt-out.
    */
   showOutageBands: boolean
 }
@@ -190,7 +187,6 @@ export interface TodayAtAGlance {
   clientLastUpdated: string | null
 }
 
-/** Response from GET /api/auth/status */
 /** Response from GET /api/settings/events */
 export interface EventsPageResponse {
   events: SystemEvent[]

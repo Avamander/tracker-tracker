@@ -125,9 +125,8 @@ export function parseIptProfile(html: string, hostname: string): TrackerStats {
   // row" stays distinct from "it said 0 B". Only the first is a parse failure.
   let uploadedBytes: bigint | undefined
   let downloadedBytes: bigint | undefined
-  // null until the stats bar actually yields the figure. types.ts requires an
-  // unknown count to stay distinguishable from a measured zero, and a zero
-  // start reported "no seeds" for a bar that simply had no Active Torrents.
+  // null until the stats bar yields the figure, so a bar with no Active
+  // Torrents reads as unknown rather than zero.
   let seedingCount: number | null = null
   let leechingCount: number | null = null
   let seedbonus: number | null = null
@@ -159,9 +158,8 @@ export function parseIptProfile(html: string, hostname: string): TrackerStats {
     if (fallback.seedbonus !== undefined) seedbonus = fallback.seedbonus
   }
 
-  // tryParseBytes swallows parse failures by design, so a third DOM variant
-  // would otherwise return a complete set of zeros: a stored snapshot of
-  // nothing and a connection test that goes green beside it.
+  // Neither layout yielded a byte total, so this is a page shape the parser
+  // does not know.
   if (uploadedBytes === undefined && downloadedBytes === undefined) {
     throw new Error(
       "Could not extract upload/download bytes from the IPTorrents stats bar. The page structure may have changed."
@@ -189,9 +187,7 @@ export function parseIptProfile(html: string, hostname: string): TrackerStats {
     group,
     uploadedBytes,
     downloadedBytes,
-    // Derived from byte totals, not the stats bar's own Ratio text. Whatever
-    // that field holds for a zero-download account, the old parse left it at 0
-    // either way, so a healthy account read as a critical ratio.
+    // Derived from byte totals, not the stats bar's own Ratio text.
     ratio: computeRatio(uploadedBytes, downloadedBytes),
     bufferBytes: computeBufferBytes(uploadedBytes, downloadedBytes),
     seedingCount,

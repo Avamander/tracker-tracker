@@ -125,8 +125,6 @@ export async function POST(_request: Request, props: RouteContext) {
   let apiCalls: DebugApiCall[] | null = null
   let rawError: string | null = null
 
-  // No presence check: fetchRaw is required on TrackerAdapter, so the branch
-  // that reported it missing was unreachable.
   try {
     const calls = await adapter.fetchRaw(tracker.baseUrl, apiToken, tracker.apiPath, fetchOptions)
     apiCalls = calls.map((call) => ({

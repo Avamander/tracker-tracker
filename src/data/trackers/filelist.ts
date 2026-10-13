@@ -67,11 +67,11 @@ export const filelist: TrackerRegistryEntry = {
   // ── Rules ───────────────────────────────────────────────────────────
   // rules.php §11 (Hit&Run): "torentele downloadate pot fi închise doar dacă
   // au ratie 1 sau timpul de seed pe torent este de 48 de ore … timp de 1
-  // săptămână să realizați ratia 1 sau cele 48 de ore de seed" — per-torrent
-  // ratio 1 OR 48h seed time, one week to fulfil. VIP exempt.
+  // săptămână să realizați ratia 1 sau cele 48 de ore de seed". Per-torrent
+  // ratio 1 or 48h seed time, one week to fulfil. VIP exempt.
   // FAQ: accounts are deleted after 1 year from last access (2 years parked).
   rules: {
-    minimumRatio: 1, // Owner decision 2026-08-28: truthful per-torrent value; accepts critical health until the account's ratio crosses 1
+    minimumRatio: 1, // per-torrent rule applied to the account ratio, so health reads critical below 1
     seedTimeHours: 48,
     loginIntervalDays: 365,
     satisfactionMode: "any",

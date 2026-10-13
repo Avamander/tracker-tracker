@@ -28,7 +28,7 @@ export interface TlCredentials {
    * TorrentLeech's "Alt 2FA Token" (Site Profile => Alt 2FA Token), required
    * only when the account has 2FA enabled.
    *
-   * It is NOT a TOTP secret and nothing here computes a one-time code. The site
+   * It is not a TOTP secret and nothing here computes a one-time code. The site
    * issues a static token for exactly this case, and its login form takes it as
    * a third input alongside username and password.
    */
@@ -44,9 +44,8 @@ export function parseTlCredentials(apiToken: string): TlCredentials {
   )
   const { username, password } = optional
 
-  // `alt2FAToken` is the site's own spelling; `alt2fatoken` is accepted too
-  // because that is the key other clients (Prowlarr, Jackett) store it under,
-  // and being strict about the capitalisation of a pasted token helps nobody.
+  // `alt2FAToken` is the site's own spelling; `alt2fatoken` is the key Prowlarr
+  // and Jackett store it under.
   const token = optional.alt2FAToken ?? optional.alt2fatoken
   const alt2FAToken = token?.trim() ?? ""
 
@@ -68,14 +67,6 @@ function isRedirect(status: number): boolean {
   return REDIRECT_STATUSES.has(status)
 }
 
-/**
- * Logs in and returns the Cookie header string built from Set-Cookie response headers.
- *
- * Honors the configured proxy. It previously did not. The login POST always
- * went out directly while only the profile GET was proxied, so a user who
- * configured a proxy still leaked their real address to the tracker on every
- * re-authentication, which is the one request that carries their password.
- */
 // ---------------------------------------------------------------------------
 // Session cache
 //
@@ -93,16 +84,9 @@ if (!gTl.__tlSessionCache) gTl.__tlSessionCache = new Map()
 const tlSessionCache = gTl.__tlSessionCache
 
 /**
- * Cache key is scoped per site and per credential set.
- *
- * The password and the static alt 2FA token belong in it because the connection
- * test authenticates through this cache. Keyed on the username alone, a test of
- * a newly typed password was answered with the session the previous one had
- * established, so the settings sheet reported success for a credential it had
- * never sent, and only a process restart revealed the stored password was wrong.
- *
- * Hashed rather than concatenated: this map is process-global and long-lived,
- * and a key is the one part of it that tends to end up in a debugger view.
+ * Scoped per site and per credential set. The password and 2FA token are in
+ * the key because the connection test authenticates through this cache. Hashed
+ * so the long-lived global map never holds a password.
  */
 function sessionKey(baseUrl: string, creds: TlCredentials): string {
   const fingerprint = createHash("sha256")
@@ -129,6 +113,11 @@ function invalidateTlSession(baseUrl: string, creds: TlCredentials): void {
   tlSessionCache.delete(sessionKey(baseUrl, creds))
 }
 
+/**
+ * Logs in and returns the Cookie header built from the Set-Cookie headers.
+ * Honors the configured proxy, since this is the one request that carries the
+ * password.
+ */
 async function login(
   baseUrl: string,
   creds: TlCredentials,
@@ -139,8 +128,7 @@ async function login(
     username: creds.username,
     password: creds.password,
   }
-  // Only sent when the account actually has 2FA. Omitting the field entirely
-  // for everyone else keeps the request byte-identical to what worked before.
+  // Sent only when the account has 2FA.
   if (creds.alt2FAToken) form.alt2FAToken = creds.alt2FAToken
   const body = new URLSearchParams(form).toString()
   const headers: Record<string, string> = {
@@ -188,15 +176,15 @@ async function login(
 
   const cookieString = cookiePairs.join("; ")
 
-  // A tluid cookie is NOT proof of authentication. TorrentLeech answers a
-  // REJECTED login with 200 and the login page, and still sets tluid, tlpass,
+  // A tluid cookie is not proof of authentication. TorrentLeech answers a
+  // rejected login with 200 and the login page, and still sets tluid, tlpass,
   // member_id, pass_hash and session_id. Trusting the cookie means caching a
   // session that was never signed in, and every later page fetch then comes
   // back as the login page, reported as "Session expired", which sends people
   // off to refresh a session that never existed. A real login answers 302.
   //
   // The body is only inspected when the response was not a redirect: a 302
-  // carries no body, and a 200 that does NOT look like the login page is still
+  // carries no body, and a 200 that does not look like the login page is still
   // accepted, so a future flow that returns 200 on success would not regress.
   const authenticated = cookieString.includes("tluid=") && isRedirect(loginStatus)
   if (!authenticated) {
@@ -216,10 +204,9 @@ async function login(
       /name="login-form"/i.test(html) ||
       html.includes("/user/account/login")
 
-    // Reject only on POSITIVE evidence of a refusal. A 200 whose body could not
-    // be read, or that does not look like the login page, keeps the old
-    // behaviour of trusting the cookie. This tightens a check that was wrong,
-    // without inventing a new way to fail.
+    // Reject only on positive evidence of a refusal. A 200 whose body could not
+    // be read, or that does not look like the login page, still trusts the
+    // cookie.
     if (cookieString.includes("tluid=") && !looksLikeLoginPage) return cookieString
 
     if (/One Time Password/i.test(html)) {
@@ -269,7 +256,7 @@ function topBarCell(doc: ParsedElement, title: RegExp): string {
  * The active-torrent count in a top-bar cell, which reads "10.5 GB (12)": a
  * size followed by the count in parentheses.
  *
- * Taking the FIRST number instead reads the size's leading digits: "10.5 GB
+ * Taking the first number instead reads the size's leading digits: "10.5 GB
  * (12)" yields 10, a plausible-looking torrent count that is really a byte
  * total. Anchor on the parentheses, and report nothing rather than a guess when
  * they are absent.
@@ -338,15 +325,11 @@ export function parseTlProfile(html: string, username: string, hostname: string)
   const seedingCount = parenCount(topBarCell(doc, /seeding/i))
   const leechingCount = parenCount(topBarCell(doc, /leeching/i))
 
-  // Hit and runs have their own top-bar cell. It was previously reported as
-  // null, "this tracker does not expose it", while the page showed it all
-  // along, which is the one number this whole tool exists to surface.
+  // Hit and runs have their own top-bar cell.
   const hitAndRuns = trailingCount(topBarCell(doc, /hit and run/i))
 
-  // TL Points. Read from the span that holds the figure; the "TL Points:" label
-  // covers layouts that do not carry the class. Neither present means the page
-  // did not say, not that the account has none, and an unparseable figure used
-  // to reach the snapshot as NaN.
+  // TL Points, from the span that holds the figure or else the "TL Points:"
+  // label. Neither present, or an unparseable figure, leaves it null.
   let seedbonus: number | null = null
   const pointsText =
     textAfterNode(doc, ".total-TL-points") ||
@@ -357,12 +340,8 @@ export function parseTlProfile(html: string, username: string, hostname: string)
   }
 
   // User class, from the badge beside the avatar, falling back to the "Class"
-  // row of the profile table.
-  //
-  // It used to be matched with /Class:?\s*\n?\s*([A-Za-z][A-Za-z ]*)/ against
-  // the whole document's text. Every TorrentLeech page carries a nav link
-  // reading "Classic TL", and that link comes first, so the pattern captured
-  // "ic TL" for every account on the site.
+  // row of the profile table. A whole-page text match on "Class" would hit the
+  // "Classic TL" nav link first.
   let group = textAfterNode(doc, ".label-user-class")
   if (!group) {
     for (const cell of doc.querySelectorAll("td")) {
@@ -413,8 +392,7 @@ function fetchHtml(
     proxyAgent,
     label: "TorrentLeech",
     // Wording is free to change: withTlSession keys its retry on the error
-    // type. The tail used to tell the user to refresh cookies, but the stored
-    // credentials are a username, a password and a 2FA token.
+    // type.
     sessionExpiredMessage:
       "Session expired. Check the stored TorrentLeech username, password and 2FA token if this persists",
   })
@@ -426,12 +404,9 @@ function fetchHtml(
 
 /**
  * Runs the work with a session cookie, and once more with a fresh one when the
- * cached session turns out to be dead. The parse belongs inside because
- * parseTlProfile raises its own session-expired error for a login page, which
- * the fetch itself reports as an ordinary success.
- *
- * This cannot live in getTlSession, which returns a cookie and never sees how
- * the request went.
+ * cached session turns out to be dead. The parse runs inside because
+ * parseTlProfile raises its own session-expired error for a login page that
+ * the fetch reports as a success.
  */
 async function withTlSession<T>(
   baseUrl: string,
@@ -477,8 +452,8 @@ export class TorrentleechAdapter implements TrackerAdapter {
     const calls: DebugApiCall[] = []
     const creds = parseTlCredentials(apiToken)
     const hostname = new URL(baseUrl).hostname
-    // Encoded like fetchStats builds it. Unencoded, a username with a space or
-    // a slash produced a different URL here than the one the poll actually uses.
+    // Encoded the same way fetchStats builds it, so the debug view shows the
+    // URL the poll uses.
     const endpoint = `/profile/${encodeURIComponent(creds.username)}`
 
     try {

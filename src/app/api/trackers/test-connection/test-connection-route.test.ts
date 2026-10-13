@@ -1,12 +1,9 @@
 // src/app/api/trackers/test-connection/test-connection-route.test.ts
 //
-// Tests for POST /api/trackers/test-connection
-// Focuses on the three new behaviors added in the AvistaZ connection fix:
-//   1. Returns sanitized actual error instead of generic "Tracker test failed"
-//   2. Logs platform, baseUrl, and raw error in the msg field
-//   3. Wires proxy settings from appSettings (DB load -> buildProxyAgentFromSettings)
-// Plus the two body shapes. A registry slug settles URL, platform and API path;
-// the baseUrl form is what a row without a slug still uses.
+// Tests for POST /api/trackers/test-connection: sanitized error responses,
+// raw-error logging, proxy wiring from appSettings, and both body shapes. A
+// registry slug settles URL, platform and API path; the baseUrl form is what a
+// row without a slug uses.
 
 import { NextResponse } from "next/server"
 import { beforeEach, describe, expect, it, vi } from "vitest"
@@ -330,7 +327,7 @@ describe("POST /api/trackers/test-connection — success", () => {
 })
 
 // ---------------------------------------------------------------------------
-// Error response, sanitized actual error (change 1 of 3)
+// Error response, sanitized actual error
 // ---------------------------------------------------------------------------
 
 describe("POST /api/trackers/test-connection — sanitized error response", () => {
@@ -441,7 +438,7 @@ describe("POST /api/trackers/test-connection — sanitized error response", () =
 })
 
 // ---------------------------------------------------------------------------
-// Error logging, platform, baseUrl, raw error in log (change 2 of 3)
+// Error logging, platform, baseUrl, raw error in log
 // ---------------------------------------------------------------------------
 
 describe("POST /api/trackers/test-connection — error log enrichment", () => {
@@ -499,7 +496,7 @@ describe("POST /api/trackers/test-connection — error log enrichment", () => {
     await POST(makeRequest(VALID_BODY))
 
     const [payload] = (log.warn as ReturnType<typeof vi.fn>).mock.calls[0]
-    // The raw message (with IP, ECONNREFUSED) must appear in the log, NOT in the response
+    // The raw message (with IP, ECONNREFUSED) must appear in the log, not in the response
     expect(payload.error).toContain("ECONNREFUSED")
     expect(payload.error).toBe(rawMsg)
   })
@@ -515,7 +512,7 @@ describe("POST /api/trackers/test-connection — error log enrichment", () => {
 })
 
 // ---------------------------------------------------------------------------
-// Proxy wiring (change 3 of 3)
+// Proxy wiring
 // ---------------------------------------------------------------------------
 
 describe("POST /api/trackers/test-connection — proxy wiring", () => {
@@ -589,7 +586,6 @@ describe("POST /api/trackers/test-connection — proxy wiring", () => {
     // Should succeed, proxy is optional
     expect(res.status).toBe(200)
     expect(body.success).toBe(true)
-    // buildProxyAgentFromSettings should NOT have been called when settings row is absent
     expect(buildProxyAgentFromSettings).not.toHaveBeenCalled()
   })
 

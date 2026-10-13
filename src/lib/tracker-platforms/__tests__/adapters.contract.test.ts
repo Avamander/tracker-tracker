@@ -1,12 +1,8 @@
 // src/lib/tracker-platforms/__tests__/adapters.contract.test.ts
 //
-// One set of rules, applied to every registered adapter, so a new adapter
-// inherits them without anyone remembering to write these cases again.
-//
-// The credential-leak case is the reason this file exists. Nothing in the
-// codebase enforces "a credential never reaches an error, a log line or a
-// DebugApiCall" except adapter discipline, and discipline does not survive a
-// crowdsourced surface.
+// One set of rules applied to every registered adapter, so a new adapter
+// inherits them. The credential-leak case matters most, since only adapter
+// discipline keeps a credential out of errors and debug calls.
 
 import fs from "node:fs"
 import path from "node:path"
@@ -118,11 +114,9 @@ describe("every registered adapter", () => {
   })
 
   it("agrees with the fixtures about which credentials are JSON blobs", () => {
-    // The one way the derivation fails quietly. A wrong ADAPTERS_DIR throws
-    // ENOENT and takes the file with it; the pattern matching one adapter fewer
-    // is silent, and puts that adapter back in the skipped state. The fixtures
-    // are the second opinion: a platform the pattern calls a blob must have a
-    // fixture that parses as JSON, and the rest must not.
+    // The source pattern can miss an adapter silently and skip its blob case.
+    // The fixtures cross-check it, so a platform the pattern calls a blob must
+    // have a JSON fixture and the rest must not.
     const disagree = PLATFORMS.filter((p) => JSON_BLOB_PLATFORMS.has(p) !== isJsonObject(p))
     expect(disagree).toEqual([])
   })

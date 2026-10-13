@@ -18,14 +18,9 @@ const VALID_TOKEN = JSON.stringify({
 const HOST = "filelist.io"
 
 // ---------------------------------------------------------------------------
-// Fixture: the owner's userdetails.php capture (2026-08-28, fresh account,
-// English labels), anonymised. The account handle and both member ids are
-// invented values of the same length and character class, so the rest of the
-// markup stays byte-for-byte as captured, including the saved-page asset
-// rewrites ("./Details for ... _files/...") and the "saved from url=(0046)"
-// length prefix. The 32-hex Cloudflare beacon token on the final <script>
-// line is zeroed.
-// Composed as PAGE_HEAD + HEADER_STRIP + USERDETAILS_ROWS + PAGE_FOOTER.
+// Fixture: a real userdetails.php capture of a fresh account with English
+// labels. The handle and member ids are invented at the same length and the
+// Cloudflare beacon token is zeroed. Everything else is byte-for-byte.
 // ---------------------------------------------------------------------------
 
 const PAGE_HEAD = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -212,9 +207,8 @@ function editFixture(html: string, needle: string, replacement: string): string 
 }
 
 // synthetic-fixture: the real capture with figures (never structure) edited to
-// a populated account. Formatting the fresh page never shows (pluralization,
-// comma grouping, relative-time wording) is unverified until Task 8's
-// validate-as-the-account-accrues pass.
+// a populated account. Pluralization, comma grouping and relative-time wording
+// on a populated page are unverified.
 const POPULATED_PAGE = [
   [
     `<td class="colhead">Uploaded</td><td style="text-align:left;">0.00 kB</td>`,
@@ -298,7 +292,7 @@ describe("parseFilelistProfile", () => {
     expect(stats.freeleechTokens).toBe(0)
     expect(stats.joinedDate).toBe("2026-08-20")
     expect(stats.lastAccessDate).toBe("2026-08-28")
-    // Task 6's fetch layer owns remoteUserId, the parser never sets it
+    // The fetch layer owns remoteUserId; the parser never sets it.
     expect(stats.remoteUserId).toBeUndefined()
   })
 
@@ -309,9 +303,8 @@ describe("parseFilelistProfile", () => {
   })
 
   it("reports an unreadable coin figure as unknown rather than NaN", () => {
-    // The coins link used to parseFloat a match that could hold punctuation and
-    // no digits. NaN is neither a figure nor null, so it reached the snapshot
-    // and compared false against every guard on the way.
+    // A placeholder coin figure must not parse as NaN, which is neither a figure
+    // nor null and slips past every guard into the snapshot.
     const placeholderCoins = editFixture(
       FULL_PAGE,
       'style="position:relative;bottom:1px;"> 0.0</a>',

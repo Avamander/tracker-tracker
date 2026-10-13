@@ -22,21 +22,8 @@ const VALID_TOKEN = JSON.stringify({
 })
 
 // ---------------------------------------------------------------------------
-// Fixtures.
-//
-// Rebuilt from the live 2026-08-31 capture of retrotoon.world rather than
-// pasted, because the real page embeds the account's passkey and IP log. The
-// details that matter to the parser are reproduced exactly as the server sends
-// them:
-//   - label cells carry U+00A0 ("Join&nbsp;date", "Snatchlist&nbsp;(0)")
-//   - attribute quoting is mixed within one table: class="rowhead",
-//     class='rowhead' and bare class=rowhead all appear
-//   - "Uploaded" (bytes) and "Uploaded&nbsp;(0)" (torrent count) are two
-//     separate rows with near-identical labels
-//   - the peers row is server-rendered as "Seeding&nbsp;(Loading)"; the count
-//     is filled in later by ajax_peers.php, which is why it is never read here
-//   - the header strip prints "Ratio: ∞" on a zero-download account
-// The passkey is all zeroes and the IP is a documentation address.
+// Rebuilt from a live capture rather than pasted, since the real page embeds
+// the passkey and IP log. The fidelity tests below pin what the parser relies on.
 // ---------------------------------------------------------------------------
 
 const PAGE_HEAD = `<!DOCTYPE html>
@@ -136,7 +123,7 @@ const STAFF_PAGE =
   PAGE_FOOT
 
 /**
- * A member link BEFORE the greeting. The live pages happen to put the header
+ * A member link before the greeting. The live pages happen to put the header
  * first, so no real capture distinguishes the anchored regex from a naive
  * "first userdetails.php link" match. This pins the anchor's intent explicitly.
  */

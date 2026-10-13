@@ -244,7 +244,7 @@ describe("floatBytesToBigInt", () => {
     expect(floatBytesToBigInt(0.1)).toBe(0n)
   })
 
-  // This clamp is load-bearing and must NOT be loosened for symmetry with the
+  // This clamp is load-bearing and must not be loosened for symmetry with the
   // signed helper: every caller converts uploaded/downloaded, which are
   // monotonic counters, so a negative there is a malformed API response and the
   // clamp is what stops it reaching the snapshots table.

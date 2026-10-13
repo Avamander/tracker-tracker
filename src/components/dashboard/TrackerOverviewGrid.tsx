@@ -74,10 +74,8 @@ function TrackerOverviewGrid({ trackers, showHealthIndicators = true }: TrackerO
     selectedDrafts.includes(t.slug)
   )
 
-  // Resolve each tracker's registry entry once. The cards need the whole entry
-  // now (defunct status and categories). Since the lookup scans the registry per
-  // call, doing it here is a single pass instead of once for filtering and once
-  // for rendering.
+  // Resolve each tracker's registry entry once. The cards need defunct status
+  // and categories, and the lookup scans the registry on every call.
   const { trackerEntries, allCategories } = useMemo(() => {
     const entryMap = new Map<number, TrackerRegistryEntry | undefined>()
     const catSet = new Set<string>()
@@ -126,7 +124,6 @@ function TrackerOverviewGrid({ trackers, showHealthIndicators = true }: TrackerO
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Filters: only when > 6 trackers */}
       {showFilters && (
         <div className="flex flex-col gap-2">
           {/* Mobile toggle */}

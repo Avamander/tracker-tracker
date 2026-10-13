@@ -155,7 +155,6 @@ export async function dispatchNotifications(
             finalError = result.error ?? null
           }
 
-          // Record cooldown only if delivered successfully
           if (result.success) {
             try {
               const snoozedUntilDate = new Date(now.getTime() + EVENT_SNOOZE_MS[event])

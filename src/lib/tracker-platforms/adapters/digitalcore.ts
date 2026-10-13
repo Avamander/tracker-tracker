@@ -72,7 +72,7 @@ export function parseDigitalCoreCredentials(apiToken: string): DigitalCoreCreden
   // A non-ASCII character is a DevTools truncation mark, never part of a cookie
   // value. Without this it reaches undici, which throws a TypeError naming the
   // whole header, and classifyFetchError flattens that to a bare name the user
-  // cannot act on. cookie-credentials.ts and mam.ts carry the same guard.
+  // cannot act on.
   for (const [field, value] of [
     ["uid", trimmedUid],
     ["pass", trimmedPass],
@@ -127,9 +127,7 @@ const DC_CLASS_MAP: Record<number, string> = {
 
 /**
  * DigitalCore spells its booleans as "yes"/"no" strings or 0/1 numbers. An
- * absent field is unknown, not false: every flag on DigitalCorePlatformMeta is
- * optional, and a bare equality test quietly reported "no" for a key the API
- * never sent.
+ * absent field is unknown, so it stays undefined rather than false.
  */
 function dcFlag<T extends string | number>(value: T | undefined, truthy: T): boolean | undefined {
   return value === undefined ? undefined : value === truthy
@@ -180,9 +178,8 @@ interface DCUserResponse {
   id: number
   username: string
   /**
-   * Inverted connectability, as a number (0 = connectable, 1 = not).
-   * Verified against a live response. This is the authoritative source.
-   * `connectable` on /api/v1/status can disagree with it (issue #167).
+   * Inverted connectability (0 = connectable, 1 = not). Authoritative over
+   * `connectable` on /api/v1/status, which can disagree (issue #167).
    */
   unconnectable?: number
   added: string
@@ -221,10 +218,8 @@ interface DCUserResponse {
 // ---------------------------------------------------------------------------
 
 // Both messages open with "Unexpected response from" so sanitizeNetworkError
-// classifies them by its shape rule (error-utils.ts:56). The earlier wording
-// said "invalid JSON", and that rule's `invalid` alternative belongs to the
-// credentials rule below it, so a maintenance page reached the user as
-// "Invalid credentials" and sent them to re-enter a key that was fine.
+// classifies them as a shape problem. Wording that contains "invalid" would
+// match its credentials rule instead.
 function parseJsonSafe<T>(text: string, pathname: string): T {
   try {
     return JSON.parse(text) as T
@@ -367,10 +362,9 @@ export class DigitalCoreAdapter implements TrackerAdapter {
 
       stats.platformMeta = {
         ...baseMeta,
-        // /api/v1/status reports `connectable`, /api/v1/users/:id reports the
-        // inverse `unconnectable`, and they can disagree. A live account
-        // returned connectable:0 alongside unconnectable:0. The profile
-        // endpoint is the authoritative one, same as for `warned` above.
+        // /api/v1/status reports `connectable` and /api/v1/users/:id reports
+        // the inverse `unconnectable`. They can disagree, and the profile
+        // endpoint wins, as for `warned` above.
         ...(profile.unconnectable !== undefined
           ? { connectable: profile.unconnectable === 0 }
           : {}),

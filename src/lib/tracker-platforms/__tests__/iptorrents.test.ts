@@ -39,8 +39,8 @@ describe("parseIptProfile", () => {
   })
 
   it("reads a brand new account as zeros rather than an unreadable page", () => {
-    // Both rows are present and both say 0 B. The old guard could not tell that
-    // apart from a stats bar it failed to parse, so a new account errored.
+    // Both rows are present and both say 0 B. A new account must read as zeros,
+    // not as a stats bar that failed to parse.
     const newAccount = `<!doctype html><html><body><div class="stats">
       <span class="uname">newuser</span>
       <div class="tTipWrap"><span class="tTip">Uploaded</span> 0 B</div>
@@ -132,9 +132,8 @@ describe("parseIptProfile", () => {
   })
 
   it("reports an unreadable bonus figure as unknown rather than NaN", () => {
-    // Both bonus sites used to parseFloat a match that could hold punctuation
-    // and no digits. NaN is not a figure and not null, so it reached the
-    // snapshot and compared false against every guard on the way.
+    // A placeholder bonus must not parse as NaN, which is neither a figure nor
+    // null and slips past every guard into the snapshot.
     const tTipPage = `<!doctype html><html><body><div class="stats">
       <span class="uname">testuser</span>
       <div class="tTipWrap"><span class="tTip">Uploaded</span> 1.00 GB</div>

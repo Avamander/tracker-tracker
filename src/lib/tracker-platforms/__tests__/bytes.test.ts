@@ -1,8 +1,7 @@
 // src/lib/tracker-platforms/__tests__/bytes.test.ts
 //
-// requireBytes is the guard five adapters were missing: they declared the byte
-// fields required and handed them straight to floatBytesToBigInt, which answers
-// 0n for null. These cases pin that an absent total fails the poll instead.
+// floatBytesToBigInt answers 0n for null, so a byte field declared required
+// goes through requireBytes. These cases pin that an absent total fails the poll.
 
 import { describe, expect, it } from "vitest"
 import { requireBytes } from "../helpers/bytes"

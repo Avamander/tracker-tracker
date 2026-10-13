@@ -121,8 +121,7 @@ describe("AddTrackerDialog torrentleech credentials", () => {
   })
 
   it("clears the typed credentials when the dialog is cancelled", async () => {
-    // Closing used to keep the password (and now a second secret) in component
-    // state and re-show both on reopen.
+    // Cancelling must clear both secrets, or a reopened dialog shows them again.
     const user = userEvent.setup()
     const { rerender } = render(<AddTrackerDialog open onClose={vi.fn()} onAdded={vi.fn()} />)
 
@@ -171,9 +170,8 @@ describe("AddTrackerDialog retrotoon credentials", () => {
   })
 
   it("clears the pasted cookies when the dialog is cancelled", async () => {
-    // Regression: the retrotoon field was added without being added to
-    // resetForm, so a closed dialog kept the session cookie in component state
-    // and re-showed it on reopen. Every other cookie platform was cleared.
+    // Cancelling must clear the pasted cookie, or a reopened dialog shows the
+    // session cookie again.
     const user = userEvent.setup()
     const { rerender } = render(<AddTrackerDialog open onClose={vi.fn()} onAdded={vi.fn()} />)
 

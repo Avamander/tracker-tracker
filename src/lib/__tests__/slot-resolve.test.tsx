@@ -816,7 +816,7 @@ describe("security: slot resolution does not expose secrets", () => {
 
     const map = resolveSlots(ctx)
 
-    // Flatten ALL resolved slot props and verify no secrets leaked
+    // Flatten all resolved slot props and verify no secrets leaked
     const forbidden = [
       "encryptedApiToken",
       "passwordHash",
@@ -855,9 +855,6 @@ describe("security: slot resolution does not expose secrets", () => {
       accentColor: BASE_ACCENT,
     }
 
-    // "hourlyGold" in meta should NOT match via __proto__ for real JSON.parse output
-    // The gold slot resolves based on "hourlyGold" being a direct property of meta
-    // JSON.parse puts __proto__ as a literal own-key, not on the chain
     const cards = slotIds(ctx, "stat-card")
     // seedbonus should still resolve since there's no direct "hourlyGold" key
     expect(cards).toContain("seedbonus")

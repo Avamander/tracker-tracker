@@ -124,9 +124,9 @@ export const POLL_FAILURE_THRESHOLD = 4
 const BATCH_TOLERANCE_MS = 60_000
 
 /**
- * Fetch fresh stats from a tracker's API without writing a snapshot.
- * Used by the (currently unreleased) transit papers report route to get live data for the report.
- * Also updates tracker metadata side effects (remoteUserId, joinedAt, lastAccessAt, platformMeta, avatarUrl).
+ * Fetch fresh stats from a tracker's API without writing a snapshot. Also
+ * writes the metadata side effects (remoteUserId, joinedAt, lastAccessAt,
+ * platformMeta, avatarRemoteUrl).
  */
 export async function fetchTrackerStats(
   trackerId: number,
@@ -217,7 +217,7 @@ export async function pollTracker(
       const cause = errMsg(err)
       throw new Error(`API key is missing or invalid for tracker "${tracker.name}": ${cause}`)
     }
-    // See pollTracker: an empty token authenticates against nothing.
+    // See fetchTrackerStats: an empty token decrypts cleanly but never authenticates.
     if (!apiToken) {
       throw new Error(`API key is missing or invalid for tracker "${tracker.name}": token is empty`)
     }
@@ -233,7 +233,7 @@ export async function pollTracker(
     })
     const stats = await adapter.fetchStats(baseUrl, apiToken, tracker.apiPath, fetchOptions)
 
-    // Snapshot the previous platformMeta BEFORE writing the current poll's metadata to DB.
+    // Snapshot the previous platformMeta before writing the current poll's metadata to DB.
     // dispatchNotifications uses this for change detection (i.e. canDownload transition).
     let previousPlatformMeta: Record<string, unknown> | null = null
     if (
@@ -716,13 +716,13 @@ export async function pollAllTrackers(encryptionKey: Buffer): Promise<void> {
       log.error(error, "Checkpoint pruning failed")
     }
 
-    // Coverage gaps expire on the SAME schedule and the SAME horizon as the
+    // Coverage gaps expire on the same schedule and the same horizon as the
     // snapshots they explain. This coupling is deliberate and load-bearing: if
     // gaps were pruned on a different horizon, charts would outlive their own
     // explanations and a region with no gap record would be indistinguishable from
     // a healthy one. This same retention asymmetry makes inferring downtime from
     // missing rows a lie. Keep this call inside this guard, sharing this retention
-    // value. NEVER prune gaps more aggressively than snapshots (pruneCoverageGaps
+    // value. Never prune gaps more aggressively than snapshots (pruneCoverageGaps
     // keys on endedAt for exactly that reason).
     try {
       const prunedGaps = await pruneCoverageGaps(settings.snapshotRetentionDays)
@@ -735,7 +735,7 @@ export async function pollAllTrackers(encryptionKey: Buffer): Promise<void> {
       log.error(error, "Coverage gap pruning failed")
     }
 
-    // Tracker outages expire on the SAME horizon, for the same reason and inside
+    // Tracker outages expire on the same horizon, for the same reason and inside
     // the same guard. A tracker chart that outlives its own outage records would
     // show an unexplained flat stretch, which is the exact failure this ledger
     // exists to prevent.

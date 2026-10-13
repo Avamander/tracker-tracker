@@ -13,9 +13,8 @@ export const FETCH_RE = /\bfetch\s*\(/
 export const FETCH_WINDOW_MAX_LINES = 60
 
 // Index of the last line belonging to the fetch() argument list that starts on
-// lines[startIndex]. A fixed line window flagged correct calls whose options
-// object was merely long, and a false positive on a CI-blocking check teaches
-// people to ignore it.
+// lines[startIndex]. Balancing parentheses keeps a long options object inside
+// the window.
 export function fetchWindowEnd(lines: string[], startIndex: number): number {
   const fetchAt = lines[startIndex].search(FETCH_RE)
   let depth = 0
@@ -40,17 +39,11 @@ export function fetchWindowEnd(lines: string[], startIndex: number): number {
   return windowEnd
 }
 
-// Evidence that a file validates cookie values before interpolation. Every
-// entry has to match a regex character class that actually holds the characters
-// it claims to reject or allow, because a guard that is named rather than
-// written is not a guard.
-//
-// Two approaches are valid:
-//   1. Blocklist: a class holding ";" and at least one control-character
-//      escape. The semicolon is what splits one cookie into two; CR and LF
-//      are what split one header into two.
-//   2. Allowlist: a class narrow enough that nothing in it can break a
-//      header, which is stricter than any blocklist.
+// Evidence that a file validates cookie values before interpolation. Each
+// pattern matches a character class written out in code, never a guard's
+// name. A blocklist class holds ";", which splits a cookie, and a CR, LF or
+// NUL escape. CR and LF split a header. An allowlist class is narrow enough
+// that nothing in it can break a header.
 const INJECTION_GUARD_PATTERNS = [
   /\[[^\]]*;[^\]]*(?:\\r|\\n|\\x00)[^\]]*\]/, // blocklist, semicolon first
   /\[[^\]]*(?:\\r|\\n|\\x00)[^\]]*;[^\]]*\]/, // blocklist, control char first
@@ -85,9 +78,8 @@ const CREDENTIAL_VARS = [
   "trimmedUid",
 ]
 
-// Adapters log through pino as log.debug/info/warn/error, and console calls are
-// a lint error across src/lib/tracker-platforms, so a console-only detector has
-// nothing left to match. Both call shapes are read.
+// Adapters log through pino, and console calls are a lint error under
+// src/lib/tracker-platforms. Both call shapes are matched.
 const CRED_IN_LOG_RE = new RegExp(
   `\\b(?:console\\.(?:log|warn|error)|log\\.(?:debug|info|warn|error))\\s*\\([^)]*\\b(?:${CREDENTIAL_VARS.join("|")})\\b`
 )

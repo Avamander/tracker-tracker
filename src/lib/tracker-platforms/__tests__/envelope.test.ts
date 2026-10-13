@@ -1,9 +1,7 @@
 // src/lib/tracker-platforms/__tests__/envelope.test.ts
 //
-// The contract these pin: DebugResponseDialog marks a call healthy purely on
-// `error` being null, so an adapter whose tracker signals failure inside an
-// HTTP 200 body must surface that in `error`. Before this, a rejected key
-// rendered in the debug Raw tab as one green successful call.
+// DebugResponseDialog marks a call healthy only when `error` is null, so a
+// failure inside an HTTP 200 body must surface in `error`.
 
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { GazelleAdapter } from "../adapters/gazelle"

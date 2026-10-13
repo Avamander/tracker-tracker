@@ -414,7 +414,7 @@ describe("fetchAndMergeTorrents — fast path skipped when store is uninitialize
   })
 
   it("calls createAdapterForClient when store has never been initialized (isStoreFresh returns false)", async () => {
-    // isStoreFresh returns false for both stale AND uninitialized stores
+    // isStoreFresh returns false for both stale and uninitialized stores
     vi.mocked(isStoreFresh).mockReturnValue(false)
 
     await fetchAndMergeTorrents([makeClient()], ["aither"], makeKey())

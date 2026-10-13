@@ -21,9 +21,8 @@ describe("formatBytesFromString", () => {
     expect(formatBytesFromString(bytes)).toBe("2.00 TiB")
   })
 
-  // Buffer is signed, so this has to scale on the magnitude. Comparing the
-  // scaled value against `>= 1` is false for every negative, which used to drop
-  // a -2.39 TiB buffer through to the MiB branch as "-2505575 MiB".
+  // Buffer is signed, so scale on the magnitude. A `>= 1` check on the scaled
+  // value fails for every negative and would print -2.39 TiB as "-2505575 MiB".
   it("formats a negative value with a sign and the right unit", () => {
     // Hawke's verified deficit response
     expect(formatBytesFromString("-2627286052460")).toBe("-2.39 TiB")
@@ -156,10 +155,10 @@ describe("formatStatValue", () => {
 })
 
 describe("trackerDateStr", () => {
-  // Adapters return at least five date shapes because TrackerStats puts no
-  // format contract on joinedDate/lastAccessDate. A bare date is the one that
-  // used to corrupt: new Date("2026-08-28") is UTC midnight, and rendering
-  // that in any negative-offset zone gives 2026-08-27.
+  // Adapters return several date shapes, since TrackerStats sets no format for
+  // joinedDate or lastAccessDate. A bare date must skip Date, because
+  // new Date("2026-08-28") is UTC midnight and reads as 2026-08-27 in a
+  // negative-offset zone.
   it("returns a bare date unchanged, whatever the server timezone is", () => {
     expect(trackerDateStr("2026-08-28")).toBe("2026-08-28")
     expect(trackerDateStr("2021-06-15")).toBe("2021-06-15")

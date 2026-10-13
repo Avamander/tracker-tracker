@@ -348,7 +348,6 @@ describe("GazelleAdapter", () => {
       enrich: true,
     })
 
-    // Should still have core stats
     expect(stats.username).toBe("JohnDoe")
     expect(stats.warned).toBeNull() // Default when enrichment fails; null means "unknown"
   })

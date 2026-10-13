@@ -71,8 +71,8 @@ interface AuditOutput {
 
 // Routes that intentionally skip session verification.
 // These are truly public, with no cookie, no JWE, and no auth at all.
-// Routes that do their own auth (i.e logout via getSession) are NOT listed.
-// NOTE: api/changelog is NOT listed here, because it calls authenticate() and must remain protected.
+// Routes that do their own auth (i.e logout via getSession) are not listed.
+// api/changelog calls authenticate() and stays off this list.
 const NO_AUTH_ROUTES = new Set([
   "api/auth/setup",
   "api/auth/login",
@@ -142,9 +142,7 @@ const SECURITY_FILES = [
 
 /**
  * walkFiles returns [] for a directory that does not exist, so a scoped check
- * whose path is wrong reports a clean pass over zero files. That is how
- * "lib/qbt" went unnoticed: it never existed, and download-clients was never
- * scanned by the three checks scoped this way.
+ * whose path is wrong reports a clean pass over zero files.
  */
 function requireDir(dir: string, check: string): string {
   if (!fs.existsSync(dir)) {
@@ -203,7 +201,7 @@ function isTestFile(filePath: string): boolean {
 // Place on the flagged line or the line above:
 //   // security-audit-ignore: stream already closed, nothing to recover
 //
-// The colon + reason text are REQUIRED. A bare "// security-audit-ignore"
+// The colon + reason text are required. A bare "// security-audit-ignore"
 // without a reason is itself a critical failure.
 
 const AUDIT_IGNORE_RE = /(?:\/\/|\/\*)\s*security-audit-ignore\b/
@@ -257,7 +255,7 @@ function filterIgnoredFindings(results: CheckResult[]): CheckResult[] {
                 "security-audit-ignore missing reason. Use: // security-audit-ignore: <reason>",
             })
           }
-          return true // NOT suppressed, reason is required
+          return true // not suppressed, reason is required
         }
       }
 
@@ -321,7 +319,7 @@ function extractHandlerBodies(
       }
     }
 
-    // Step 3: find the function body's opening brace AFTER the parameter list
+    // Step 3: find the function body's opening brace after the parameter list
     const openBrace = content.indexOf("{", closeParen + 1)
     if (openBrace === -1) continue
 
@@ -714,8 +712,7 @@ function checkTodoInSecurityFiles(): CheckResult {
 // ── Check 10: Raw SQL in API routes (critical) ───────────────────────────
 
 // Hardcoded-safe SQL literals permitted in route files.
-// These are DB connectivity checks with no user input, identical in safety
-// to the scrub operations in nuke.ts.
+// These are DB connectivity checks with no user input.
 const SAFE_RAW_SQL_RE = /db\.execute\s*\(\s*sql`SELECT\s+1`\s*\)/
 
 function checkRawSqlInRoutes(): CheckResult {
@@ -729,7 +726,6 @@ function checkRawSqlInRoutes(): CheckResult {
     for (const line of lineNums) {
       const lineContent = content.split("\n")[line - 1]?.trim()
       if (lineContent?.startsWith("//")) continue
-      // Allow hardcoded DB ping (SELECT 1), no user input, same category as nuke.ts
       if (lineContent && SAFE_RAW_SQL_RE.test(lineContent)) continue
       findings.push({
         file: relativePath(file),
@@ -951,7 +947,7 @@ function checkRequestBodySize(files?: string[]): CheckResult {
 
 // Variable name patterns that indicate an actual secret value being compared.
 // Must be specific enough to avoid matching loop vars named "key", UI fields like "giftTokens", etc.
-// Pattern: the variable name must START or END with the secret word, or be an exact compound like "apiToken".
+// Pattern: the variable name must start or end with the secret word, or be an exact compound like "apiToken".
 const SECRET_VAR_RE =
   /\b(?:password(?:Hash)?|apiToken|sessionToken|secretKey|encryptionKey|masterKey|totpSecret|backupCode|authToken|jweToken|pendingToken)\b/
 
@@ -1084,8 +1080,6 @@ function checkNoRawMigrations(): CheckResult {
 
 // ── Check 17: External fetch calls have timeouts (critical) ─────────────
 
-// proxy.ts uses https.request with a timeout option (not fetch()), so it
-// is intentionally excluded from this scan.
 function checkFetchTimeout(): CheckResult {
   const findings: Finding[] = []
 
@@ -1521,7 +1515,7 @@ function checkTotpFlowIntegrity(): CheckResult {
     }
   }
 
-  // ── verify route: must use pendingToken, NOT authenticate() ──
+  // ── verify route: must use pendingToken, not authenticate() ──
   const verifyPath = path.join(TOTP_DIR, "verify/route.ts")
   if (fs.existsSync(verifyPath)) {
     const content = fs.readFileSync(verifyPath, "utf8")
@@ -1867,7 +1861,7 @@ function checkBackupRestoreIntegrity(): CheckResult {
       detail: "Restore must run inside a database transaction (rollback on failure)",
     })
   }
-  // Restore SHOULD call recordFailedAttempt, because a wrong password on restore is a
+  // Restore should call recordFailedAttempt, because a wrong password on restore is a
   // brute-force vector (attacker with backup file guessing the master password).
   // The restore route also checks lockedUntil, so progressive lockout applies.
   if (!/\brecordFailedAttempt\s*\(/.test(content)) {
@@ -1914,7 +1908,7 @@ function checkLoginFlowIntegrity(): CheckResult {
   const content = fs.readFileSync(loginPath, "utf8")
   const rel = relativePath(loginPath)
 
-  // Login must NOT call authenticate(), because it IS the auth entry point
+  // Login must not call authenticate(), because it is the auth entry point
   if (/\bauthenticate\s*\(/.test(content)) {
     findings.push({
       file: rel,
@@ -2045,7 +2039,7 @@ function checkBackupPasswordBounds(): CheckResult {
 
     if (!readsBackupPw || !callsDeriveOrEncrypt) continue
 
-    // Must have an upper-bound length check (e.g., .length > 128 or .length > BACKUP_PASSWORD_MAX)
+    // Must have an upper-bound length check (.length > 128 or .length > BACKUP_PASSWORD_MAX)
     const hasUpperBound =
       /backupPassword\.length\s*>\s*(\d+|[A-Z][A-Z0-9_]*)/.test(content) ||
       /formPassword\.length\s*>\s*(\d+|[A-Z][A-Z0-9_]*)/.test(content)
@@ -2192,7 +2186,7 @@ function checkNotificationSsrfValidation(): CheckResult {
   const content = fs.readFileSync(validatePath, "utf8")
   const rel = relativePath(validatePath)
 
-  // Find case blocks for notification types that are NOT "not yet supported"
+  // Find case blocks for notification types that are not "not yet supported"
   const CASE_RE = /case\s+["'](\w+)["']\s*:\s*\{/g
   let caseMatch: RegExpExecArray | null = CASE_RE.exec(content)
 
@@ -2405,20 +2399,14 @@ function checkClientEnvLeak(): CheckResult {
 
 // ── Check 37: Adapter Cookie header injection guard ────────────────────
 //
-// Adapters that construct Cookie: headers with template-literal interpolation
-// (i.e. Cookie: `name=${value}`) must validate the interpolated values against
-// injection characters (semicolons, carriage returns, newlines) BEFORE use.
-// Without this, a malicious or malformed credential value could inject extra
-// cookies or HTTP headers.
-//
-// AvistaZ is not flagged because it passes a pre-assembled cookie string
-// (Cookie: cookies) rather than interpolating individual values.
+// Adapters that interpolate values into a Cookie header must reject ";", CR and
+// LF first, or a credential value can inject extra cookies or headers. A
+// pre-assembled cookie string is not interpolation and is not flagged.
 
 function checkAdapterCookieInjection(): CheckResult {
   const findings: Finding[] = []
   // download-clients builds a Cookie header from a value the remote host chose,
-  // which is exactly what this check exists to catch, and it went unscanned for
-  // as long as the scope was adapters only.
+  // so it is scanned too.
   const adaptersDir = requireDir(
     path.resolve(SRC_DIR, "lib/tracker-platforms"),
     "adapter-cookie-injection"
@@ -2472,9 +2460,8 @@ function checkAdapterCookieInjection(): CheckResult {
 // ── Check 38: Adapter credential logging ───────────────────────────────
 //
 // Adapter files must never log credential material (api tokens, cookies,
-// passwords, passkeys). Both call shapes adapters can reach a log with,
-// console.log/warn/error and pino log.debug/info/warn/error, are checked to
-// ensure they don't reference credential variables.
+// passwords, passkeys). Console and pino log calls are both checked for a
+// credential variable.
 
 function checkAdapterCredentialLogging(): CheckResult {
   const findings: Finding[] = []

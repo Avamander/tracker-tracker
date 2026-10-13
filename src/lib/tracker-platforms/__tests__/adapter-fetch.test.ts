@@ -23,8 +23,6 @@ describe("adapterFetch - AbortSignal", () => {
 
     expect(capturedSignal).toBeDefined()
     expect(capturedSignal).toBeInstanceOf(AbortSignal)
-    // AbortSignal.timeout() produces a signal whose abortReason is a TimeoutError
-    // i.e. it has a finite timeout rather than being manually abortable with no reason
     expect(capturedSignal?.aborted).toBe(false)
   })
 
@@ -112,10 +110,8 @@ describe("adapterFetch - token sanitization", () => {
       statusText: "Forbidden",
     } as Response)
 
-    // The token lives in the URL query string (i.e. ?api_token=…). adapterFetch receives
-    // the fully-constructed URL as its first argument. A non-ok response throws using only
-    // the status code and statusText, neither of which contains the token, so the
-    // caller-supplied token must not appear in the thrown message.
+    // A non-ok response throws with only the status and statusText, so the token in
+    // the query string must not appear.
     await expect(
       adapterFetch(`https://example.com/api/user?api_token=${secretToken}`, "example.com")
     ).rejects.toSatisfy((err: Error) => {
@@ -185,8 +181,7 @@ describe("adapterFetch - POST support", () => {
 
     expect(proxyFetch).toHaveBeenCalledTimes(1)
     expect(proxyFetch.mock.calls[0][2]).toMatchObject({ method: "POST", body: '{"a":1}' })
-    // Crucially: it must NOT fall through to a direct fetch, which would
-    // bypass the user's tunnel.
+    // A direct fetch here would bypass the user's tunnel.
     expect(fetchSpy).not.toHaveBeenCalled()
     vi.doUnmock("@/lib/tunnel")
   })

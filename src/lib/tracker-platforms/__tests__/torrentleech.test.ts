@@ -4,22 +4,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { parseTlCredentials, parseTlProfile, TorrentleechAdapter } from "../adapters/torrentleech"
 import { SessionExpiredError } from "../helpers/errors"
 
-// The proxy path is what these tests are checking is TAKEN, so proxyFetch is
+// The proxy path is what these tests are checking is taken, so proxyFetch is
 // mocked rather than exercised. tunnel.ts has its own coverage.
 vi.mock("@/lib/tunnel", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/tunnel")>()),
   proxyFetch: vi.fn(),
 }))
 
-// Markup copied from a live TorrentLeech profile page, with the account's own
-// figures replaced. The structure is verbatim, and it has to be: the previous
-// fixture was written from the same assumption as the parser (a
-// `profile-downloaded-details` class that the site does not emit), so the tests
-// agreed with the bug instead of catching it.
+// Markup copied from a live TorrentLeech profile page with the figures replaced.
+// The structure stays verbatim so the fixture cannot share the parser's
+// assumptions.
 //
 // The pieces that matter, and why each is here:
-//   - the "Classic TL" nav link, present on every page, which the old class
-//     regex matched before ever reaching the real class
+//   - the "Classic TL" nav link, present on every page, which a loose class
+//     match hits before the real class
 //   - the top bar, the only source of seeding/leeching counts and hit-and-runs,
 //     where the count follows the size in parentheses
 //   - the asymmetric uploaded/downloaded spans
@@ -49,9 +47,8 @@ const TOP_BAR_HTML = `
   <div class="div-menu-item">Slots: <span>&infin;</span></div>
 </span>`
 
-// Note the asymmetry, which is the site's and not a typo: the uploaded span
-// carries `profile-uploaded-details`, the downloaded span carries no
-// counterpart class.
+// The asymmetry is the site's, not a typo. The uploaded span carries
+// `profile-uploaded-details` and the downloaded span has no counterpart.
 const PROFILE_HTML = `
 <div class="profile-details">
   <div class="profile-username profile-details-item">testuser</div>
@@ -354,8 +351,8 @@ describe("TorrentleechAdapter.fetchStats", () => {
   })
 
   it("recovers a dead session in the debug call, not only in the poll", async () => {
-    // fetchRaw used to have a bare catch, so the debug view could show a failed
-    // call beside a fully populated response from the very next poll.
+    // fetchRaw retries a dead session like the poll does, or the debug view shows
+    // a failed call beside a healthy poll.
     const fetchSpy = vi
       .spyOn(global, "fetch")
       .mockResolvedValueOnce(setCookieResponse(["tluid=stale; Path=/"]))
@@ -548,8 +545,6 @@ describe("TorrentleechAdapter.fetchStats", () => {
       text: async () => "",
       buffer: async () => Buffer.from(""),
     })
-    // The profile GET was already proxied before this change; the login POST
-    // was the one request that was not.
     proxySpy.mockResolvedValueOnce({
       ok: true,
       status: 200,
@@ -567,8 +562,8 @@ describe("TorrentleechAdapter.fetchStats", () => {
     })
 
     expect(stats.username).toBe("testuser")
-    // The whole point: the request carrying the password went through the
-    // proxy, and nothing went out the direct path at all.
+    // The request carrying the password goes through the proxy, and nothing goes
+    // out the direct path.
     expect(fetchSpy).not.toHaveBeenCalled()
     expect(proxySpy).toHaveBeenCalledTimes(2)
 

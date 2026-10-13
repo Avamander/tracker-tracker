@@ -139,7 +139,7 @@ export function parseFilelistProfile(html: string, hostname: string): TrackerSta
     }
   }
 
-  // The header strip repeats the byte totals, but it is deliberately NOT a
+  // The header strip repeats the byte totals, but it is deliberately not a
   // fallback: a page whose profile table is missing is not a profile page.
   if (uploadedBytes === undefined && downloadedBytes === undefined) {
     throw new Error(
@@ -246,8 +246,7 @@ function fetchHtml(
 ): Promise<string> {
   // A redirect may be routine or a bounce to login, so the chain is followed
   // and only a Location matching the login pattern reads as an expired
-  // session. The pattern is unverified against a live logged-out bounce;
-  // amend it during Phase B live verification if FileList bounces elsewhere.
+  // session. The pattern is unverified against a live logged-out bounce.
   return fetchTrackerHtml({
     url,
     cookies: creds.cookies,
@@ -269,7 +268,7 @@ const BOOTSTRAP_ERROR =
 export class FilelistAdapter implements TrackerAdapter {
   // _apiPath is ignored: userdetails.php is intrinsic to the platform, not a
   // property of a user's row, so a stale persisted api_path value self-heals
-  // instead of breaking the adapter (the btn.ts:10-21 precedent).
+  // instead of breaking the adapter (the btn.ts precedent).
   async fetchStats(
     baseUrl: string,
     apiToken: string,

@@ -12,10 +12,9 @@ import type { PulseDotStatus } from "@/components/ui/PulseDot"
 import { registryEntryFor } from "@/data/tracker-registry"
 import type { TrackerSummary } from "@/types/api"
 
-// Ordered loosely by severity, ascending. "warning" and "no-seeds" were a
-// single conflated pill until they were split: a thin ratio and zero active
-// seeds are unrelated conditions calling for different fixes, and neither is
-// implied by the other.
+// Ordered loosely by severity, ascending. "warning" and "no-seeds" are
+// separate: a thin ratio and zero active seeds are unrelated and need different
+// fixes.
 type TrackerHealth =
   "healthy" | "warning" | "no-seeds" | "critical" | "error" | "paused" | "paused-user" | "offline"
 
@@ -48,11 +47,8 @@ const HEALTH_META: Record<TrackerHealth, HealthMeta> = {
   "no-seeds": {
     label: "No Seeds",
     description: "Zero active seeds, nothing is uploading",
-    // Its own dot status, not "critical". The two look identical on purpose:
-    // they share the danger palette the way paused and critical already do.
-    // But the dot-only surfaces (sidebar list, overview grid) expose the status
-    // name to screen readers, and announcing "Critical" for a tracker that is
-    // simply seeding nothing describes the wrong problem.
+    // Its own dot status, not "critical": dot-only surfaces expose the status
+    // name to screen readers, and "Critical" would describe the wrong problem.
     pulseDot: "no-seeds",
     badge: "danger",
   },
@@ -164,16 +160,10 @@ function getTrackerHealth(tracker: TrackerSummary): TrackerHealth {
     else status = "critical"
   }
 
-  // Zero active seeds is its own condition, not a ratio band. No ratio value
-  // implies it, and the fix differs: start seeding at all vs. seed more of what
-  // is already loaded. It outranks both non-critical ratio statuses because an
-  // account uploading nothing cannot improve its ratio. This includes "warning",
-  // which is the case this split exists to disambiguate.
-  //
-  // It deliberately does NOT override "critical". Ratio < 1.0 and a tracker
-  // warning (returned above) both carry account-action risk that this label
-  // would erase, and the pre-split override never reached them either. Final
-  // severity order: critical > no-seeds > warning > healthy.
+  // Zero active seeds is its own condition, not a ratio band. It outranks
+  // healthy and warning because an account uploading nothing cannot improve its
+  // ratio. It does not override critical: a low ratio or a tracker warning
+  // carries account risk this label would hide.
   //
   // A null seedingCount means the adapter does not report the field (BTN), so
   // the strict === 0 check leaves those trackers on their ratio status.

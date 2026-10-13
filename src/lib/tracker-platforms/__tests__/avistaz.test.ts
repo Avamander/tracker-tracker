@@ -185,8 +185,8 @@ describe("parseAvistazProfile", () => {
   })
 
   it("reads a brand new account as zeros rather than an unreadable page", () => {
-    // Both items are present and both say 0 B. The old guard could not tell
-    // that apart from a ratio bar it failed to parse, so a new account errored.
+    // Both items are present and both say 0 B. A new account must read as zeros,
+    // not as a bar that failed to parse.
     const newAccount = `<!doctype html><html><head></head><body>
       <div class="ratio-bar"><div class="container"><ul class="list-inline">
         <li data-toggle="tooltip" title="Upload"><i></i> 0 B</li>
@@ -239,9 +239,8 @@ describe("parseAvistazProfile", () => {
   })
 
   it("falls back to the text item when the bonus tooltip carries no number", () => {
-    // A tooltip rendering a placeholder used to parse as NaN, which is neither
-    // a figure nor null, so the `seedbonus === null` fallback below it never
-    // ran and the bar's own Bonus item was discarded.
+    // A placeholder tooltip must not parse as NaN, which is neither a figure nor
+    // null, or the adapter's `seedbonus === null` fallback never runs.
     const placeholderBonus = `<!doctype html><html><head></head><body>
       <div class="ratio-bar"><div class="container"><ul class="list-inline">
         <li data-toggle="tooltip" title="Upload"><i></i> 10.00 GB</li>
@@ -535,11 +534,8 @@ describe("AvistazAdapter.fetchRaw", () => {
   })
 })
 
-// A profile layout that never rendered the permission rows used to read as
-// permission GRANTED, because field() returns "" for an absent row and
-// `"" !== "no"` is true. Same for 2FA, where `!"".includes("Not Enabled")`
-// is true. Unknown must stay unknown; AvistazPlatformMeta marks every one of
-// these optional precisely so it can.
+// An absent permission or 2FA row must read as unknown, not granted. field()
+// returns "" for a missing row, and a negative match on "" passes.
 describe("parseAvistazProfile with the permission rows absent", () => {
   const NO_PROFILE_TABLE = `<!doctype html><html><body>${RATIO_BAR_HTML}<section class="container content" id="content-area"></section></body></html>`
 
@@ -571,10 +567,9 @@ describe("parseAvistazProfile with the permission rows absent", () => {
 })
 
 describe("parseAvistazProfile permission spellings", () => {
-  // The flags used to be derived by negative match, so anything that was not
-  // the exact string "no" read as granted. A site renaming the value would
-  // have silently restored a revoked permission. Built by editing the real
-  // fixture so the row structure stays exactly what the parser expects.
+  // A renamed negative value must never read as granted, or a revoked
+  // permission silently comes back. Built by editing the real fixture so the
+  // row structure stays what the parser expects.
   const withValue = (label: string, from: string, to: string) =>
     FULL_PAGE.replace(`${label}</td><td>${from}<`, `${label}</td><td>${to}<`)
 

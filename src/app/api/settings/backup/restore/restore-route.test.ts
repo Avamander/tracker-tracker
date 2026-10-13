@@ -4,10 +4,9 @@
 // re-encryption paths that decide whether a restored instance can still talk to
 // its trackers and download clients.
 //
-// Crypto is deliberately NOT mocked: the whole point is the key-derivation
-// round trip (deriveKey -> encrypt -> reencrypt -> decrypt). @/lib/backup is
-// also real, so the fixtures below must survive validateBackupJson, that is
-// what stops a fixture from silently omitting a field the route reads.
+// Crypto is not mocked because the key-derivation round trip is under test.
+// @/lib/backup is real too, so every fixture below must pass validateBackupJson,
+// which stops a fixture from silently omitting a field the route reads.
 
 import { getTableColumns } from "drizzle-orm"
 import { NextResponse } from "next/server"
@@ -424,8 +423,8 @@ describe("POST /api/settings/backup/restore — credential re-encryption", () =>
   // ─── 0. Notify toggles survive the trip ──────────────────────────────────
 
   // The export selects the whole row, so a toggle the insert below does not
-  // name is in the file and simply never comes back. Five of them were, and a
-  // restored instance stopped sending those alerts with nothing to show for it.
+  // name is in the file and simply never comes back. A restored instance then
+  // stops sending that alert with nothing to show for it.
   it("restores every notify toggle the backup carries", async () => {
     const backupKey = await deriveKey(PASSWORD, SALT_A)
     const payload = makeBackupPayload(SALT_A, encryptAll(backupKey))
@@ -597,7 +596,7 @@ describe("POST /api/settings/backup/restore — credential re-encryption", () =>
     const restored = onlyInsert(recorder, "tracker_snapshots")
     expect(expected.filter((key) => !(key in restored))).toEqual([])
     for (const key of expected) {
-      // trackerId is the one column a restore must NOT carry over: it is remapped
+      // trackerId is the one column a restore must not carry over: it is remapped
       // onto the id the tracker insert above just returned.
       if (key === "trackerId") continue
       expect(serialize(restored[key]), key).toEqual(saved[key])
@@ -605,7 +604,7 @@ describe("POST /api/settings/backup/restore — credential re-encryption", () =>
   })
 
   // A backup taken before base URLs were stored bare carries the trailing
-  // slash, and restoring it used to hand every adapter a doubled separator.
+  // slash, and restoring it verbatim would hand every adapter a doubled separator.
   it("strips a trailing slash off a restored base URL", async () => {
     const backupKey = await deriveKey(PASSWORD, SALT_A)
     const payload = makeBackupPayload(SALT_A, encryptAll(backupKey))
@@ -767,14 +766,13 @@ describe("POST /api/settings/backup/restore — credential re-encryption", () =>
 
   it("clears stale credentials when the salt matches but the backup predates a password change", async () => {
     // Regression test. `POST /api/auth/change-password` re-encrypts every field under a
-    // NEW key while REUSING the existing encryptionSalt (change-password/route.ts:72),
+    // new key while reusing the existing encryptionSalt (change-password/route.ts:72),
     // the salt only rotates on nuke/setup/lockdown. So a backup taken before a password
-    // change carries a MATCHING salt and OLD-key ciphertext.
+    // change carries a matching salt and old-key ciphertext.
     //
-    // This used to take the pass-through branch on `sameSalt` alone: the route copied the
-    // old-key ciphertext into the DB verbatim, left the client enabled, logged nothing and
-    // reported `tokensPreserved: 1`. Every restored credential was undecryptable. The probe
-    // in route.ts (see the `canPassThrough` comment) is what stops that. Do not remove it.
+    // Without the probe in route.ts (see the `canPassThrough` comment), the route copies
+    // the old-key ciphertext through verbatim, leaves the client enabled, logs nothing and
+    // reports `tokensPreserved: 1`, and every restored credential is undecryptable.
     const oldKey = await deriveKey(OTHER_PASSWORD, SALT_A)
     const payload = makeBackupPayload(SALT_A, encryptAll(oldKey))
     mockCurrentSettings({ encryptionSalt: SALT_A })
@@ -891,9 +889,8 @@ describe("POST /api/settings/backup/restore — credential re-encryption", () =>
     const res = await POST(makeRequest(payload, PASSWORD))
     expect(res.status).toBe(200)
 
-    // The route used to stop polling and never restart it on the success path, leaving
-    // the endpoint dependent on a browser loading an authenticated page, (auth)/layout.tsx
-    // calls ensureSchedulerRunning on every one, to revive it.
+    // Without the restart, polling stays stopped until a browser loads an authenticated
+    // page, where (auth)/layout.tsx calls ensureSchedulerRunning.
     expect(stopScheduler).toHaveBeenCalledTimes(1)
     expect(ensureSchedulerRunning).toHaveBeenCalledWith("ab".repeat(32))
 
@@ -1035,9 +1032,9 @@ describe("POST /api/settings/backup/restore — auth gate", () => {
 
 // ─── Dry run ──────────────────────────────────────────────────────────────────
 //
-// Credentials a restore cannot decrypt are cleared, and the user used to learn
-// that only afterwards. The dry run answers the same question in advance, using
-// the same code path so the prediction cannot drift from the restore itself.
+// Credentials a restore cannot decrypt are cleared. The dry run answers the same
+// question in advance, using the same code path so the prediction cannot drift
+// from the restore itself.
 //
 // The load-bearing property is that it writes NOTHING: it returns above
 // stopScheduler(), which is the handler's first side effect.
@@ -1095,7 +1092,7 @@ describe("POST /api/settings/backup/restore — dry run", () => {
   })
 
   it("counts credentials written under a different key as at risk", async () => {
-    // A backup taken BEFORE a master-password change: same salt, stale ciphertext.
+    // A backup taken before a master-password change: same salt, stale ciphertext.
     // This is the case the user most needs warning about, because matching salts
     // make it look safe right up until the credentials are cleared.
     const staleKey = await deriveKey("a-completely-different-password", SALT_A)

@@ -122,10 +122,8 @@ describe("computePctChange", () => {
     expect(computePctChange("100", "xyz")).toBeNull()
   })
 
-  // Buffer deltas are signed. A negative baseline inverts the sign of the
-  // result, so the card confidently printed the opposite of what happened:
-  // recovering from -100 to -50 read "-50% vs yesterday" and deteriorating from
-  // -100 to -200 read "+100%". No percentage beats a backwards one.
+  // Buffer deltas are signed, and a negative baseline inverts the sign. -100 to
+  // -50 would read "-50%" and -100 to -200 "+100%", so null is returned instead.
   it("returns null rather than inverting through a negative baseline", () => {
     expect(computePctChange("-50", "-100")).toBeNull()
     expect(computePctChange("-200", "-100")).toBeNull()

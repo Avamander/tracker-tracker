@@ -74,14 +74,9 @@ function TrackerSettingsSheet({ open, tracker, onClose, onUpdated }: TrackerSett
   const router = useRouter()
   const queryClient = useQueryClient()
 
-  // Every write mutates a row in the shared ["trackers"] cache, which
-  // useTrackerList and useDashboardData render from. That cache is NOT
-  // remounted by `router.push("/")`. The sidebar sits in the persistent auth
-  // layout. Its only automatic repair is `refetchInterval`, derived from
-  // trackerPollIntervalMinutes (15 min floor, 60 min default). Without explicit
-  // write-through + invalidate, an archived tracker renders as active and the
-  // "Show Archived (N)" counter under-reports for up to an hour. This mirrors
-  // toggleFavorite and handleDragEnd in useTrackerList.
+  // Every write mutates a row in the shared ["trackers"] cache. It survives
+  // `router.push("/")` and only refetches on the poll interval, so without
+  // write-through and invalidate an archived tracker keeps rendering as active.
   const syncTrackerCache = useCallback(
     (next: TrackerSummary | null) => {
       queryClient.setQueryData<TrackerSummary[]>(trackerQueryOptions.queryKey, (prev) => {
@@ -168,9 +163,8 @@ function TrackerSettingsSheet({ open, tracker, onClose, onUpdated }: TrackerSett
     let trimmedToken = ""
 
     if (changingKey) {
-      // AvistaZ has always been checked from here rather than alongside the
-      // name and URL above, so a first submit with several fields empty still
-      // reports those first. Moving it up would change what the user sees.
+      // AvistaZ credentials are checked after the name check above, so a
+      // submit with an empty name reports the name first.
       if (credentialForm.kind === "cookies-username") {
         const credentialError = validateCredentialValues(credentialForm, credentials)
         if (credentialError) {
@@ -268,9 +262,7 @@ function TrackerSettingsSheet({ open, tracker, onClose, onUpdated }: TrackerSett
         body: JSON.stringify({ isActive: !tracker.isActive }),
       })
 
-      // A non-ok response used to fall through silently. No error, no state
-      // change, sheet stays open. The user sees "I clicked Archive and nothing
-      // happened", indistinguishable from "it's slow".
+      // A failed archive must say so, or the click looks like nothing happened.
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
         setErrors({

@@ -258,7 +258,7 @@ describe("sync-store", () => {
       torrents: { incomplete: { uploadSpeed: 100 } },
     })
 
-    // Should NOT add the incomplete torrent
+    // Should not add the incomplete torrent
     expect(getStoredTorrents(BASE_URL)).toHaveLength(1)
   })
 

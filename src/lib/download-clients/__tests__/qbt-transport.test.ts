@@ -249,12 +249,9 @@ describe("the response body cap", () => {
       .catch((e: unknown) => (e instanceof Error ? e : null))
 
     expect(err).not.toBeNull()
-    // Matched whole because only the cap branch builds this string, so an exact
-    // match proves the cap refused it and not a parse error further down. It
-    // names the host so the operator can tell which client sent the body.
-    //
-    // It does not pin the cap's value: both sides interpolate the same
-    // constant. Only the 72 MiB fixture bounds it, and only from above.
+    // Matched whole because only the cap branch builds this string, so a parse
+    // error further down cannot pass. The cap's value is not pinned; only the
+    // 72 MiB fixture bounds it, from above.
     expect(err?.message).toBe(
       `Response from qbt.local exceeded ${QBT_RESPONSE_MAX_BYTES} bytes and was refused`
     )

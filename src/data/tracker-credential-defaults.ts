@@ -1,25 +1,25 @@
 // src/data/tracker-credential-defaults.ts
 //
-// Which credential fields each tracker HAS, so a freshly opened vault sheet is
+// Which credential fields each tracker has, so a freshly opened vault sheet is
 // pre-populated instead of blank.
 //
 // ─────────────────────────────────────────────────────────────────────────────
-// CRITICAL BOUNDARY. READ BEFORE EDITING
+// Critical boundary. Read before editing
 //
 // Everything in this file, and every `credentialFields` entry in src/data/trackers/**,
-// is PUBLIC, git-committed data. It defines which fields EXIST. It must NEVER
-// hold a user's actual VALUES.
+// is public, git-committed data. It defines which fields exist. It must never
+// hold a user's actual values.
 //
 // A contributor pasting their own API key or passkey into one of these entries
-// would leak it into git history FOREVER. Rewriting history does not recall the
+// would leak it into git history forever. Rewriting history does not recall the
 // clones, the forks, or the mirrors, and a private-tracker passkey is an account
 // ban waiting to happen. The type system enforces this structurally:
-// TrackerCredentialFieldDefinition has NO `value` property, so there is nowhere
+// TrackerCredentialFieldDefinition has no `value` property, so there is nowhere
 // to put one. Do not add one. User values live only in the AES-256-GCM blob in
 // `trackers.encrypted_credentials`.
 // ─────────────────────────────────────────────────────────────────────────────
 //
-// Defaults are keyed by PLATFORM rather than by slug so that 56 tracker files do
+// Defaults are keyed by platform rather than by slug so that 56 tracker files do
 // not each need editing. A single tracker overrides by setting `credentialFields`
 // on its own registry entry; everything else falls through to its platform's list
 // and then to the universal fallback.
@@ -44,7 +44,7 @@ const PASSKEY_FIELD: TrackerCredentialFieldDefinition = {
 }
 
 /**
- * IRC identity. The nick is NOT a secret. It is visible to every other user in
+ * IRC identity. The nick is not a secret. It is visible to every other user in
  * the channel, so it opts out explicitly. The NickServ password omits `secret`
  * and therefore defaults to secret, which is the fail-closed direction.
  */
@@ -97,9 +97,9 @@ export const PLATFORM_CREDENTIAL_FIELDS: Partial<
  * Resolve the starting field definitions for a tracker: its own override, else
  * its platform's list, else the universal fallback.
  *
- * Deliberately NOT a merge. A tracker that sets `credentialFields` is stating the
+ * Deliberately not a merge. A tracker that sets `credentialFields` is stating the
  * complete list for itself; silently unioning it with the platform defaults would
- * make it impossible to REMOVE a field that a platform generally has but this
+ * make it impossible to remove a field that a platform generally has but this
  * tracker does not issue.
  *
  * These are only seeds for a new vault. Once a user has saved a vault, their

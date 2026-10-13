@@ -49,7 +49,6 @@ nav:
       - Backups & Restore: features/backups.md
       - Download Clients: features/download-clients.md
       - Tag Groups: features/tag-groups.md
-      - Rank Stacks: features/ranks.md
       - qbitmanage Integration: features/qbitmanage.md
       - Webhooks: features/webhooks.md
       - Transit Papers: features/transit-papers.md

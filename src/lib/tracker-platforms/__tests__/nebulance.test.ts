@@ -51,8 +51,8 @@ describe("NebulanceAdapter", () => {
   })
 
   it("refuses a byte total the response omitted rather than reading it as zero", async () => {
-    // The shape check above this only looks at Username, so a body missing the
-    // totals reached the mapper and read as an account that stopped seeding.
+    // The shape check only looks at Username, so a body missing the totals must
+    // throw here or it reads as an account that stopped seeding.
     for (const field of ["Uploaded", "Downloaded"] as const) {
       vi.spyOn(global, "fetch").mockResolvedValueOnce({
         ok: true,
@@ -483,9 +483,8 @@ describe("NebulanceAdapter - security", () => {
 })
 
 // ---------------------------------------------------------------------------
-// Nebulance routes through the shared adapterRequest helper. Before that it
-// hand-rolled its own proxy branch, which sent no User-Agent through the
-// tunnel and would have to be kept in sync by hand.
+// Nebulance routes through the shared adapterRequest helper, so the proxy path
+// sends the app User-Agent like the direct one.
 // ---------------------------------------------------------------------------
 
 describe("NebulanceAdapter - proxy routing", () => {
@@ -560,9 +559,8 @@ describe("NebulanceAdapter.fetchRaw", () => {
 })
 
 describe("NebulanceAdapter.fetchRaw body-level errors", () => {
-  // fetchStats rejects on `!ok || "error" in data`. fetchRaw checked only the
-  // status, so a 200 carrying an error body rendered in the debug view as a
-  // healthy call, which is the opposite of what that tab is opened to find.
+  // fetchRaw applies the same failure test as fetchStats, so a 200 carrying an
+  // error body shows as a failed call in the debug view.
   const adapter = new NebulanceAdapter()
 
   beforeEach(() => {
@@ -599,11 +597,9 @@ describe("NebulanceAdapter.fetchRaw body-level errors", () => {
 })
 
 describe("NebulanceAdapter error wording is an interface", () => {
-  // sanitizeNetworkError picks a rule by matching the raw message. The old
-  // `<host> API error: <message>` shape matched nothing of its own, so it was
-  // classified only when the tracker happened to use a word a rule looked for.
-  // A tracker wording its rejection differently fell through to "Poll failed",
-  // which reads the same as a host that never answered.
+  // sanitizeNetworkError picks a rule by matching the raw message, so the wording
+  // carries the status class itself. A rejection that falls through reads as
+  // "Poll failed", the same as a host that never answered.
   const adapter = new NebulanceAdapter()
 
   beforeEach(() => {
@@ -624,8 +620,7 @@ describe("NebulanceAdapter error wording is an interface", () => {
       .catch((e: unknown) => (e instanceof Error ? e : null))
 
     expect(err).not.toBeNull()
-    // The tracker never said "invalid", so the old shape would have landed here
-    // as the catch-all.
+    // The tracker never says "invalid", so only the status can classify this.
     expect(sanitizeNetworkError(err?.message ?? "")).toBe("Authentication failed")
     // And the tracker message survives for the log line.
     expect(err?.message).toContain("key not recognised")

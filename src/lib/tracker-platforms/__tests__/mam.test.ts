@@ -1,8 +1,4 @@
 // src/lib/tracker-platforms/__tests__/mam.test.ts
-//
-// Functions: mockMamResponse, mockFetch, describe(MamAdapter - parsing),
-//            describe(MamAdapter - auth), describe(MamAdapter - error handling),
-//            describe(MamAdapter - fetchRaw)
 
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { MamAdapter } from "../adapters/mam"
@@ -62,8 +58,8 @@ describe("MamAdapter - parsing", () => {
   })
 
   it("refuses a byte total the response omitted rather than reading it as zero", async () => {
-    // The adapter applies the all-categories-missing reasoning to seedingCount
-    // but handed the byte totals straight to the converter, which answers 0n.
+    // The byte-total converter answers 0n for a missing value, so an absent
+    // total must throw before it.
     for (const field of ["uploaded_bytes", "downloaded_bytes"] as const) {
       mockFetch({ [field]: undefined })
 

@@ -4,10 +4,8 @@
 
 /**
  * Settles with `work`, or rejects once `deadlineMs` passes without it
- * settling. The scheduler's cron tick awaits a whole poll cycle behind an
- * in-flight latch that a finally clears; a cycle whose promise never settled
- * left that latch set until restart, so the await is bounded here rather than
- * trusted.
+ * settling. The scheduler's cron tick holds an in-flight latch that a finally
+ * clears, so a cycle that never settles would hold it until restart.
  */
 export function withCycleDeadline<T>(
   work: Promise<T>,

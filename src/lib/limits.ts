@@ -15,19 +15,10 @@ const USERNAME_PATTERN = /^[\w\-. ]+$/
 type UsernameValidation = { ok: true; username: string } | { ok: false; error: string }
 
 /**
- * The one definition of a valid login username, in the order initial setup has
- * always applied it: trim FIRST, then bound the length, then the character class.
- *
- * Order matters. Checking the length of the raw string lets `" a "` through a
- * `>= 3` test and then stores the trimmed `"a"`. A username setup itself would
- * have rejected. Every surface that accepts a username has to agree with setup,
- * or the login form ends up demanding a value that could never have been typed
- * into the form that created the account.
- *
- * Deliberately pure, and deliberately free of `next/server`: this module is
- * imported by client components (i.e. the settings Account form), so anything
- * server-only in here would be dragged into the browser bundle. Route handlers
- * wrap the returned `error` in their own NextResponse.
+ * The one definition of a valid login username: trim first, then bound the
+ * length, then the character class. Checking the raw length would let `" a "`
+ * pass and store `"a"`. Client components import this module, so keep it free
+ * of `next/server`.
  */
 export function validateUsername(raw: unknown): UsernameValidation {
   if (typeof raw !== "string" || !raw.trim()) {
@@ -138,8 +129,7 @@ export const MOUSEHOLE_BODY_MAX_BYTES = 256
  * not bytes, so without this a host that streams slowly and forever is read
  * into memory unbounded.
  *
- * The number is a guess. Nothing was measured; it was picked to sit well above
- * any real library. Do not quote it as a researched figure.
+ * The number is a guess set well above any real library, not a measured figure.
  */
 export const QBT_RESPONSE_MAX_BYTES = 64 * 1024 * 1024
 

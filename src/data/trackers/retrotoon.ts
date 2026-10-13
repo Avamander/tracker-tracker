@@ -21,12 +21,11 @@ export const retrotoon: TrackerRegistryEntry = {
   // ── Content ─────────────────────────────────────────────────────────
   specialty: "Animation",
   // The site lists an Adult category, but rules.php forbids adult content
-  // outright, so it is not mapped to XXX. Owner decision 2026-08-31.
+  // outright, so it is not mapped to XXX.
   contentCategories: ["Movies", "TV", "Anime", "Comics", "Manga", "Music"],
   language: "English",
 
   // ── Visual ──────────────────────────────────────────────────────────
-  // Dominant colour of the site's favicon. The Classic theme publishes no accent.
   color: "#455a64",
   logo: "/tracker-logos/retrotoon_logo.png",
 
@@ -36,11 +35,7 @@ export const retrotoon: TrackerRegistryEntry = {
 
   // ── Community ───────────────────────────────────────────────────────
   // Thresholds from faq.php. The starting class is "Toon" in the live header
-  // and statistics.php, not "Sketch" as the FAQ still calls it. Silver Star and
-  // The Creator are awarded, so they carry no threshold and sit above the
-  // ladder rather than on a rung of it.
-  // Owner decision 2026-09-19: both listed above the ladder with the
-  // requirements text noting that the site publishes none.
+  // and statistics.php, not "Sketch" as the FAQ still calls it.
   userClasses: [
     { name: "Toon", requirements: "Starting class" },
     {
@@ -77,7 +72,7 @@ export const retrotoon: TrackerRegistryEntry = {
   // Run", which is the per-torrent OR. faq.php: accounts are disabled after 3
   // months without a login, and no account-level ratio is enforced.
   rules: {
-    minimumRatio: 1, // Owner decision 2026-08-31: truthful per-torrent value; accepts critical health until the account's ratio crosses 1
+    minimumRatio: 1, // per-torrent rule applied to the account ratio, so health reads critical below 1
     seedTimeHours: 72,
     loginIntervalDays: 90,
     satisfactionMode: "any",
@@ -94,7 +89,7 @@ export const retrotoon: TrackerRegistryEntry = {
   profileUrlPattern: "/userdetails.php?id={id}",
 
   // ── Stats ───────────────────────────────────────────────────────────
-  // statistics.php, refreshed by the site every 6 hours.
+  // statistics.php
   stats: {
     userCount: 11124,
     activeUsers: 11114,

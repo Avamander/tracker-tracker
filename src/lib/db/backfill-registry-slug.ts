@@ -68,8 +68,6 @@ export async function backfillRegistrySlugs(): Promise<void> {
       if (!entry) continue
 
       const values: { registrySlug: string; baseUrl?: string } = { registrySlug: entry.slug }
-      // The URL is written only when it differs, so a row already on the
-      // registry spelling is not dirtied for nothing.
       if (row.baseUrl !== entry.url) {
         values.baseUrl = entry.url
         normalised += 1
@@ -86,8 +84,7 @@ export async function backfillRegistrySlugs(): Promise<void> {
     )
   } catch (err) {
     // Deliberately left unlatched: a database that was not up yet gets another
-    // attempt on the next boot, and until then a null-slug row polls its stored
-    // URL, which is what it did before this column existed.
+    // attempt on the next boot, and until then a null-slug row polls its stored URL.
     log.warn({ error: errMsg(err) }, "Registry slug backfill failed, rows keep their stored URL")
   }
 }

@@ -58,7 +58,7 @@ async function fetchClientTorrents(
   // Skip when filter is requested. Active speeds need live qBT data.
   if (!filter && isStoreFresh(baseUrl, STORE_MAX_AGE_MS)) {
     if (tags === null) return getStoredTorrents(baseUrl)
-    // NOTE: this warm-path tag comparison is case-insensitive on both sides while
+    // This warm-path tag comparison is case-insensitive on both sides while
     // the cold path below hands the tag to qBT verbatim. Callers that pass
     // `tags: null` sidestep the divergence entirely by matching in application
     // code instead (see fetchAndMergeTorrents' `select`); the multi-tag fleet
@@ -111,10 +111,8 @@ async function fetchClientTorrents(
  *                 accurate, and before stripping, so it can still read the
  *                 announce URL.
  */
-/** Per-client deadline for live fetches (seconds). Keeps the UI responsive
- *  when one client is offline. The online client's data arrives immediately
- *  while the offline one is cut short after this deadline instead of waiting
- *  for the full 30s retry cycle (15s timeout x 2 attempts). */
+/** Per-client deadline for live fetches, so an offline client is cut short
+ *  instead of holding the whole response until the transport's own timeout. */
 const CLIENT_DEADLINE_MS = 5_000
 
 export async function fetchAndMergeTorrents(
@@ -140,10 +138,9 @@ export async function fetchAndMergeTorrents(
 
   const results = await Promise.allSettled(
     clients.map(async (client) => {
-      // The deadline used to release the caller and nothing else: the work kept
-      // running with its socket and response buffer open until the transport
-      // timeout, and the timer was never cleared on the happy path. Aborting is
-      // what actually stops a stalling host.
+      // Racing the deadline alone would release the caller and leave the work
+      // running with its socket open until the transport timeout. Aborting is
+      // what stops a stalling host.
       const controller = new AbortController()
       let timer: ReturnType<typeof setTimeout> | undefined
       const deadline = new Promise<never>((_, reject) => {

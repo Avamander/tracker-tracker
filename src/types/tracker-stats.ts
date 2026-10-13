@@ -29,8 +29,8 @@ export interface TrackerStats {
   lastAccessDate?: string
   shareScore?: number
   avatarUrl?: string
-  // The union is declared once, below. Restating it here meant a new meta type
-  // could be added to one list and missed in the other.
+  // Declared once, below, so a new meta type cannot be added to one list and
+  // missed in another.
   platformMeta?: PlatformMeta
 }
 
@@ -66,8 +66,8 @@ export interface GazelleRanks {
 export interface GazelleCommunity {
   posts: number
   torrentComments: number
-  // Optional because some Gazelle builds omit them. The adapter used to send
-  // 0 so this could stay required, which made an omitted count look measured.
+  // Optional because some Gazelle builds omit them, and a 0 would read as a
+  // measured count.
   artistComments?: number
   collageComments?: number
   requestComments?: number
@@ -177,9 +177,8 @@ export interface AvistazPlatformMeta {
 export interface HawkePlatformMeta {
   /**
    * Seed counts per Hawke seeding division (vanguard, squire, knight,
-   * champion, legend, guardian). Left open rather than a fixed key set so a
-   * new division added site-side flows through instead of being dropped,
-   * the same reason GGn's `buffs` is a Record.
+   * champion, legend, guardian). A Record rather than a fixed key set, so a
+   * division added site-side flows through instead of being dropped.
    */
   seedDivisions?: Record<string, number>
   /**
@@ -267,8 +266,7 @@ export interface PlatformMetaMap {
  * Fails to compile if a PlatformMetaMap key is not a real platform.
  *
  * The constraint on `Assert` is what makes it fire: a bare conditional type
- * would evaluate to `false` and compile. `extends Partial<Record<PlatformType,
- * ...>>` does not work either, since an extra property is assignable to it.
+ * would evaluate to `false` and compile.
  *
  * Nothing imports this; the underscore says so to the linter.
  */

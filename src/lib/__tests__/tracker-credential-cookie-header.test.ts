@@ -1,8 +1,4 @@
 // src/lib/__tests__/tracker-credential-cookie-header.test.ts
-//
-// validateCookieHeader is reached from the credential form as well as from
-// four adapters, so it is tested where it lives rather than with the adapter
-// helpers it used to sit beside.
 
 import { describe, expect, it } from "vitest"
 import { validateCookieHeader } from "@/lib/tracker-credentials/cookie-header"
@@ -49,11 +45,8 @@ describe("validateCookieHeader", () => {
 })
 
 describe("validateCookieHeader control characters", () => {
-  // Regression: CR/LF passed the byte-range guard, fetch() then threw a
-  // TypeError quoting the whole header, and classifyFetchError copied that
-  // message into the log file and the debug endpoint. Verified before the fix:
-  // "Failed to connect to <host>: Headers.append: "PHPSESSID=<secret>\r\nHost:
-  // ..." is an invalid header value."
+  // Without the control-character check, CR/LF passes the byte-range guard and
+  // fetch() throws a TypeError that quotes the whole header, secret included.
   it("rejects a pasted raw request-header block containing CRLF", () => {
     expect(() =>
       validateCookieHeader("PHPSESSID=secret\r\nHost: retrotoon.world", { example: "a=b" })

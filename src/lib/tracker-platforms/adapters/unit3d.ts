@@ -65,9 +65,7 @@ interface Unit3dApiResponse {
   downloaded: string | number
   ratio: string | number
   buffer: string | number
-  // Optional because unwrapUnit3dResponse only requires the byte fields. Marking
-  // them so is what makes the null-coalesce at the mapping site load-bearing
-  // rather than dead code a reader would be tempted to delete.
+  // Optional because unwrapUnit3dResponse requires only the byte fields.
   seeding?: number
   leeching?: number
   seedbonus?: string | number
@@ -77,23 +75,14 @@ interface Unit3dApiResponse {
 // ---------------------------------------------------------------------------
 // Auth
 //
-// UNIT3D's newer auth guard reads *only* `Authorization: Bearer`, the legacy
-// `?api_token=` query form stops authenticating once a tracker upgrades past
-// v9.2.0. Released versions accept bearer today (config/auth.php uses the
-// stock Laravel `token` driver, whose TokenGuard falls through to
-// bearerToken()), so bearer is the one form that works on both.
-//
-// It is still transport, not spec: a reverse proxy that strips Authorization,
-// or a fork that swapped the guard, would reject it. So we try bearer, and on
-// a 401 fall back once to the legacy query param. Whichever succeeds is
-// remembered per tracker so we don't pay for two requests on every poll.
-// `unit3dAuthStyle` pins a style explicitly and skips the probing entirely.
+// UNIT3D past v9.2.0 reads only `Authorization: Bearer` and released versions
+// accept it, so bearer goes first. A 401 falls back once to `?api_token=` and
+// the working style is remembered per tracker; `unit3dAuthStyle` pins one and
+// skips the probe.
 // ---------------------------------------------------------------------------
 
-// The remembered style is an observation about one tracker at one moment, not
-// a fact about it. Without an expiry a single wrong probe kept the token in
-// the query string for the life of the process, and a tracker that moved to
-// bearer could never be noticed.
+// The remembered style expires, so one wrong probe cannot keep the token in
+// the query string for good and a move to bearer is noticed.
 const AUTH_STYLE_TTL_MS = 24 * 60 * 60 * 1000
 
 const gU3d = globalThis as typeof globalThis & {
@@ -136,15 +125,9 @@ function buildRequest(
 }
 
 /**
- * Fetch with the tracker's known-good auth style, probing bearer→query once if
- * we don't have one yet.
- *
- * The probe decides whether to put the token in the query string, so it reads
- * the response status rather than the text of a thrown error. Matching digits
- * in a message fired on failures that were never about auth: a connection
- * refused by a host named like us-403.tracker.net said 403 to a regex.
- * Only a 401 from the tracker itself probes; a 403 is a block page or a WAF,
- * not the wrong auth style.
+ * Fetch with the tracker's known-good auth style, probing bearer then query
+ * once when none is known. Only a 401 status probes; a 403 is a block page or
+ * a WAF, not the wrong auth style.
  */
 async function unit3dFetch<T>(
   baseUrl: string,
@@ -180,16 +163,11 @@ async function unit3dFetch<T>(
 }
 
 // ---------------------------------------------------------------------------
-// Shape check. A fork can change what /api/user returns without touching the
-// status code (issue #214, LST), and parseBytes on a missing field died with
-// "Cannot read properties of undefined (reading 'trim')", which nothing
-// downstream could explain. Only the fields whose absence crashes are
-// required; a body that lacks seeding or hit_and_runs polls degraded, not
-// failed. Laravel wraps a JsonResource in {"data": ...} unless the controller
-// opts out; stock UNIT3D opts out, so an envelope is accepted, never expected.
-// Error messages name keys, never values, a value could be a username. Their
-// wording matches the shape errors the Gazelle, BTN, GGn, MAM, Nebulance and
-// Hawke adapters throw, so one sanitizeNetworkError rule covers all of them.
+// Shape check. A fork can change what /api/user returns without changing the
+// status (issue #214, LST), so only the byte fields whose absence crashes are
+// required and a {"data": ...} envelope is accepted. Errors open with
+// "Unexpected response from", which sanitizeNetworkError keys on, and name
+// keys, never values, since a value could be a username.
 // ---------------------------------------------------------------------------
 
 const REQUIRED_BYTE_FIELDS = ["uploaded", "downloaded", "buffer"] as const
@@ -284,7 +262,7 @@ export class Unit3dAdapter implements TrackerAdapter {
       // which parseBytes rejects. Derive it from the totals instead: the same
       // fallback avistaz.ts uses.
       //
-      // Otherwise parse it SIGNED: buffer is the one field here that can
+      // Otherwise parse it signed: buffer is the one field here that can
       // legitimately arrive negative ("-1.23 TiB"), and plain parseBytes throws
       // on a leading minus, which fails the whole poll (uploaded, downloaded
       // and every other stat with it) instead of recording one negative value.

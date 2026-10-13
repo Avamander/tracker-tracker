@@ -49,12 +49,11 @@ export function parseAvistazCredentials(apiToken: string): AvistazCredentials {
 }
 
 // ---------------------------------------------------------------------------
-// Byte parsing: parseBytes handles both binary (GiB) and decimal (GB) units
-// with exact bigint arithmetic. AvistaZ uses decimal units (GB, KB).
+// Value parsing
 // ---------------------------------------------------------------------------
 
 /**
- * A yes/no cell read by matching BOTH spellings, so only a value the page
+ * A yes/no cell read by matching both spellings, so only a value the page
  * actually stated produces a boolean. A negative match (`!== "no"`) reports
  * granted for anything it does not recognise, which turns a site renaming
  * "No" to "Disabled" into a silently restored permission.
@@ -99,14 +98,8 @@ function textFromDatagrid(doc: ParsedElement, label: string): string {
 }
 
 /**
- * Extracts the numeric value after a labeled entry in ratio bar items.
- * Uses regex-only matching to handle whitespace variations in the DOM
- * (i.e. "Hit & Run:" may have line breaks between words).
- */
-/**
- * A ratio-bar figure as a number, or null when the bar carries no such item.
- * extractRatioBarValue returns "" for an absent label and parseInt("") is NaN,
- * which the old `|| 0` turned into a measured zero.
+ * A ratio-bar figure as a number, or null when the bar carries no such item,
+ * so an absent label never reads as zero.
  */
 function ratioBarNumber(items: ParsedElement[], labelRegex: RegExp): number | null {
   const raw = extractRatioBarValue(items, labelRegex)
@@ -177,9 +170,8 @@ export function parseAvistazProfile(
   // item" stays distinct from "it said 0 B". Only the first is a parse failure.
   let uploadedBytes: bigint | undefined
   let downloadedBytes: bigint | undefined
-  // null until the ratio bar actually yields the figure. types.ts requires an
-  // unknown count to stay distinguishable from a measured zero, and a zero
-  // start reported "no seeds" for a bar that simply had no Active Seeds item.
+  // null until the ratio bar yields the figure, so a bar with no Active Seeds
+  // item reads as unknown rather than zero.
   let seedingCount: number | null = null
   let leechingCount: number | null = null
   let seedbonus: number | null = null
@@ -224,10 +216,9 @@ export function parseAvistazProfile(
     throw new Error(`Unexpected response from ${hostname}: unreadable downloaded byte total`)
   }
 
-  // BS3 (AvistaZ) uses text labels like "Seeding: 2". BS5 (AnimeZ) uses tooltip
-  // titles handled above. Fall back to text-based extraction for BS3. A tooltip
-  // that read a real zero is now kept rather than sent back through the
-  // fallback, which the old falsy test could not tell from "nothing found".
+  // BS3 (AvistaZ) uses text labels like "Seeding: 2" and BS5 (AnimeZ) the
+  // tooltip titles read above. The text fallback runs only when the tooltip
+  // yielded nothing, so a real zero is kept.
   if (seedingCount === null) seedingCount = ratioBarNumber(items, /Seeding:\s*([\d,]+)/)
   if (leechingCount === null) leechingCount = ratioBarNumber(items, /Leeching:\s*([\d,]+)/)
   if (seedbonus === null) seedbonus = ratioBarNumber(items, /Bonus:\s*([\d,.]+)/)
@@ -313,12 +304,8 @@ export function parseAvistazProfile(
     }
   }
 
-  // Every field() below returns "" for a row this profile layout never
-  // rendered, and "" is unknown rather than a value. Reading it as one was
-  // biased towards granting: `"" !== "no"` is true, so a missing permission row
-  // reported an account that can upload and download, and a missing 2FA row
-  // reported 2FA enabled. Every field here is optional on AvistazPlatformMeta,
-  // so leaving it absent is what the type already expects.
+  // field() returns "" for a row this layout never rendered. That is unknown,
+  // so each flag stays undefined rather than reading as granted.
   const platformMeta: AvistazPlatformMeta = {
     donor: yesNo(donorText),
     vipExpiry: vipExpiryText === "-" ? null : vipExpiryText || null,

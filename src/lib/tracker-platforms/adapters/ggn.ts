@@ -66,8 +66,7 @@ interface GGnUserResponse {
 
 /**
  * GGn authenticates with a key query parameter rather than a header, so the
- * URL is the auth. Both methods issue the same two requests, and building them
- * separately is what let the copies drift apart.
+ * URL is the auth. Both methods build their requests here.
  */
 function ggnQuickUserUrl(apiPath: string, baseUrl: string, apiToken: string): URL {
   const url = new URL(apiPath, baseUrl)
@@ -137,21 +136,15 @@ export class GGnAdapter implements TrackerAdapter {
 
     const uploaded = requireBytes(resp.stats.uploaded, "uploaded", hostname)
     const downloaded = requireBytes(resp.stats.downloaded, "downloaded", hostname)
-    // GGn types its ratio as string | number. A string that does not parse fell
-    // to 0, the worst ratio the app can hold, and that figure is stored in the
-    // snapshot and fed to the ratio_danger alert (tracker-scheduler.ts:336).
-    // An account with nothing downloaded is the case that matters: the site
-    // prints an infinity glyph, parseFloat gives NaN, and the account was
-    // reported as critically in debt. Fall back to the byte totals instead.
+    // GGn sends its ratio as a string or a number, and prints an infinity glyph
+    // for an account with nothing downloaded. A ratio that does not parse falls
+    // back to the byte totals rather than to 0.
     const reported =
       typeof resp.stats.ratio === "number" ? resp.stats.ratio : parseFloat(resp.stats.ratio)
     const ratio = Number.isFinite(reported) ? reported : computeRatio(uploaded, downloaded)
 
     // Every field here is optional on GGnPlatformMeta, so an absent one stays
-    // absent. Defaulting them fabricated data in both directions (`?? false`
-    // for donor, `?? true` for enabled, from the same missing `personal`) and
-    // it made the unknown branches in slot-registry.ts dead code: an unreported
-    // hourly gold rendered as "+0" instead of the placeholder it already draws.
+    // absent and the UI draws its unknown placeholder.
     const platformMeta: GGnPlatformMeta = {
       donor: resp.personal?.donor,
       parked: resp.personal?.parked,

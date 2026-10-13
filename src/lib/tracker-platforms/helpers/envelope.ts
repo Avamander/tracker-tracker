@@ -4,21 +4,10 @@
 
 /**
  * The failure a tracker signalled inside an HTTP 200 body, or null when the
- * body reports success.
- *
- * fetchRaw needs this. adapterFetch throws on a non-2xx, so the only failure
- * that reaches fetchRaw intact is one the tracker wrapped in a successful
- * response, and the debug view marks a call healthy purely on `error` being
- * null (DebugResponseDialog.tsx). An unchecked error body therefore renders a
- * rejected key as a green call, which is the opposite of what the Raw tab is
- * opened to find out.
- *
- * Two envelope shapes are in use across the adapters and neither is worth its
- * own helper:
- *   Gazelle and GGn   { status: "success" | ..., error?: string }
- *   Hawke             { success: boolean, message?: string }
- * A tracker whose failure is a missing field rather than an envelope flag
- * (MAM) is not covered here and checks for itself.
+ * body reports success. adapterFetch throws only on a non-2xx, and the debug
+ * view marks a call healthy when `error` is null, so without this a rejected
+ * key in a 200 body shows as healthy. Covers the Gazelle/GGn status envelope
+ * and the Hawke success envelope; MAM checks for itself.
  */
 export function envelopeError(data: unknown): string | null {
   if (typeof data !== "object" || data === null) return null

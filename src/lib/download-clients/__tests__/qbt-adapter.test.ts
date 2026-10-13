@@ -122,7 +122,7 @@ describe("QbtClientAdapter", () => {
     expect(torrents[0].hash).toBe("abc")
     expect(torrents[0].name).toBe("Test")
 
-    // Verify raw snake_case fields are NOT present on the result
+    // Verify raw snake_case fields are not present on the result
     expect(torrents[0]).not.toHaveProperty("upspeed")
     expect(torrents[0]).not.toHaveProperty("dlspeed")
     expect(torrents[0]).not.toHaveProperty("num_seeds")
@@ -264,10 +264,8 @@ describe("QbtClientAdapter", () => {
 // API-key mode
 //
 // A Bearer key is stateless: there is no login to perform, no SID to cache,
-// and nothing to refresh on expiry. The point of these tests is that the
-// session machinery is not merely unused but unreachable, if withSessionRetry
-// or login is ever called for a key client, the adapter is doing work that
-// cannot succeed.
+// and nothing to refresh on expiry. If withSessionRetry or login is ever
+// called for a key client, the adapter is doing work that cannot succeed.
 // ---------------------------------------------------------------------------
 
 describe("QbtClientAdapter with API-key auth", () => {

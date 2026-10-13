@@ -10,14 +10,9 @@ import type { TrackerRegistryEntry } from "@/data/tracker-registry"
 import { validateDefunct } from "@/data/tracker-validation-rules"
 
 // ---------------------------------------------------------------------------
-// Local mirror of the transit-papers validation logic from
-// scripts/validate-trackers.ts. Do NOT import that script directly, it runs
-// CLI side-effects (process.exit, console.log) on module load.
-//
-// The defunct rule below needs no mirror: it lives in
-// src/data/tracker-validation-rules.ts, which the script imports, so these tests
-// exercise the real implementation and cannot drift from it. Transit papers
-// predates that arrangement and is still duplicated here.
+// Local mirror of the transit-papers rule in scripts/validate-trackers.ts,
+// which calls process.exit on import. The defunct rule needs no mirror, since it
+// lives in src/data/tracker-validation-rules.ts and is tested directly.
 // ---------------------------------------------------------------------------
 
 function validateTransitPapers(entry: Partial<TrackerRegistryEntry>): {
@@ -264,8 +259,8 @@ describe("defunct validation", () => {
     expect(errors).toContain("defunct is true but defunctMessage is missing")
   })
 
-  // A free-form display string is the tempting alternative (stats.statsUpdatedAt is one),
-  // but the UI parses this field, and "May 2026" parses to Invalid Date.
+  // The UI parses this field, and a free-form string like "May 2026" parses to
+  // Invalid Date.
   it("a free-form defunctDate produces an error", () => {
     const { errors } = validateDefunct({ ...defunctEntry, defunctDate: "May 11 2026" })
 

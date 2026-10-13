@@ -5,7 +5,7 @@ import { BtnAdapter } from "../adapters/btn"
 
 /** Where BTN's API actually lives, the adapter owns this, callers cannot change it. */
 const API_URL = "https://api.broadcasthe.net/"
-/** What a row created from the registry now carries in `api_path`. */
+/** What a row created from the registry carries in `api_path`. */
 const API_PATH = "/"
 
 describe("BtnAdapter", () => {
@@ -144,11 +144,9 @@ describe("BtnAdapter", () => {
     expect(stats.ratio).toBe(0)
   })
 
-  // Upload and Download are documented required fields. A blank one is BTN
-  // breaking its own contract, and it cannot be reported as unknown: both byte
-  // totals are non-nullable bigint. Reading it as 0 would show a real ratio of
-  // 0.00, fire the ratio-danger alert, and write that zero into snapshot
-  // history, where it cannot be told from an account that stopped seeding.
+  // Both byte totals are non-nullable bigint, so a blank one cannot be stored as
+  // unknown. Reading it as 0 writes a fabricated total and ratio into snapshot
+  // history.
   for (const field of ["Upload", "Download"] as const) {
     it(`refuses a blank ${field} rather than reading it as zero`, async () => {
       vi.spyOn(global, "fetch").mockResolvedValueOnce({
@@ -174,10 +172,8 @@ describe("BtnAdapter", () => {
   }
 
   it("keeps a UserID of zero rather than dropping it", async () => {
-    // `|| undefined` treated 0 as absent. BTN is unlikely to issue that id, but
-    // remoteUserId is the key a secondary call is made with, so the difference
-    // between "the tracker said 0" and "the tracker said nothing" is the same
-    // one the null versus zero rule is about.
+    // A UserID of 0 is an answer from the tracker, so it stays 0 rather than
+    // reading as absent.
     vi.spyOn(global, "fetch").mockResolvedValueOnce({
       ok: true,
       status: 200,
@@ -382,7 +378,7 @@ describe("BtnAdapter - proxy handling", () => {
 
     expect(stats.username).toBe("testuser")
     expect(proxyFetch).toHaveBeenCalledTimes(1)
-    // The whole point: a configured tunnel must not be silently bypassed.
+    // A configured tunnel must not be silently bypassed.
     expect(fetchSpy).not.toHaveBeenCalled()
     vi.doUnmock("@/lib/tunnel")
   })
@@ -473,9 +469,8 @@ describe("BtnAdapter - documented vs observed field names", () => {
 })
 
 describe("BtnAdapter status classification", () => {
-  // The wording used to come from matching digits in the error message, which
-  // meant a tracker-supplied string containing "401" would have been read as a
-  // rejected key. It comes from response.status now.
+  // The wording comes from response.status, so a tracker string containing
+  // "401" is not read as a rejected key.
   const adapter = new BtnAdapter()
 
   beforeEach(() => {

@@ -9,16 +9,9 @@ import { adapterRequest } from "../helpers/adapter-fetch"
 import { tryParseCount } from "../helpers/html-parse"
 
 /**
- * BTN serves its API from a different host than its site, and every BTN user
- * hits the same one, it is a property of the platform, not of a user's row.
- * So the adapter owns it and deliberately ignores the persisted `apiPath`,
- * the same way avistaz/digitalcore/iptorrents/torrentleech ignore theirs.
- *
- * That ignore is load-bearing: rows created before this change persisted the
- * absolute URL into `api_path`. Reading it back would be harmless today but
- * would go stale the moment BTN moves hosts, and `drizzle-kit push` has no
- * sanctioned way to rewrite existing rows. Ignoring it makes those rows
- * self-heal.
+ * BTN serves one API host for every user, so the adapter owns the URL and
+ * ignores the persisted apiPath. Some rows hold an absolute URL in api_path,
+ * and ignoring it keeps them working if BTN moves hosts.
  */
 const BTN_API_URL = "https://api.broadcasthe.net/"
 const BTN_API_HOSTNAME = new URL(BTN_API_URL).hostname
@@ -100,8 +93,8 @@ function mapBtnResult(result: BtnUserInfoResult): TrackerStats {
     // hit-and-runs, so this key may not exist. Report unknown rather than a
     // fabricated 0.
     hitAndRuns: tryParseCount(result.HnR) ?? null,
-    // `Lumens` and `Bonus` are undocumented, meanings unconfirmed. `Bonus` is
-    // fractional, which doesn't fit a token count. Unmapped pending verification.
+    // `Lumens` and `Bonus` are undocumented with unconfirmed meanings, so
+    // neither is mapped.
     seedbonus: null,
     freeleechTokens: null,
     remoteUserId: tryParseCount(result.UserID) ?? undefined,
@@ -115,10 +108,8 @@ async function callBtnUserInfo(
   hostname: string,
   options?: FetchOptions
 ): Promise<BtnJsonRpcResponse> {
-  // adapterRequest rather than adapterFetch, so BTN's own wording for 401 and
-  // 503 comes from the status rather than from matching digits in a message.
-  // The message is not ours to read: a tracker-supplied string containing
-  // "401" would have been classified as a rejected key.
+  // adapterRequest returns the status, so the 401 and 503 messages below key
+  // off the status code, never off digits in a tracker-supplied message.
   let response: Awaited<ReturnType<typeof adapterRequest>>
   try {
     response = await adapterRequest(

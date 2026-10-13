@@ -285,9 +285,9 @@ export function TrackerDetailClient({
         registryEntry={registryEntry}
         tracker={tracker}
         onArchived={(updated) => {
-          // Same handling as the settings sheet's archive: the row has already
-          // been written through the shared cache, so there is nothing to
-          // re-fetch. An archived tracker just leaves the active dashboard.
+          // The row is already written through the shared cache, so there is
+          // nothing to re-fetch. An archived tracker just leaves the active
+          // dashboard.
           if (!updated.isActive) {
             router.push("/")
             return
@@ -356,8 +356,7 @@ export function TrackerDetailClient({
         />
       )}
 
-      {/* Keyed on the tracker id for the same reason as the settings sheet:
-          navigating between trackers must not carry one tracker's draft vault
+      {/* Keyed on the tracker id so one tracker's draft vault does not carry
           into another's sheet. */}
       <TrackerCredentialsSheet
         key={`credentials-${tracker.id}`}
@@ -377,11 +376,8 @@ export function TrackerDetailClient({
         tracker={tracker}
         onClose={() => setShowSettings(false)}
         onUpdated={(updated) => {
-          // `updated` is the PATCH response itself. This used to re-GET
-          // /api/trackers/{id} first, re-running the exact query the PATCH had
-          // just run and putting a second serial round trip in front of the
-          // redirect. The sheet has also already written this row into the
-          // shared ["trackers"] cache, so the sidebar is correct by now.
+          // `updated` is the PATCH response, and the sheet has already written
+          // it into the shared ["trackers"] cache, so no re-GET is needed.
           if (!updated.isActive) {
             router.push("/")
             return

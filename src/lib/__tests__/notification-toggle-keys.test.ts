@@ -1,10 +1,9 @@
 // src/lib/__tests__/notification-toggle-keys.test.ts
 //
-// The PATCH route writes only the keys it lists, so a notify column that is
-// missing from that list is accepted by the client, updated optimistically in
-// the UI, and silently never persisted. notifyDownloadDisabled shipped that
-// way. Deriving the expectation from the schema means the next column added
-// without a toggle key fails here rather than in someone's settings sheet.
+// The PATCH route writes only the keys it lists, so a notify column missing
+// from that list is accepted by the client, updated optimistically in the UI,
+// and silently never persisted. Deriving the expectation from the schema makes
+// the next column added without a toggle key fail here.
 
 import { describe, expect, it } from "vitest"
 import { notificationTargets } from "@/lib/db/schema"

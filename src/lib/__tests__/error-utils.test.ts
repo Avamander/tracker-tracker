@@ -337,13 +337,9 @@ describe("sanitizeNetworkError TorrentLeech auth outcomes", () => {
 })
 
 // ---------------------------------------------------------------------------
-// Adapter shape errors (issue #214). An adapter that gets a 2xx body it cannot
-// read throws "Unexpected response from <host>: ...", the wording the Gazelle,
-// BTN, GGn, MAM, Nebulance, Hawke and UNIT3D adapters share. That must reach
-// the UI as its own message rather than the generic fallback, and it must be
-// matched BEFORE the credential rule, whose /invalid/ alternation would
-// otherwise turn a tracker key literally named "invalid" into "Invalid
-// credentials".
+// Adapter shape errors (issue #214) read "Unexpected response from <host>: ...".
+// They get their own message and must match before the credential rule, whose
+// /invalid/ would turn a key named "invalid" into "Invalid credentials".
 // ---------------------------------------------------------------------------
 
 describe("sanitizeNetworkError - unexpected response shape", () => {
@@ -370,9 +366,9 @@ describe("sanitizeNetworkError - unexpected response shape", () => {
     )
   })
 
-  // parseBytes' own messages start with "Invalid", "Negative" and "Unknown".
-  // The first of those used to fall into the credential rule, so a tracker
-  // sending "" or "1,024.50 GiB" for uploaded told the user to rotate a key.
+  // parseBytes' messages start with "Invalid", "Negative" and "Unknown".
+  // "Invalid" must not reach the credential rule, or a malformed uploaded field
+  // tells the user to rotate a key.
   it("maps a byte-string parse failure to the unexpected-response message, not to credentials", () => {
     expect(sanitizeNetworkError('Invalid byte format: ""', "Poll failed")).toBe(
       "Tracker returned an unexpected response"

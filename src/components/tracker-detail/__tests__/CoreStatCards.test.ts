@@ -1,9 +1,9 @@
 // src/components/tracker-detail/__tests__/CoreStatCards.test.ts
 //
 // Regression coverage: an infinite ratio (uploaded > 0, downloaded === 0)
-// crosses the wire as `ratio: null` plus `ratioIsInfinite`. The ratio
-// descriptor used to read `ratio` alone and render "—" with no trend,
-// identical to a tracker with no stats at all.
+// crosses the wire as `ratio: null` plus `ratioIsInfinite`. Reading `ratio`
+// alone renders a dash with no trend, identical to a tracker with no stats at
+// all.
 //
 // Also covers the Hit & Runs descriptor: a measured zero renders "0", while a
 // null count (the adapter cannot read the field) renders "—" like a missing

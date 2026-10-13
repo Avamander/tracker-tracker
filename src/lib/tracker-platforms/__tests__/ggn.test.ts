@@ -76,8 +76,8 @@ describe("GGnAdapter", () => {
   })
 
   it("refuses a byte total the user call omitted rather than reading it as zero", async () => {
-    // The adapter already guards its ratio field against a non-finite parse.
-    // The byte totals it derives that ratio from were handed straight through.
+    // A missing byte total must throw, not read as 0, or the fallback ratio
+    // derived from it is fabricated too.
     for (const field of ["uploaded", "downloaded"] as const) {
       mockBothCalls({ stats: { [field]: undefined } })
 

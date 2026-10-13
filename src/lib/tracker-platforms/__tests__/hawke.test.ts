@@ -77,9 +77,8 @@ describe("HawkeAdapter", () => {
   })
 
   it("preserves a negative buffer instead of clamping it to zero", async () => {
-    // computeBufferBytes and floatBytesToBigInt both floor at 0, which would
-    // turn this deficit account's -2.6 TB buffer into a confident 0 B. The
-    // adapter must not route the signed buffer through either.
+    // floatBytesToBigInt floors at 0, which would turn this deficit account's
+    // -2.6 TB buffer into 0 B. The signed buffer must not go through it.
     vi.spyOn(global, "fetch").mockResolvedValueOnce(okResponse(LIVE_RESPONSE))
 
     const stats = await adapter.fetchStats("https://hawke.uno", "fake-token", "/api/profile")

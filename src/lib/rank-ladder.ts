@@ -30,7 +30,7 @@ export interface RankLadder {
   /** True when the tracker reported a class the registry does not list at all. */
   unknownClass: boolean
   /**
-   * One sentence for assistive tech, e.g. "Power User, rank 2 of 5". Kept
+   * One sentence for assistive tech, "Power User, rank 2 of 5". Kept
    * here so the visual label and the spoken one cannot drift apart.
    */
   summary: string

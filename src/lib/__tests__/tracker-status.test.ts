@@ -92,8 +92,8 @@ const healthOf = (stats: Partial<TrackerLatestStats>) =>
 // ---------------------------------------------------------------------------
 // The thin-ratio / zero-seed split
 //
-// These two conditions shared one "warning" pill until they were separated.
-// The tests below pin each one alone, plus the precedence when they overlap.
+// The thin-ratio and zero-seed conditions each get their own pill. The tests
+// below pin each one alone, plus the precedence when they overlap.
 // ---------------------------------------------------------------------------
 
 describe("getTrackerHealth — thin ratio vs. zero seeds", () => {

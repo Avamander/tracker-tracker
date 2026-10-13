@@ -12,9 +12,7 @@ import { SessionExpiredError } from "./errors"
 // Shared HTML fetcher for the scraping adapters.
 //
 // adapterFetch handles JSON APIs; trackers without an API are read by fetching
-// an authenticated page and parsing the DOM. Those adapters previously carried
-// a near-identical fetchHtml each, so a change to the header set or the error
-// shape had to be made in three places.
+// an authenticated page and parsing the DOM.
 // ---------------------------------------------------------------------------
 
 /**
@@ -65,10 +63,8 @@ function fetchFailure(label: string, status: number, statusText: string): Error 
 }
 
 /**
- * The proxied and direct transports narrowed to what the redirect handling
- * below needs. Keeping the two on one shape is what stops the proxy path from
- * skipping that handling, which is how the followRedirects option three
- * adapters opted into came to be dead for every proxied user.
+ * The proxied and direct transports narrowed to one shape, so the redirect
+ * handling below runs on both.
  */
 interface HtmlResponse {
   ok: boolean

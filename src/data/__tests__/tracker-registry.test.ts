@@ -93,7 +93,6 @@ describe("tracker registry", () => {
       .readdirSync(TRACKER_DIR)
       .filter((f) => f.endsWith(".ts") && f !== "index.ts" && !f.startsWith("_"))
       .map((f) => f.replace(/\.ts$/, ""))
-    // Read barrel to get actual imported filenames
     const barrelContent = fs.readFileSync(path.join(TRACKER_DIR, "index.ts"), "utf8")
     const unregistered = files.filter((f) => !barrelContent.includes(`./${f}`))
     expect(
@@ -321,17 +320,15 @@ describe("tracker registry", () => {
     }
   })
 
-  // ── Migrated from src/data/tracker-registry.test.ts ──────────────────
+  // ── Lookups and auth styles ──────────────────────────────────────────
 
   it("has at least 2 trackers", () => {
     expect(TRACKER_REGISTRY.length).toBeGreaterThanOrEqual(2)
   })
 
   describe("gazelle auth styles", () => {
-    // Regression guard for issue #155. RED returned 401 for every user because
-    // it was configured with the prefixed `token <key>` form. Upstream Gazelle
-    // has a dedicated bare-token branch commented "this first case is for
-    // compatibility with RED", so the bare form is RED-specific.
+    // Issue #155. RED answers the prefixed `token <key>` form with a 401, so it
+    // must stay on the raw style.
     it("uses the raw (unprefixed) Authorization form for Redacted", () => {
       const red = getTrackerBySlug("redacted")
       expect(red).toBeDefined()

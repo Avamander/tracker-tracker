@@ -111,9 +111,7 @@ export function buildCoreStatDescriptors(
       label: "Hit & Runs",
       icon: <TriangleWarningIcon width="16" height="16" />,
       // Adapters that cannot read hit & runs store null, and null must not
-      // read as a clean "0". The dashboard's Ecosystem card applies the same
-      // rule. MAM's health slot keeps its `?? 0` because it sums the count
-      // into a torrent-health total, where a missing count must add nothing.
+      // read as a clean "0".
       value: latestSnapshot?.hitAndRuns != null ? formatCount(latestSnapshot.hitAndRuns) : "—",
     },
     {

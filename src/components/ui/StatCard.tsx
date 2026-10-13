@@ -509,10 +509,8 @@ function StatCard(props: StatCardProps) {
     )
   }
 
-  // Default: basic. The tile is a label and a value, not a set of related
-  // controls, so it carries no role; the aria-label only made screen readers
-  // read the heading the tile already shows. What the role was really doing is
-  // spelled out instead, in the same way as OutageBandLegend.
+  // Default: basic. The tile is a label and a value, not a group of controls,
+  // so it sets no role or aria-label.
   return (
     <Shell
       data-testid={`stat-card-${props.label}`}

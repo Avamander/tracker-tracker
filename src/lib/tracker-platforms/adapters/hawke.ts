@@ -15,20 +15,9 @@ import { requireBytes } from "../helpers/bytes"
 import { envelopeError } from "../helpers/envelope"
 
 // ---------------------------------------------------------------------------
-// Hawke is NOT UNIT3D.
-//
-// hawke.uno was registered as platform "unit3d" pointing at /api/user, and the
-// resulting 404 got recorded as "the API does not permit /user requests". That
-// read the symptom correctly and the cause wrongly: Hawke simply isn't running
-// UNIT3D, so no UNIT3D route exists to permit. Verified against the live API:
-//
-//   GET /api/user     -> 404
-//   GET /api/v1/user  -> 404
-//   GET /api/profile  -> 200, with `Authorization: Bearer <key>`
-//
-// The payload is wrapped in a success/data/message envelope rather than being
-// the bare user object UNIT3D returns, which is the other half of why pointing
-// a UNIT3D adapter at it could never have worked.
+// Hawke is not UNIT3D. Its profile is GET /api/profile with a Bearer key,
+// wrapped in a success/data/message envelope; /api/user and /api/v1/user
+// both 404.
 // ---------------------------------------------------------------------------
 
 interface HawkeProfile {
@@ -99,11 +88,8 @@ export class HawkeAdapter implements TrackerAdapter {
     const uploadedBytes = requireBytes(data.uploaded, "uploaded", hostname)
     const downloadedBytes = requireBytes(data.downloaded, "downloaded", hostname)
 
-    // All optional on HawkePlatformMeta. `warnings` in particular must not
-    // default: TrackerStats.warned is deliberately null here because a count
-    // of 0 cannot be told from "not tracked", and zeroing the count threw away
-    // the very distinction that null was preserving. The four permission flags
-    // defaulted to false, which reported an account that can do nothing.
+    // All optional on HawkePlatformMeta, so an absent warning count or
+    // permission flag stays undefined rather than defaulting.
     const platformMeta: HawkePlatformMeta = {
       warnings: data.warnings,
       canUpload: data.can_upload,
@@ -122,9 +108,9 @@ export class HawkeAdapter implements TrackerAdapter {
       ratio: Number.isFinite(data.ratio)
         ? data.ratio
         : computeRatio(uploadedBytes, downloadedBytes),
-      // Hawke reports a signed buffer. Verified to go negative (-2.6 TB). The
-      // isFinite guard is needed because BigInt(Math.trunc(NaN)) throws. Falls
-      // back to derived buffer if non-finite.
+      // Hawke reports a signed buffer that goes negative on a deficit. A
+      // non-finite value falls back to the derived buffer, since
+      // BigInt(Math.trunc(NaN)) throws.
       bufferBytes:
         typeof data.buffer === "number" && Number.isFinite(data.buffer)
           ? signedFloatBytesToBigInt(data.buffer)

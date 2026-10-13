@@ -1,13 +1,7 @@
 // src/lib/tracker-platforms/__tests__/conformance.test.ts
 //
-// Rules about the source text itself, enforced the way
-// src/data/__tests__/tracker-registry.test.ts enforces rules about the
-// crowdsourced tracker data. Review attention does not scale across a
-// contributed surface; these are the rules a reviewer should never have to
-// spend attention on.
-//
-// Every exception is a line in an allowlist with a reason, which is the point:
-// it turns a silent choice into one someone had to write down.
+// Rules about the source text itself, so a reviewer of contributed code never
+// has to check them by hand. Every exception is an allowlist line with a reason.
 
 import fs from "node:fs"
 import path from "node:path"
@@ -67,9 +61,8 @@ describe("tracker-platforms source conformance", () => {
     expect(hits).toEqual([])
   })
 
-  // No console case here: Biome owns that rule. noConsole is an error across
-  // src/lib/tracker-platforms/**, test files included, which is wider than this
-  // file reaches. Two enforcers means the weaker one gets edited when it fires.
+  // No console case, since Biome's noConsole already covers this module, tests
+  // included.
 
   it("parses credential blobs with the shared helper", () => {
     const ALLOWED = new Set([
@@ -88,8 +81,7 @@ describe("tracker-platforms source conformance", () => {
   })
 
   it("never coalesces an absent figure into a measured value", () => {
-    // The rule with a bug history. Adding a default means adding a line here
-    // with a reason, which is what makes the choice reviewable.
+    // Adding a default means adding an allowlist line here with a reason.
     const ALLOWED = new Set([
       // Summing seeding categories, guarded by a some(typeof === "number")
       // above it, so a category the response omitted contributes nothing to a

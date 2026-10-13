@@ -131,8 +131,8 @@ describe("Unit3dAdapter", () => {
 
     const calledUrl = fetchSpy.mock.calls[0][0] as string
     expect(calledUrl).toContain("https://example.com/api/user")
-    // Bearer is now the default, so the token must not appear in the URL,
-    // query strings leak into access logs and Referer headers.
+    // Bearer is the default, so the token stays out of the URL, where it would
+    // leak into access logs and Referer headers.
     expect(calledUrl).not.toContain("api_token")
   })
 })
@@ -187,8 +187,6 @@ describe("Unit3dAdapter - security", () => {
     )
   })
 
-  // AbortSignal timeout coverage is in adapterFetch, tested via timeout-message test above
-
   it("derives bufferBytes from totals when the build reports an unlimited buffer", async () => {
     // Zenith's UNIT3D build returns "∞" for buffer; parseBytes rejects that,
     // so the adapter falls back to uploaded - downloaded rather than
@@ -216,9 +214,8 @@ describe("Unit3dAdapter - security", () => {
     }
   })
 
-  // A build that reports a deficit buffer as a negative string used to throw out
-  // of parseBytes and fail the ENTIRE poll, the account recorded no snapshot at
-  // all, losing uploaded, downloaded and ratio along with the buffer.
+  // A negative buffer string must not throw out of parseBytes, or the whole poll
+  // fails and the account records no snapshot.
   it("records a negative tracker-reported buffer instead of failing the poll", async () => {
     vi.spyOn(global, "fetch").mockResolvedValueOnce({
       ok: true,
@@ -383,9 +380,8 @@ describe("Unit3dAdapter - auth fallback", () => {
   })
 
   it("does not probe when a connection error merely mentions 403", async () => {
-    // The probe puts the token in the query string, so it has to key on a real
-    // status. A refused connection to a host named like this one used to match
-    // a regex over the error text and trigger the fallback.
+    // The probe puts the token in the query string, so it keys on a real status,
+    // never on error text that happens to contain 403.
     const spy = vi
       .spyOn(global, "fetch")
       .mockRejectedValueOnce(
@@ -436,11 +432,8 @@ describe("Unit3dAdapter - auth fallback", () => {
 })
 
 // ---------------------------------------------------------------------------
-// Newer UNIT3D builds (Blutopia, Upload.cx) return raw byte INTEGERS from
-// /api/user instead of the humanized strings ("500.25 GiB") older builds send.
-// parseBytes calls .trim() on its argument, so a numeric payload used to blow
-// up the whole poll with "formatted.trim is not a function", the raw debug
-// fetch succeeded while the normalized one never produced a snapshot.
+// Newer UNIT3D builds return byte totals as integers, and parseBytes calls
+// .trim(), so a number must not reach it.
 // ---------------------------------------------------------------------------
 describe("Unit3dAdapter - numeric byte payloads", () => {
   const adapter = new Unit3dAdapter()
@@ -532,12 +525,9 @@ describe("Unit3dAdapter - numeric byte payloads", () => {
 })
 
 // ---------------------------------------------------------------------------
-// Issue #214: LST began answering /api/user with a 2xx JSON body that no
-// longer carries the byte fields at the top level. parseBytes(undefined) then
-// died with "Cannot read properties of undefined (reading 'trim')", which the
-// test dialog and the poll log both flattened to a generic failure. The
-// adapter must say what it was given instead: which fields are missing and
-// which top-level keys arrived. Keys only, a value could be a username.
+// Issue #214. A body missing the byte fields fails naming the missing fields
+// and the top-level keys that arrived. Keys only, since a value could be a
+// username.
 // ---------------------------------------------------------------------------
 describe("Unit3dAdapter - unexpected response shape", () => {
   const adapter = new Unit3dAdapter()
@@ -644,7 +634,7 @@ describe("Unit3dAdapter - unexpected response shape", () => {
 
   it("still tolerates a body that only lacks the optional fields", async () => {
     // seeding/leeching/hit_and_runs/seedbonus absent is a degraded poll, not a
-    // failed one. Only the fields whose absence used to crash are required.
+    // failed one. Only the byte fields are required.
     const { seeding: _s, leeching: _l, hit_and_runs: _h, seedbonus: _b, ...bare } = VALID_BODY
     respond(bare)
 
@@ -656,9 +646,8 @@ describe("Unit3dAdapter - unexpected response shape", () => {
 })
 
 // ---------------------------------------------------------------------------
-// Issue #214: LST's live /api/user response, verbatim. The user resource sits
-// under a Laravel "data" envelope next to an api_key object, which is what
-// broke polling on 2026-08-28; the adapter reads through the envelope.
+// Issue #214. LST's live /api/user response, verbatim, with the user resource
+// under a Laravel "data" envelope next to an api_key object.
 // ---------------------------------------------------------------------------
 describe("Unit3dAdapter - LST envelope (issue #214)", () => {
   const adapter = new Unit3dAdapter()

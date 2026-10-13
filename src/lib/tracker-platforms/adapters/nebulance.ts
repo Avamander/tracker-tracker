@@ -49,10 +49,8 @@ interface NebulanceErrorResponse {
 type NebulanceResponse = NebulanceWrappedResponse | NebulanceErrorResponse | NebulanceUserData
 
 /**
- * Both methods hit the same endpoint, and when each built it separately the
- * copies drifted: only one carried the comments explaining the user-id default
- * and the parameter spelling. The spelling comes from the registry rather than
- * from a hostname test, which was the only such test in the adapter layer.
+ * Both methods hit this endpoint. The auth parameter spelling comes from the
+ * registry.
  */
 function buildUserInfoRequest(
   baseUrl: string,
@@ -119,11 +117,8 @@ export class NebulanceAdapter implements TrackerAdapter {
           : typeof err === "string"
             ? err
             : `HTTP ${status}`
-      // Two recognised shapes rather than a third of its own, and the
-      // tracker's own message kept in both: it is what makes a log line worth
-      // reading. The old `${hostname} API error:` prefix matched a sanitizer
-      // rule only by accident, through the word "invalid" appearing inside
-      // whatever the tracker happened to say.
+      // Both messages use a shape sanitizeNetworkError recognises, and both
+      // keep the tracker's own text.
       if (!ok) {
         throw new Error(`Tracker API error: ${status} ${errMsg}`)
       }
@@ -205,9 +200,8 @@ export class NebulanceAdapter implements TrackerAdapter {
       }
       const data = await result.json()
 
-      // fetchStats rejects on a body-level error too, not just a bad status.
-      // Checking only the status here left a 200 carrying an error body looking
-      // healthy in the debug view.
+      // fetchStats also rejects a 200 that carries an error body, so the debug
+      // view reports one as a failure too.
       const bodyError =
         data !== null && typeof data === "object" && "error" in data
           ? (data as { error?: unknown }).error

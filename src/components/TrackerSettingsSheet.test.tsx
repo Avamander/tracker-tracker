@@ -9,10 +9,10 @@
 //
 // 2. Every write in this sheet mutates a row that lives in the shared ["trackers"] query cache,
 //    which the sidebar and the dashboard render from. That cache is not remounted by navigating
-//    home, and its only automatic repair is a poll interval measured in tens of minutes. The
-//    archive path used to leave it completely untouched, so an archived tracker kept rendering
-//    as active. These tests assert the write-through + invalidation, and that a failed archive
-//    says so instead of silently doing nothing.
+//    home, and its only automatic repair is a poll interval measured in tens of minutes. An
+//    archive that skips the cache leaves the tracker rendering as active. These tests assert the
+//    write-through + invalidation, and that a failed archive says so instead of silently doing
+//    nothing.
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, screen, waitFor } from "@testing-library/react"
@@ -324,8 +324,8 @@ describe("TrackerSettingsSheet torrentleech credentials", () => {
   })
 
   it("wipes the typed secrets when the sheet is cancelled", async () => {
-    // Closing kept the password and token in component state and re-showed
-    // both on the next Change click.
+    // Closing must clear the password and token, or the next Change click shows
+    // them again.
     const user = userEvent.setup()
     renderSheet({ tracker: TL_TRACKER })
 

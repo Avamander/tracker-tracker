@@ -50,10 +50,9 @@ export interface TrackerRules {
   /**
    * How the per-torrent requirements above combine. See `@/lib/satisfaction`.
    *
-   * Omit it unless the tracker's own rules have been read: an entry without a
-   * mode keeps the historical behaviour of judging satisfaction on seed time
-   * alone, and `minimumRatio` stays what it has always been here, an
-   * ACCOUNT-level figure for the ratio-danger alert.
+   * Omit it unless the tracker's own rules have been read. Without a mode, seed
+   * time alone decides satisfaction and `minimumRatio` is the account-level
+   * figure for the ratio-danger alert.
    *
    * Setting `"any"` where the tracker means "and" marks torrents satisfied that
    * are not, which is how hit-and-runs are earned. Only set it from the site's
@@ -107,18 +106,9 @@ export interface TrackerRegistryEntry {
   /** https:// link to the announcement (forum post, reddit thread, staff blog). */
   defunctLink?: string
   /**
-   * Shutdown date as "YYYY-MM-DD".
-   *
-   * Deliberately the same shape as a tracker row's `joinedAt`, so it renders
-   * through `formatJoinedDate()` ("2026-05-11" → "May 11, 2026") with no new
-   * formatting code and no timezone drift. That helper parses at local
-   * midnight. The free-form `stats.statsUpdatedAt` ("March 2026") is the other
-   * precedent in this type, but it is an unparseable display string, and this
-   * field has to be shown in a readable form, sorted on, and validated.
-   *
-   * Note this is authored data, never a stamped `new Date()`: the repo bans
-   * `.toISOString().slice(0, 10)` for producing date strings (it silently
-   * shifts the day across timezones) in favour of `localDateStr()`.
+   * Shutdown date as "YYYY-MM-DD", typed by hand. Same shape as a tracker
+   * row's `joinedAt`, so `formatJoinedDate()` renders it at local midnight
+   * with no timezone drift.
    */
   defunctDate?: string
   supportsTransitPapers?: boolean
@@ -133,8 +123,8 @@ export interface TrackerRegistryEntry {
    * in src/data/tracker-credential-defaults.ts. Resolve via
    * getDefaultCredentialFields(), never read directly.
    *
-   * PUBLIC, GIT-COMMITTED DATA: these define which fields EXIST and must NEVER
-   * hold a user's actual VALUES. TrackerCredentialFieldDefinition has no `value`
+   * Public, git-committed data: these define which fields exist and must never
+   * hold a user's actual values. TrackerCredentialFieldDefinition has no `value`
    * property precisely so a passkey cannot be pasted in here and leaked into git
    * history forever. User values live only in `trackers.encrypted_credentials`.
    */
