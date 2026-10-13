@@ -157,6 +157,8 @@ pnpm db:push
 pnpm dev
 ```
 
+Unit tests run with `pnpm test:run`. The browser smoke suite runs with `pnpm test:e2e` against a production build (`pnpm build` first) and a throwaway `tracker_tracker_e2e` database on the same Postgres server, which it wipes on every run; create that database once with `createdb tracker_tracker_e2e` and sync it with `POSTGRES_DB=tracker_tracker_e2e pnpm db:push`.
+
 ## Configuration
 
 | Variable            | Required | Default           | Description                                         |
