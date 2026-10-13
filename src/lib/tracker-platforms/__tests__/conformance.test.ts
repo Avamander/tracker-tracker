@@ -130,7 +130,6 @@ describe("tracker-platforms source conformance", () => {
     expect(missing).toEqual([])
   })
 
-
   it("keeps the Functions: header honest wherever a file carries one", () => {
     // A manifest that is wrong is worse than none: a contributor trusts it and
     // writes a duplicate helper. Either it is verified or it should be dropped.

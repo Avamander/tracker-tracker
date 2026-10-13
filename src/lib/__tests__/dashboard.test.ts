@@ -664,7 +664,9 @@ describe("computeAlerts", () => {
       },
     })
     const alerts = computeAlerts([tracker])
-    expect(mockRegistryEntryFor).toHaveBeenCalledWith(expect.objectContaining({ registrySlug: "aither" }))
+    expect(mockRegistryEntryFor).toHaveBeenCalledWith(
+      expect.objectContaining({ registrySlug: "aither" })
+    )
     expect(alerts.find((a) => a.type === "ratio-danger")).toBeDefined()
   })
 

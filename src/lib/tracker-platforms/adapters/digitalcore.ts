@@ -255,7 +255,9 @@ async function fetchDCJson<T>(
   const response = await adapterRequest(url, parsed.hostname, { proxyAgent }, headers)
 
   if (response.status === 401) {
-    throw new SessionExpiredError("Session expired. Re-copy uid and pass cookies from your browser.")
+    throw new SessionExpiredError(
+      "Session expired. Re-copy uid and pass cookies from your browser."
+    )
   }
 
   if (!response.ok) {

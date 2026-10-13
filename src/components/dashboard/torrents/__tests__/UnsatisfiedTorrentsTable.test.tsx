@@ -97,7 +97,6 @@ function progressBar(container: HTMLElement): HTMLElement {
   return withWidth[0]
 }
 
-
 function headers(): string[] {
   return screen.getAllByRole("columnheader").map((th) => th.textContent?.trim() ?? "")
 }

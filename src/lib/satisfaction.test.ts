@@ -146,10 +146,9 @@ describe("single-route satisfaction", () => {
   it("reads the same under any and all when there is one route", () => {
     const asAll: SatisfactionRequirement = { ...ratioOnlyAny, mode: "all" }
     for (const ratio of [0, 0.5, 0.99, 1, 3]) {
-      expect(
-        satisfactionProgress(torrent(0, ratio), ratioOnlyAny),
-        `ratio ${ratio}`
-      ).toBe(satisfactionProgress(torrent(0, ratio), asAll))
+      expect(satisfactionProgress(torrent(0, ratio), ratioOnlyAny), `ratio ${ratio}`).toBe(
+        satisfactionProgress(torrent(0, ratio), asAll)
+      )
     }
   })
 
@@ -193,7 +192,9 @@ describe("ratioProgress", () => {
   })
 
   it("is 1 when ratio is not required", () => {
-    expect(ratioProgress(0, { requiredSeedSeconds: HOUR, requiredRatio: null, mode: "all" })).toBe(1)
+    expect(ratioProgress(0, { requiredSeedSeconds: HOUR, requiredRatio: null, mode: "all" })).toBe(
+      1
+    )
   })
 })
 
@@ -246,9 +247,9 @@ describe("seedTimeProgress", () => {
   })
 
   it("is 1 when seed time is not required", () => {
-    expect(
-      seedTimeProgress(0, { requiredSeedSeconds: null, requiredRatio: 1, mode: "any" })
-    ).toBe(1)
+    expect(seedTimeProgress(0, { requiredSeedSeconds: null, requiredRatio: 1, mode: "any" })).toBe(
+      1
+    )
   })
 })
 

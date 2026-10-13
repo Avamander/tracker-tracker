@@ -62,7 +62,9 @@ describe("RetentionPrompt", () => {
     renderWithClient(<RetentionPrompt />)
 
     await waitFor(() =>
-      expect(screen.queryByText(/How long should snapshot history be kept/i)).not.toBeInTheDocument()
+      expect(
+        screen.queryByText(/How long should snapshot history be kept/i)
+      ).not.toBeInTheDocument()
     )
   })
 

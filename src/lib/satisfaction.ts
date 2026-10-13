@@ -50,7 +50,9 @@ export function resolveSatisfaction(rules?: TrackerRules): SatisfactionRequireme
   const mode = rules?.satisfactionMode
   if (!mode) {
     // Unverified entry: seed time alone, ratio ignored. Today's behaviour.
-    return requiredSeedSeconds === null ? null : { requiredSeedSeconds, requiredRatio: null, mode: "all" }
+    return requiredSeedSeconds === null
+      ? null
+      : { requiredSeedSeconds, requiredRatio: null, mode: "all" }
   }
 
   const minimumRatio = rules?.minimumRatio ?? 0

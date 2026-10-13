@@ -71,9 +71,12 @@ describe("parseCredentialJson optional fields", () => {
   const BLOB = '{"username":"bob","password":"hunter2","alt2FAToken":"tok123"}'
 
   it("returns an optional field when present", () => {
-    const creds = parseCredentialJson(BLOB, "TorrentLeech", ["username", "password"], [
-      "alt2FAToken",
-    ])
+    const creds = parseCredentialJson(
+      BLOB,
+      "TorrentLeech",
+      ["username", "password"],
+      ["alt2FAToken"]
+    )
     expect(creds.alt2FAToken).toBe("tok123")
   })
 

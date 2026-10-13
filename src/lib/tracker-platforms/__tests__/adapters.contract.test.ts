@@ -193,7 +193,6 @@ describe("every registered adapter", () => {
         }
       })
 
-
       it("does not leak a malformed credential through undici header validation", async () => {
         // A token carrying a control character makes undici throw a TypeError
         // whose message quotes the whole header, credential included.

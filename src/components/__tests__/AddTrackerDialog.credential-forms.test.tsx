@@ -35,7 +35,9 @@ beforeEach(() => {
  */
 async function pick(user: ReturnType<typeof userEvent.setup>, name: string) {
   await user.type(screen.getByPlaceholderText("Search trackers..."), name)
-  await user.click(screen.getByRole("option", { name: (accessible) => accessible.startsWith(name) }))
+  await user.click(
+    screen.getByRole("option", { name: (accessible) => accessible.startsWith(name) })
+  )
 }
 
 const JOIN_DATE = "Join Date (optional)"
@@ -116,9 +118,7 @@ describe("AddTrackerDialog cookie paste errors", () => {
     await user.type(screen.getByLabelText("Browser Cookies"), "PHPSESSID")
     await user.click(screen.getByRole("button", { name: "Add Tracker" }))
 
-    expect(
-      await screen.findByText(/you pasted a cookie name \("PHPSESSID"\)/)
-    ).toBeInTheDocument()
+    expect(await screen.findByText(/you pasted a cookie name \("PHPSESSID"\)/)).toBeInTheDocument()
     expect(fetchMock).not.toHaveBeenCalled()
   })
 

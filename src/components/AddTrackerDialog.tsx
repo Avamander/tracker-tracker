@@ -229,12 +229,7 @@ interface AddTrackerDialogProps {
   existingSlugs?: string[]
 }
 
-function AddTrackerDialog({
-  open,
-  onClose,
-  onAdded,
-  existingSlugs = [],
-}: AddTrackerDialogProps) {
+function AddTrackerDialog({ open, onClose, onAdded, existingSlugs = [] }: AddTrackerDialogProps) {
   const [selectedPreset, setSelectedPreset] = useState("")
   const [nickname, setNickname] = useState("")
   const [credentials, setCredentials] = useState<CredentialValues>(EMPTY_CREDENTIAL_VALUES)
@@ -322,11 +317,7 @@ function AddTrackerDialog({
 
     // navigator is a browser-only global; this component is server-rendered on
     // first load, so it is read in the handler and never during render.
-    const effectiveApiToken = buildCredentialBlob(
-      credentialForm,
-      credentials,
-      navigator.userAgent
-    )
+    const effectiveApiToken = buildCredentialBlob(credentialForm, credentials, navigator.userAgent)
 
     try {
       const testRes = await fetch("/api/trackers/test-connection", {

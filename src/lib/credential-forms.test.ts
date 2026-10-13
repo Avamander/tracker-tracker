@@ -193,9 +193,9 @@ describe("validateCredentialValues cookie hygiene", () => {
     expect(
       validateCredentialValues(CREDENTIAL_FORMS.retrotoon, values({ cookies: "PHPSESSID" }))
     ).toContain('you pasted a cookie name ("PHPSESSID")')
-    expect(validateCredentialValues(CREDENTIAL_FORMS.filelist, values({ cookies: "uid" }))).toContain(
-      'you pasted a cookie name ("uid")'
-    )
+    expect(
+      validateCredentialValues(CREDENTIAL_FORMS.filelist, values({ cookies: "uid" }))
+    ).toContain('you pasted a cookie name ("uid")')
   })
 
   it("quotes the platform's own example when there is no key=value pair", () => {
@@ -242,9 +242,9 @@ describe("validateCredentialValues cookie hygiene", () => {
 
 describe("validateCredentialValues token hygiene", () => {
   it("rejects a token carrying a line break inside it", () => {
-    expect(
-      validateCredentialValues(CREDENTIAL_FORMS.unit3d, values({ token: "abc\n123" }))
-    ).toBe("API token contains a control character. Re-copy the token with no surrounding text.")
+    expect(validateCredentialValues(CREDENTIAL_FORMS.unit3d, values({ token: "abc\n123" }))).toBe(
+      "API token contains a control character. Re-copy the token with no surrounding text."
+    )
   })
 
   it("accepts a token pasted with surrounding whitespace", () => {

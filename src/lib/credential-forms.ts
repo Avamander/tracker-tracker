@@ -168,8 +168,7 @@ export const CREDENTIAL_FORMS = {
     sheet: {
       secret: {
         label: "Session Cookies",
-        tooltip:
-          "Open DevTools (F12) → Network → any request → copy the Cookie header value.",
+        tooltip: "Open DevTools (F12) → Network → any request → copy the Cookie header value.",
         docs: true,
         placeholder: "uid=56954; pass=abc123def456...",
         rows: 2,

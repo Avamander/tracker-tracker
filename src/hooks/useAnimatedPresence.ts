@@ -71,11 +71,7 @@ function useAnimatedPresence(open: boolean, watchProperty?: string) {
     }
   }, [open])
 
-  function onTransitionEnd(e: {
-    propertyName: string
-    target?: unknown
-    currentTarget?: unknown
-  }) {
+  function onTransitionEnd(e: { propertyName: string; target?: unknown; currentTarget?: unknown }) {
     // A child's transition bubbling up must not unmount the overlay, even when
     // it transitions the watched property (i.e. a tooltip fading its opacity).
     if (e.target !== undefined && e.currentTarget !== undefined && e.target !== e.currentTarget) {

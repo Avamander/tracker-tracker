@@ -78,9 +78,7 @@ function assertAuthenticated(html: string, page: string): void {
   }
 
   if (!html.includes("logout.php")) {
-    throw new SessionExpiredError(
-      `Session expired. Browser cookies need to be refreshed (${page})`
-    )
+    throw new SessionExpiredError(`Session expired. Browser cookies need to be refreshed (${page})`)
   }
 }
 

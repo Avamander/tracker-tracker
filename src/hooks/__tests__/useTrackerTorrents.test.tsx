@@ -240,10 +240,7 @@ describe("useTrackerTorrents — category stats", () => {
     // drags the category down; fleet-aggregation already excludes it.
     mockFetch({
       live: makeResponse({
-        torrents: [
-          makeTorrent("h1", { ratio: 2 }),
-          makeTorrent("h2", { ratio: -1 }),
-        ],
+        torrents: [makeTorrent("h1", { ratio: 2 }), makeTorrent("h2", { ratio: -1 })],
       }),
     })
     const { result } = renderTracker("movies")

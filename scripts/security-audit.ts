@@ -2419,7 +2419,10 @@ function checkAdapterCookieInjection(): CheckResult {
   // download-clients builds a Cookie header from a value the remote host chose,
   // which is exactly what this check exists to catch, and it went unscanned for
   // as long as the scope was adapters only.
-  const adaptersDir = requireDir(path.resolve(SRC_DIR, "lib/tracker-platforms"), "adapter-cookie-injection")
+  const adaptersDir = requireDir(
+    path.resolve(SRC_DIR, "lib/tracker-platforms"),
+    "adapter-cookie-injection"
+  )
   const clientsDir = requireDir(
     path.resolve(SRC_DIR, "lib/download-clients"),
     "adapter-cookie-injection"
@@ -2475,7 +2478,10 @@ function checkAdapterCookieInjection(): CheckResult {
 
 function checkAdapterCredentialLogging(): CheckResult {
   const findings: Finding[] = []
-  const adaptersDir = requireDir(path.resolve(SRC_DIR, "lib/tracker-platforms"), "adapter-credential-logging")
+  const adaptersDir = requireDir(
+    path.resolve(SRC_DIR, "lib/tracker-platforms"),
+    "adapter-credential-logging"
+  )
   const adapterFiles = walkFiles(adaptersDir, ".ts")
 
   for (const file of adapterFiles) {

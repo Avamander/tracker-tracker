@@ -644,8 +644,6 @@ describe("NebulanceAdapter error wording is an interface", () => {
       .then(() => null)
       .catch((e: unknown) => (e instanceof Error ? e : null))
 
-    expect(sanitizeNetworkError(err?.message ?? "")).toBe(
-      "Tracker returned an unexpected response"
-    )
+    expect(sanitizeNetworkError(err?.message ?? "")).toBe("Tracker returned an unexpected response")
   })
 })

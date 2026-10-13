@@ -1,7 +1,11 @@
 // src/lib/tracker-platforms/__tests__/filelist.test.ts
 
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { FilelistAdapter, parseFilelistCredentials, parseFilelistProfile } from "../adapters/filelist"
+import {
+  FilelistAdapter,
+  parseFilelistCredentials,
+  parseFilelistProfile,
+} from "../adapters/filelist"
 import type { FileListPlatformMeta } from "../contract"
 
 const VALID_TOKEN = JSON.stringify({

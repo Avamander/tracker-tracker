@@ -2,11 +2,7 @@
 //
 // Functions: gazelleAuthHeader, GazelleAdapter
 
-import {
-  computeBufferBytes,
-  computeRatio,
-  signedFloatBytesToBigInt,
-} from "@/lib/data-transforms"
+import { computeBufferBytes, computeRatio, signedFloatBytesToBigInt } from "@/lib/data-transforms"
 import { log } from "@/lib/logger"
 import type {
   DebugApiCall,
@@ -286,7 +282,12 @@ export class GazelleAdapter implements TrackerAdapter {
           options,
           { Authorization: authHeader }
         )
-        calls.push({ label: "User Profile", endpoint, data: userData, error: envelopeError(userData) })
+        calls.push({
+          label: "User Profile",
+          endpoint,
+          data: userData,
+          error: envelopeError(userData),
+        })
       } catch (err) {
         calls.push({
           label: "User Profile",

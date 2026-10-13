@@ -118,7 +118,10 @@ const ACTIVE_PROFILE_PAGE =
     // field assignments in the parser would otherwise go undetected.
     .replace(">Torrent comments</td><td align=left>0<", ">Torrent comments</td><td align=left>18<")
     .replace(">Forum posts</td><td align=left>0<", ">Forum posts</td><td align=left>452<")
-    .replace(">0.0</td></tr>\n<tr><td class='rowhead'>Freeleech slots", ">1,250.5</td></tr>\n<tr><td class='rowhead'>Freeleech slots") +
+    .replace(
+      ">0.0</td></tr>\n<tr><td class='rowhead'>Freeleech slots",
+      ">1,250.5</td></tr>\n<tr><td class='rowhead'>Freeleech slots"
+    ) +
   PAGE_FOOT
 
 /** staff.php: the header greeting is ours, the listed profile links are not. */
@@ -190,7 +193,7 @@ const HNR_PAGE_CLEAN =
 /** Same page with the empty-state sentence gone, standing in for a shape we have never seen. */
 const HNR_PAGE_POPULATED = HNR_PAGE_CLEAN.replace(
   "<div>&#10003; You have no pending Hit &amp; Runs. Nice work!</div>",
-  '<table><tr><td>Some.Cartoon.1954</td><td>12h / 72h</td></tr></table>'
+  "<table><tr><td>Some.Cartoon.1954</td><td>12h / 72h</td></tr></table>"
 ).replace("0 tokens available", "3 tokens available")
 
 // ---------------------------------------------------------------------------
@@ -429,7 +432,9 @@ describe("parseRetrotoonProfile", () => {
   })
 
   it("prefers the Cloudflare message over the generic session one", () => {
-    expect(() => parseRetrotoonProfile(CLOUDFLARE_PAGE, HOST)).toThrow(/Cloudflare challenge detected/)
+    expect(() => parseRetrotoonProfile(CLOUDFLARE_PAGE, HOST)).toThrow(
+      /Cloudflare challenge detected/
+    )
   })
 
   it("throws when an authenticated page carries no profile table", () => {

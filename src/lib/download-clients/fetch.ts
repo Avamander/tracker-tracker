@@ -85,9 +85,7 @@ async function fetchClientTorrents(
     return adapter.getTorrents({ tag: tags[0], filter: filter as "active" | undefined, signal })
   }
 
-  const results = await Promise.allSettled(
-    tags.map((tag) => adapter.getTorrents({ tag, signal }))
-  )
+  const results = await Promise.allSettled(tags.map((tag) => adapter.getTorrents({ tag, signal })))
   const allTorrents: TorrentRecord[] = []
   for (const result of results) {
     if (result.status === "fulfilled") allTorrents.push(...result.value)

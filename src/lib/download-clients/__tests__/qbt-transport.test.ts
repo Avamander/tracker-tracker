@@ -72,9 +72,9 @@ describe("qBittorrent transport redirect handling", () => {
   it("does not latch the credential block on a redirect, which is not a rejection", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
-        new Response(null, { status: 302, headers: { Location: "/elsewhere" } })
-      )
+      vi
+        .fn()
+        .mockResolvedValue(new Response(null, { status: 302, headers: { Location: "/elsewhere" } }))
     )
     await expect(login("qbt.local", 8080, false, "admin", "pw")).rejects.toThrow(
       "qBittorrent API error: 302"
@@ -105,9 +105,7 @@ describe("qBittorrent session cookie validation", () => {
   it("refuses a session cookie carrying a control character", async () => {
     vi.stubGlobal("fetch", loginRespondingWith(["SID=abc\r\nX-Injected: 1; Path=/"]))
 
-    await expect(login("qbt.local", 8080, false, "admin", "pw")).rejects.toThrow(
-      "unsafe character"
-    )
+    await expect(login("qbt.local", 8080, false, "admin", "pw")).rejects.toThrow("unsafe character")
   })
 
   it("accepts an ordinary session cookie", async () => {
@@ -118,10 +116,7 @@ describe("qBittorrent session cookie validation", () => {
   })
 
   it("ignores an unrelated Set-Cookie rather than failing the login", async () => {
-    vi.stubGlobal(
-      "fetch",
-      loginRespondingWith(["analytics=x; Path=/", "SID=cleanvalue; Path=/"])
-    )
+    vi.stubGlobal("fetch", loginRespondingWith(["analytics=x; Path=/", "SID=cleanvalue; Path=/"]))
 
     const sid = await login("qbt.local", 8080, false, "admin", "pw")
     expect(sid.value).toBe("cleanvalue")
@@ -239,7 +234,11 @@ describe("the response body cap", () => {
     // One 8 MiB chunk enqueued nine times: 72 MiB against a 64 MiB cap, with
     // only 8 MiB allocated. The refusal fires before the concat.
     const chunk = new Uint8Array(8 * 1024 * 1024)
-    const oversized = { *[Symbol.iterator]() { for (let i = 0; i < 9; i++) yield chunk } }
+    const oversized = {
+      *[Symbol.iterator]() {
+        for (let i = 0; i < 9; i++) yield chunk
+      },
+    }
 
     streamResponse(oversized)
 
@@ -361,10 +360,7 @@ describe("the response body cap on the plain-text reads", () => {
   }
 
   function respondWith(status: number) {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(new Response(oversizedStream(), { status }))
-    )
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(oversizedStream(), { status })))
   }
 
   it("refuses a login body that runs past the cap", async () => {
@@ -402,7 +398,9 @@ describe("what the user sees when the transport refuses a response", () => {
       .then(() => null)
       .catch((e: unknown) => (e instanceof Error ? e : null))
 
-    expect(sanitizeNetworkError(err?.message ?? "")).toBe("qBittorrent returned an oversized response")
+    expect(sanitizeNetworkError(err?.message ?? "")).toBe(
+      "qBittorrent returned an oversized response"
+    )
   })
 
   it("tells the user the session cookie was unsafe rather than that the host went quiet", async () => {
@@ -421,15 +419,19 @@ describe("what the user sees when the transport refuses a response", () => {
       .then(() => null)
       .catch((e: unknown) => (e instanceof Error ? e : null))
 
-    expect(sanitizeNetworkError(err?.message ?? "")).toBe("qBittorrent sent an unsafe session cookie")
+    expect(sanitizeNetworkError(err?.message ?? "")).toBe(
+      "qBittorrent sent an unsafe session cookie"
+    )
   })
 
   it("tells the user the request was redirected rather than that the host went quiet", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
-        new Response(null, { status: 307, headers: { Location: "http://elsewhere.example/" } })
-      )
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(null, { status: 307, headers: { Location: "http://elsewhere.example/" } })
+        )
     )
 
     const err = await login("qbt.local", 8080, false, "admin", "pw")

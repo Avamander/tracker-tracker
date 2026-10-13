@@ -122,7 +122,11 @@ function resolveRequiredRatio(
     return liveRequiredRatio
   }
   const registryMinimum = registryEntryFor(tracker)?.rules?.minimumRatio
-  if (typeof registryMinimum === "number" && Number.isFinite(registryMinimum) && registryMinimum >= 0) {
+  if (
+    typeof registryMinimum === "number" &&
+    Number.isFinite(registryMinimum) &&
+    registryMinimum >= 0
+  ) {
     return registryMinimum
   }
   return null

@@ -241,7 +241,12 @@ export class GGnAdapter implements TrackerAdapter {
           hostname,
           options
         )
-        calls.push({ label: "User Profile", endpoint, data: userData, error: envelopeError(userData) })
+        calls.push({
+          label: "User Profile",
+          endpoint,
+          data: userData,
+          error: envelopeError(userData),
+        })
       } catch (err) {
         calls.push({
           label: "User Profile",
