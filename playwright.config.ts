@@ -1,10 +1,8 @@
 // playwright.config.ts
 //
-// Browser smoke tests against a real server and a real database. The suite
-// owns the `tracker_tracker_e2e` database inside the local dev container and
-// wipes it on every run, so it must never be pointed at the database that
-// holds real trackers: global.setup.ts refuses any name that does not end in
-// `_e2e`.
+// Browser smoke tests against a real server and the throwaway
+// `tracker_tracker_e2e` database, which every run wipes. e2e/db.ts refuses any
+// database name that does not end in `_e2e`, so the real one is never touched.
 //
 //   pnpm test:e2e              production build (`pnpm build` first), port 3020
 //   E2E_DEV=1 pnpm test:e2e    dev server instead, no build needed
@@ -12,8 +10,9 @@ import { defineConfig, devices } from "@playwright/test"
 import dotenv from "dotenv"
 
 // The Playwright process does not load .env on its own; the server child
-// inherits these, and global.setup.ts needs them to reach the database.
-dotenv.config()
+// inherits these, and global.setup.ts needs them to reach the database. Quiet,
+// because knip loads this file and dotenv's tip line would corrupt its JSON output.
+dotenv.config({ quiet: true })
 
 export const E2E_DATABASE = "tracker_tracker_e2e"
 export const OWNER_STATE = "e2e/.auth/owner.json"
