@@ -1,10 +1,10 @@
 // src/lib/tracker-platforms/adapters/torrentleech.ts
 //
-// Functions: parseTlCredentials, sessionKey, getTlSession, invalidateTlSession,
-//            withTlSession, login, isRedirect, textAfterNode, firstText, topBarCell,
-//            parenCount, trailingCount, parseTlProfile, fetchHtml, TorrentleechAdapter
+// Functions: parseTlCredentials, sessionKey, getTlSession, withTlSession, login,
+//            isRedirect, textAfterNode, firstText, topBarCell, parenCount,
+//            trailingCount, parseTlProfile, fetchHtml, TorrentleechAdapter
 
-import { createHash } from "node:crypto"
+import { randomBytes, scrypt } from "node:crypto"
 import { type HTMLElement as ParsedElement, parse as parseHtml } from "node-html-parser"
 import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
 import { classifyFetchError } from "@/lib/error-utils"
@@ -74,43 +74,48 @@ function isRedirect(status: number): boolean {
 // password to /user/account/login/. Trackers watch login frequency, so reuse
 // the session cookie across polls and only re-authenticate when it expires,
 // the same approach the qBittorrent transport takes with its SID cache.
-// Stored on globalThis so an HMR reload in dev doesn't orphan the cache.
+// Stored on globalThis so an HMR reload in dev doesn't orphan the cache or
+// the salt its keys depend on.
 // ---------------------------------------------------------------------------
 
 const gTl = globalThis as typeof globalThis & {
   __tlSessionCache?: Map<string, string>
+  __tlSessionSalt?: Buffer
 }
 if (!gTl.__tlSessionCache) gTl.__tlSessionCache = new Map()
+if (!gTl.__tlSessionSalt) gTl.__tlSessionSalt = randomBytes(16)
 const tlSessionCache = gTl.__tlSessionCache
+const tlSessionSalt = gTl.__tlSessionSalt
 
 /**
  * Scoped per site and per credential set. The password and 2FA token are in
- * the key because the connection test authenticates through this cache. Hashed
- * so the long-lived global map never holds a password.
+ * the key because the connection test authenticates through this cache.
+ * Hashed so the long-lived global map never holds a password. The hash is
+ * scrypt because CodeQL flags a password reaching a fast one, and async
+ * because scryptSync would block the event loop.
  */
-function sessionKey(baseUrl: string, creds: TlCredentials): string {
-  const fingerprint = createHash("sha256")
-    .update(`${creds.username}\u0000${creds.password}\u0000${creds.alt2FAToken ?? ""}`)
-    .digest("hex")
-  return `${baseUrl}|${fingerprint}`
+function sessionKey(baseUrl: string, creds: TlCredentials): Promise<string> {
+  const input = `${creds.username}\u0000${creds.password}\u0000${creds.alt2FAToken ?? ""}`
+  return new Promise((resolve, reject) => {
+    scrypt(input, tlSessionSalt, 32, (err, derived) => {
+      if (err) reject(err)
+      else resolve(`${baseUrl}|${derived.toString("hex")}`)
+    })
+  })
 }
 
 async function getTlSession(
+  key: string,
   baseUrl: string,
   creds: TlCredentials,
   proxyAgent?: FetchOptions["proxyAgent"]
 ): Promise<string> {
-  const key = sessionKey(baseUrl, creds)
   const cached = tlSessionCache.get(key)
   if (cached) return cached
 
   const cookies = await login(baseUrl, creds, proxyAgent)
   tlSessionCache.set(key, cookies)
   return cookies
-}
-
-function invalidateTlSession(baseUrl: string, creds: TlCredentials): void {
-  tlSessionCache.delete(sessionKey(baseUrl, creds))
 }
 
 /**
@@ -414,12 +419,13 @@ async function withTlSession<T>(
   proxyAgent: FetchOptions["proxyAgent"],
   work: (cookies: string) => Promise<T>
 ): Promise<T> {
+  const key = await sessionKey(baseUrl, creds)
   try {
-    return await work(await getTlSession(baseUrl, creds, proxyAgent))
+    return await work(await getTlSession(key, baseUrl, creds, proxyAgent))
   } catch (err) {
     if (!(err instanceof SessionExpiredError)) throw err
-    invalidateTlSession(baseUrl, creds)
-    return work(await getTlSession(baseUrl, creds, proxyAgent))
+    tlSessionCache.delete(key)
+    return work(await getTlSession(key, baseUrl, creds, proxyAgent))
   }
 }
 
