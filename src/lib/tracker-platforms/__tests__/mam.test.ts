@@ -109,6 +109,72 @@ describe("MamAdapter - parsing", () => {
     expect(stats.seedingCount).toBe(18)
   })
 
+  it("reads the snatch categories MAM nests under snatch_summary", async () => {
+    // Shape from issue #232's raw response of 2026-09-24, counts invented. None
+    // of the summary keys stays at the top level.
+    mockFetch({
+      connectable: undefined,
+      recently_deleted: undefined,
+      leeching: undefined,
+      sSat: undefined,
+      seedHnr: undefined,
+      seedUnsat: undefined,
+      upAct: undefined,
+      upInact: undefined,
+      inactHnr: undefined,
+      inactSat: undefined,
+      inactUnsat: undefined,
+      unsat: undefined,
+      duplicates: undefined,
+      reseed: undefined,
+      ite: undefined,
+      snatch_summary: {
+        connectable: "yes",
+        recently_deleted: 1,
+        duplicates: { name: "Duplicate peer entries", count: 0 },
+        inactHnr: { name: "Not Seeding - H&R - Not Yet Satisfied", count: 0, size: null },
+        inactSat: { name: "Not Seeding - Satisfied", count: 6, size: null },
+        inactUnsat: { name: "Not Seeding - Not Yet Satisfied", count: 4, size: null },
+        ite: { name: "Important Tracker Errors", count: 3, latest: 0 },
+        leeching: { name: "Leeching Torrents", count: 2, size: null },
+        reseed: { name: "Reseed requests", count: 0, inactive: 0 },
+        sSat: { name: "Seeding - Satisfied", count: 3, size: 1234567890 },
+        seedHnr: { name: "Seeding - H&R - Not Yet Satisfied", count: 2, size: null },
+        seedUnsat: { name: "Seeding - Not Yet Satisfied", count: 1, size: null },
+        unsat: { name: "Unsatisfied", count: 1, limit: 50, size: null },
+        upAct: { name: "Seeding -  Uploads", count: 5, size: null },
+      },
+    })
+
+    const stats = await adapter.fetchStats(
+      "https://www.myanonamouse.net",
+      "a1b2c3a1b2c3a1b2c3a1b2c3a1b2c3a1",
+      "/jsonLoad.php"
+    )
+
+    expect(stats.seedingCount).toBe(11)
+    expect(stats.leechingCount).toBe(2)
+    expect(stats.hitAndRuns).toBe(0)
+    const meta = stats.platformMeta as {
+      connectable?: string
+      seedingHnrCount?: number
+      unsatisfiedCount?: number
+      unsatisfiedLimit?: number
+      inactiveSatisfiedCount?: number
+      inactiveUnsatisfiedCount?: number
+      trackerErrorCount?: number
+      recentlyDeleted?: number
+    }
+    expect(meta.connectable).toBe("yes")
+    expect(meta.seedingHnrCount).toBe(2)
+    expect(meta.unsatisfiedCount).toBe(1)
+    expect(meta.unsatisfiedLimit).toBe(50)
+    expect(meta.inactiveSatisfiedCount).toBe(6)
+    expect(meta.inactiveUnsatisfiedCount).toBe(4)
+    expect(meta.trackerErrorCount).toBe(3)
+    expect(meta.recentlyDeleted).toBe(1)
+  })
+
   // A deficit account must report its actual shortfall, not 0. Clamping drew a
   // flat line on the buffer chart while the account deteriorated.
   it("returns a negative bufferBytes when downloaded exceeds uploaded", async () => {

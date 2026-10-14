@@ -14,29 +14,18 @@ import { requireBytes } from "../helpers/bytes"
 interface MamSnatchCategory {
   name: string
   count: number
-  red: boolean
+  red?: boolean
   size: number | null
 }
 
-interface MamJsonLoadResponse {
-  username: string
-  uid: number
-  classname: string
-  // A display string rather than a number. An account that has downloaded
-  // nothing reports "∞". Unused, since fetchStats derives ratio from bytes.
-  ratio: string | number
-  uploaded: string
-  downloaded: string
-  uploaded_bytes: number
-  downloaded_bytes: number
-  seedbonus: number
-  wedges: number
-  vip_until?: string | null
+/**
+ * Responses since 2026-09-23 nest these under snatch_summary; older ones carry
+ * them at the top level, which is why the response type extends this too.
+ */
+interface MamSnatchSummary {
   connectable?: string
-  country_code?: string
-  country_name?: string
   created?: number
-  update?: number
+  created_at?: string
   ipv6_mac?: boolean
   v6_connectable?: string | null
   partial?: boolean
@@ -52,9 +41,28 @@ interface MamJsonLoadResponse {
   inactSat?: MamSnatchCategory
   inactUnsat?: MamSnatchCategory
   unsat?: MamSnatchCategory & { limit: number }
-  duplicates?: MamSnatchCategory
-  reseed?: { name: string; count: number; inactive: number; red: boolean }
+  duplicates?: { name: string; count: number; red?: boolean }
+  reseed?: { name: string; count: number; inactive: number; red?: boolean }
   ite?: { name: string; count: number; latest: number }
+}
+
+interface MamJsonLoadResponse extends MamSnatchSummary {
+  username: string
+  uid: number
+  classname: string
+  // A display string rather than a number. An account that has downloaded
+  // nothing reports "∞". Unused, since fetchStats derives ratio from bytes.
+  ratio: string | number
+  uploaded: string
+  downloaded: string
+  uploaded_bytes: number
+  downloaded_bytes: number
+  seedbonus: number
+  wedges: number
+  vip_until?: string | null
+  country_code?: string
+  country_name?: string
+  update?: number
 
   notifs?: {
     pms: number
@@ -66,6 +74,8 @@ interface MamJsonLoadResponse {
   }
 
   clientStats?: unknown[]
+
+  snatch_summary?: MamSnatchSummary
 }
 
 // Validate mam_id before interpolation into Cookie header to prevent injection.
@@ -126,15 +136,16 @@ export class MamAdapter implements TrackerAdapter {
 
     const uploaded = requireBytes(data.uploaded_bytes, "uploaded_bytes", hostname)
     const downloaded = requireBytes(data.downloaded_bytes, "downloaded_bytes", hostname)
+    const snatch: MamSnatchSummary = { ...data, ...data.snatch_summary }
 
     // A missing category really is none in that category, but every category
     // missing means the summary block never arrived, which is unknown rather
     // than an account seeding nothing.
     const seedingCategories = [
-      data.sSat?.count,
-      data.seedHnr?.count,
-      data.seedUnsat?.count,
-      data.upAct?.count,
+      snatch.sSat?.count,
+      snatch.seedHnr?.count,
+      snatch.seedUnsat?.count,
+      snatch.upAct?.count,
     ]
     const seedingCount = seedingCategories.some((c) => typeof c === "number")
       ? seedingCategories.reduce((sum: number, c) => sum + (c ?? 0), 0)
@@ -142,14 +153,14 @@ export class MamAdapter implements TrackerAdapter {
 
     const platformMeta: MamPlatformMeta = {
       vipUntil: data.vip_until ?? undefined,
-      connectable: data.connectable ?? undefined,
-      unsatisfiedCount: data.unsat?.count ?? undefined,
-      unsatisfiedLimit: data.unsat?.limit ?? undefined,
-      inactiveSatisfiedCount: data.inactSat?.count ?? undefined,
-      seedingHnrCount: data.seedHnr?.count ?? undefined,
-      inactiveUnsatisfiedCount: data.inactUnsat?.count ?? undefined,
-      trackerErrorCount: data.ite?.count ?? undefined,
-      recentlyDeleted: data.recently_deleted ?? undefined,
+      connectable: snatch.connectable ?? undefined,
+      unsatisfiedCount: snatch.unsat?.count ?? undefined,
+      unsatisfiedLimit: snatch.unsat?.limit ?? undefined,
+      inactiveSatisfiedCount: snatch.inactSat?.count ?? undefined,
+      seedingHnrCount: snatch.seedHnr?.count ?? undefined,
+      inactiveUnsatisfiedCount: snatch.inactUnsat?.count ?? undefined,
+      trackerErrorCount: snatch.ite?.count ?? undefined,
+      recentlyDeleted: snatch.recently_deleted ?? undefined,
       unreadPMs: data.notifs?.pms ?? undefined,
       openTickets: data.notifs?.tickets ?? undefined,
       pendingRequests: data.notifs?.requests ?? undefined,
@@ -167,9 +178,9 @@ export class MamAdapter implements TrackerAdapter {
       ratio: computeRatio(uploaded, downloaded),
       bufferBytes: computeBufferBytes(uploaded, downloaded),
       seedingCount,
-      leechingCount: data.leeching?.count ?? null,
+      leechingCount: snatch.leeching?.count ?? null,
       seedbonus: data.seedbonus ?? null,
-      hitAndRuns: data.inactHnr?.count ?? null,
+      hitAndRuns: snatch.inactHnr?.count ?? null,
       requiredRatio: null,
       warned: null,
       freeleechTokens: data.wedges ?? null,

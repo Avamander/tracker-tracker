@@ -156,7 +156,7 @@ matches on wording. Wording is an interface, not prose.
   individual cookie **value** you interpolate yourself is outside its scope and needs your own
   semicolon and control-character guard.
 - **A credential interpolated into a request header must be checked for control and non-ASCII
-  characters first.** Reference: `validateMamId` (`mam.ts:72`). A token placed in a query
+  characters first.** Reference: `validateMamId` (`mam.ts:83`). A token placed in a query
   parameter or POST body relies on `URLSearchParams` encoding and needs no such check.
 - `userAgent` is **required** for a cookie scraper, because the session is fingerprinted against
   the agent it was issued to. It is **optional** for a JSON API, where the transport supplies one.
@@ -173,7 +173,7 @@ must not lie.
   the debug view marks a call healthy purely on `error` being null. Call `envelopeError(data)` and
   put its result in `error`, keeping the offending body in `data`. References: `gazelle.ts:285`,
   `ggn.ts:236`, `hawke.ts:163`. A tracker whose failure is a missing field rather than an envelope
-  flag checks for itself (`mam.ts:200-206`).
+  flag checks for itself (`mam.ts:210-217`).
 - **Emit an entry for a call you skipped**, with `data: null` and a reason. A debug view that
   simply ends after one entry cannot be told from a one-call adapter.
 - **Do not abandon later calls when an earlier one fails** if a cached value can satisfy the
