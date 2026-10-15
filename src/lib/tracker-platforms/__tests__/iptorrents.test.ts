@@ -185,6 +185,26 @@ describe("parseIptProfile", () => {
   })
 })
 
+// The other fixtures write the username anchor bare, which is why this went
+// unnoticed. The live anchor is a tTipWrap like the stat items and carries a
+// tooltip child, so these use that shape with invented values.
+describe("parseIptProfile username", () => {
+  const withTooltip = (name: string) =>
+    `<div class="stats"><div><div><a href="/u/1234" class="tTipWrap uname"><div class="tTip ttop">Profile</div>${name}</a></div></div>` +
+    `<span class="tTipWrap"><div class="tTip">Uploaded</div>10 GB</span>` +
+    `<span class="tTipWrap"><div class="tTip">Downloaded</div>5 GB</span>` +
+    `<span class="tTipWrap"><div class="tTip">Active Torrents</div>3 1</span>` +
+    `<span class="tTipWrap"><div class="tTip">Bonus Points</div>100</span></div>`
+
+  it("strips the Profile tooltip rather than prefixing it to the name", () => {
+    expect(parseIptProfile(withTooltip("testuser"), HOSTNAME).username).toBe("testuser")
+  })
+
+  it("keeps a name that itself starts with the tooltip text", () => {
+    expect(parseIptProfile(withTooltip("ProfileHunter"), HOSTNAME).username).toBe("ProfileHunter")
+  })
+})
+
 describe("parseIptCredentials", () => {
   it("parses a valid JSON credential blob", () => {
     const json = JSON.stringify({ cookies: "uid=123; pass=abc123", userAgent: "Mozilla/5.0" })

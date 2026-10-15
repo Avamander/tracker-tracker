@@ -119,7 +119,12 @@ export function parseIptProfile(html: string, hostname: string): TrackerStats {
     )
   }
 
-  const username = doc.querySelector(".uname")?.textContent?.trim() ?? ""
+  // The anchor carries a tooltip child (<div class="tTip">Profile</div>), so its
+  // text reads "ProfileNAME"; strip the tooltip as the stat items do.
+  const unameEl = doc.querySelector(".uname")
+  const username = unameEl
+    ? valueAfterLabel(unameEl, unameEl.querySelector(".tTip")?.textContent?.trim() ?? "")
+    : ""
 
   // undefined until a row is actually read, so "the stats bar had no Uploaded
   // row" stays distinct from "it said 0 B". Only the first is a parse failure.
