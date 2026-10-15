@@ -192,8 +192,26 @@ export function MamMouseholeCard({ trackerId, mouseholeUrl }: MamMouseholeCardPr
   const isOk = status.tone === "success"
   const isStale = status.tone === "warn"
   const countdownExpired = countdown === "00:00:00"
-  // The configured URL may carry the API token
   const mouseholeLink = stripUrlCredentials(mouseholeUrl)
+  // A refusal from Mousehole, or a poll or Check Now that failed after data
+  // loaded, is shown below the header so a collapsed card cannot read as healthy.
+  const notice = fetchError ?? data.stateError
+  // After a failed poll or Check Now the status is out of date, so it is greyed.
+  const pollFailed = fetchError !== null
+  const dotClass = pollFailed
+    ? "bg-muted"
+    : isOk
+      ? "bg-success animate-pulse-glow"
+      : isStale
+        ? "bg-warn"
+        : "bg-danger"
+  const labelClass = pollFailed
+    ? "text-muted"
+    : isOk
+      ? "text-success"
+      : isStale
+        ? "text-warn"
+        : "text-danger"
 
   return (
     <div className="nm-inset-sm bg-control-bg max-w-xl rounded-nm-md flex overflow-hidden">
@@ -225,16 +243,11 @@ export function MamMouseholeCard({ trackerId, mouseholeUrl }: MamMouseholeCardPr
             className="flex items-center gap-2 cursor-pointer min-w-0"
           >
             <ChevronToggle expanded={expanded} className="text-muted" />
-            <span
-              className={clsx(
-                "inline-block w-2 h-2 rounded-full shrink-0",
-                isOk ? "bg-success animate-pulse-glow" : isStale ? "bg-warn" : "bg-danger"
-              )}
-            />
+            <span className={clsx("inline-block w-2 h-2 rounded-full shrink-0", dotClass)} />
             <span
               className={clsx(
                 "text-sm font-mono font-semibold tracking-wider uppercase",
-                isOk ? "text-success" : isStale ? "text-warn" : "text-danger"
+                labelClass
               )}
             >
               {status.label}
@@ -268,6 +281,8 @@ export function MamMouseholeCard({ trackerId, mouseholeUrl }: MamMouseholeCardPr
           </div>
         </div>
 
+        {notice && <Notice message={notice} className="mt-2" />}
+
         {/* Expandable details */}
         <div
           className={clsx(
@@ -293,8 +308,6 @@ export function MamMouseholeCard({ trackerId, mouseholeUrl }: MamMouseholeCardPr
                 Last check: {formatResult(data.lastMessage)}
               </div>
             )}
-
-            {data.stateError && <Notice message={data.stateError} />}
 
             {/* Action row */}
             <div className="flex items-center justify-between gap-4 mt-1">

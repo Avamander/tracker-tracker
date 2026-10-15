@@ -55,6 +55,7 @@ vi.mock("@/lib/db/schema", () => ({
     name: "trackers.name",
     encryptedApiToken: "trackers.encryptedApiToken",
     encryptedCredentials: "trackers.encryptedCredentials",
+    encryptedMouseholeToken: "trackers.encryptedMouseholeToken",
   },
   downloadClients: {
     id: "downloadClients.id",
@@ -762,5 +763,70 @@ describe("POST /api/auth/change-password — tracker credential vault", () => {
 
     const written = writesTo(trackers)[0].values.encryptedCredentials as string
     expect(decrypt(written, newKey)).toBe(emptyFieldVault)
+  })
+})
+
+describe("POST /api/auth/change-password, Mousehole API token", () => {
+  const MOUSEHOLE_TOKEN = "fake-mousehole-token-7f3a"
+
+  it("re-keys the token so the NEW key opens it and the OLD key no longer can", async () => {
+    trackerRows = [
+      {
+        id: 1,
+        name: "Alpha",
+        encryptedApiToken: encrypt("alpha-api-token", oldKey),
+        encryptedMouseholeToken: encrypt(MOUSEHOLE_TOKEN, oldKey),
+      },
+    ]
+
+    const response = await post()
+    expect(response.status).toBe(200)
+
+    const written = writesTo(trackers)[0].values.encryptedMouseholeToken as string
+    expect(decrypt(written, newKey)).toBe(MOUSEHOLE_TOKEN)
+    expect(() => decrypt(written, oldKey)).toThrow()
+    expect(written).not.toBe(trackerRows[0].encryptedMouseholeToken)
+  })
+
+  it("keeps NULL as NULL, never '' and never an encrypted empty string", async () => {
+    trackerRows = [
+      { id: 1, name: "Alpha", encryptedApiToken: encrypt("alpha-api-token", oldKey) },
+      {
+        id: 2,
+        name: "Beta",
+        encryptedApiToken: encrypt("beta-api-token", oldKey),
+        encryptedMouseholeToken: null,
+      },
+    ]
+
+    const response = await post()
+    expect(response.status).toBe(200)
+
+    for (const write of writesTo(trackers)) {
+      expect(write.values).toHaveProperty("encryptedMouseholeToken")
+      expect(write.values.encryptedMouseholeToken).toBeNull()
+    }
+  })
+
+  it("clears a token that will not decrypt, and warns, without blocking the rotation", async () => {
+    trackerRows = [
+      {
+        id: 1,
+        name: "Alpha",
+        encryptedApiToken: encrypt("alpha-api-token", oldKey),
+        encryptedMouseholeToken: encrypt(MOUSEHOLE_TOKEN, strangerKey),
+      },
+    ]
+
+    const response = await post()
+    expect(response.status).toBe(200)
+    const body = (await response.json()) as { success: boolean; warnings: string[] }
+    expect(body.success).toBe(true)
+    expect(body.warnings.join(" ")).toContain("Mousehole API token(s) could not be re-encrypted")
+    expect(body.warnings.join(" ")).toContain("Alpha")
+
+    const write = writesTo(trackers)[0].values
+    expect(decrypt(write.encryptedApiToken as string, newKey)).toBe("alpha-api-token")
+    expect(write.encryptedMouseholeToken).toBeNull()
   })
 })

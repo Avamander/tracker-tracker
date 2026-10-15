@@ -137,6 +137,10 @@ export const trackers = pgTable("trackers", {
   remoteUserId: integer("remote_user_id"),
   platformMeta: text("platform_meta"),
   mouseholeUrl: text("mousehole_url"),
+  // Mousehole's MOUSEHOLE_AUTH_TOKEN, sealed under the master key. Same
+  // invariant and the same five lifecycle sites as encryptedCredentials above,
+  // so NULL or ciphertext, never "" or a marker.
+  encryptedMouseholeToken: text("encrypted_mousehole_token"),
   avatarData: text("avatar_data"),
   avatarMimeType: varchar("avatar_mime_type", { length: 50 }),
   avatarCachedAt: timestamp("avatar_cached_at"),

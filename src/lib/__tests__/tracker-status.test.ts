@@ -71,6 +71,7 @@ function makeTracker(overrides: Partial<TrackerSummary> = {}): TrackerSummary {
     color: "#00d4ff",
     qbtTag: null,
     mouseholeUrl: null,
+    hasMouseholeToken: false,
     useProxy: false,
     countCrossSeedUnsatisfied: false,
     hideUnreadBadges: false,

@@ -185,6 +185,55 @@ describe("AddTrackerDialog retrotoon credentials", () => {
   })
 })
 
+/** One input event per value: typing re-filters the registry list on every keystroke. */
+async function paste(user: ReturnType<typeof userEvent.setup>, field: HTMLElement, text: string) {
+  await user.click(field)
+  await user.paste(text)
+}
+
+/** Undoes any current pick first; the search box shows that pick's name as its placeholder. */
+async function pickPreset(user: ReturnType<typeof userEvent.setup>, name: string) {
+  const clear = screen.queryByRole("button", { name: "Clear selection" })
+  if (clear) await user.click(clear)
+  await paste(user, screen.getByPlaceholderText("Search trackers..."), name)
+  await user.keyboard("{Enter}")
+}
+
+describe("AddTrackerDialog Mousehole fields", () => {
+  it("clears the Mousehole URL and token when the tracker is switched", async () => {
+    const user = userEvent.setup()
+    render(<AddTrackerDialog open onClose={vi.fn()} onAdded={vi.fn()} />)
+
+    await pickPreset(user, "MyAnonaMouse")
+    await paste(user, screen.getByLabelText("Mousehole URL (optional)"), "http://mh:5010")
+    await paste(user, screen.getByLabelText("Mousehole API token"), "tok-7f3a")
+
+    await pickPreset(user, "TorrentLeech")
+    await pickPreset(user, "MyAnonaMouse")
+
+    expect(screen.getByLabelText("Mousehole URL (optional)")).toHaveValue("")
+    expect(screen.getByLabelText("Mousehole API token")).toHaveValue("")
+  })
+
+  it("sends the Mousehole URL and token when adding MAM", async () => {
+    const user = userEvent.setup()
+    render(<AddTrackerDialog open onClose={vi.fn()} onAdded={vi.fn()} />)
+
+    await pickPreset(user, "MyAnonaMouse")
+    await paste(user, screen.getByLabelText("API Token"), "mam-id-cookie-7f3a")
+    await paste(user, screen.getByLabelText("Mousehole URL (optional)"), "http://mh:5010")
+    await paste(user, screen.getByLabelText("Mousehole API token"), "tok-7f3a")
+    await user.click(screen.getByRole("button", { name: "Add Tracker" }))
+
+    const saved = JSON.parse(String(createRequest()?.[1]?.body))
+    expect(saved).toMatchObject({
+      slug: "myanonamouse",
+      mouseholeUrl: "http://mh:5010",
+      mouseholeToken: "tok-7f3a",
+    })
+  })
+})
+
 describe("AddTrackerDialog request bodies", () => {
   it("names the tracker by slug and sends no URL or platform to either route", async () => {
     // The address is registry data keyed by the slug, so a URL in either body

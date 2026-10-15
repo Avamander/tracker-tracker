@@ -102,6 +102,8 @@ const SENSITIVE_FIELDS = [
   "encryptedPassword",
   "encryptedUsername",
   "encryptedProxyPassword",
+  "encryptedCredentials",
+  "encryptedMouseholeToken",
 ]
 
 // Dangerous JS patterns that indicate code injection risk
@@ -1445,6 +1447,8 @@ const ENCRYPTED_COLUMNS = [
   "encryptedUsername",
   "encryptedProxyPassword",
   "totpSecret",
+  "encryptedCredentials",
+  "encryptedMouseholeToken",
 ]
 
 function checkEncryptedColumnWrites(): CheckResult {
@@ -1743,6 +1747,12 @@ function checkLockdownFlowIntegrity(): CheckResult {
   }
   if (!/totpSecret\s*:\s*null/.test(content)) {
     findings.push({ file: rel, detail: "Lockdown must clear TOTP secret" })
+  }
+  if (!/encryptedCredentials\s*:\s*null/.test(content)) {
+    findings.push({ file: rel, detail: "Lockdown must clear the tracker credential vaults" })
+  }
+  if (!/encryptedMouseholeToken\s*:\s*null/.test(content)) {
+    findings.push({ file: rel, detail: "Lockdown must clear the Mousehole API tokens" })
   }
 
   return {

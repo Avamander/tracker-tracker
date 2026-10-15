@@ -11,10 +11,11 @@ import {
   parseTrackerId,
   type RouteContext,
   validateHexColor,
-  validateHttpUrl,
   validateJoinedAt,
   validateLastAccessAt,
   validateMaxLength,
+  validateMouseholeToken,
+  validateMouseholeUrl,
 } from "@/lib/api-helpers"
 import { encrypt } from "@/lib/crypto"
 import { db } from "@/lib/db"
@@ -76,15 +77,45 @@ export async function PATCH(request: Request, props: RouteContext) {
     updates.qbtTag = body.qbtTag.trim() || null
   }
 
+  // Clearing the URL clears the token with it, so no token outlives its URL.
   if (typeof body.mouseholeUrl === "string") {
     const trimmed = body.mouseholeUrl.trim()
     if (trimmed) {
       const mouseholeUrlErr = validateMaxLength(trimmed, LONG_STRING_MAX, "Mousehole URL")
       if (mouseholeUrlErr) return mouseholeUrlErr
-      const mouseUrlErr = validateHttpUrl(trimmed, "Mousehole URL")
+      const mouseUrlErr = validateMouseholeUrl(trimmed)
       if (mouseUrlErr) return mouseUrlErr
     }
     updates.mouseholeUrl = trimmed || null
+    if (!trimmed) updates.encryptedMouseholeToken = null
+  }
+
+  // An empty string clears the token; a body without the key leaves it alone.
+  if (typeof body.mouseholeToken === "string") {
+    const trimmedMouseholeToken = body.mouseholeToken.trim()
+    if (trimmedMouseholeToken) {
+      const mouseholeTokenErr = validateMouseholeToken(trimmedMouseholeToken)
+      if (mouseholeTokenErr) return mouseholeTokenErr
+      // A token is only sent to the saved URL, so a token without one is refused.
+      let mouseholeUrl = typeof body.mouseholeUrl === "string" ? body.mouseholeUrl.trim() : null
+      if (mouseholeUrl === null) {
+        const [row] = await db
+          .select({ mouseholeUrl: trackers.mouseholeUrl })
+          .from(trackers)
+          .where(eq(trackers.id, trackerId))
+          .limit(1)
+        mouseholeUrl = row?.mouseholeUrl ?? ""
+      }
+      if (!mouseholeUrl) {
+        return NextResponse.json(
+          { error: "Mousehole API token needs a Mousehole URL" },
+          { status: 400 }
+        )
+      }
+    }
+    updates.encryptedMouseholeToken = trimmedMouseholeToken
+      ? encrypt(trimmedMouseholeToken, decodeKey(auth))
+      : null
   }
 
   if (typeof body.useProxy === "boolean") updates.useProxy = body.useProxy

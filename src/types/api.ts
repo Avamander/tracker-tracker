@@ -64,6 +64,7 @@ export interface TrackerSummary {
   color: string
   qbtTag: string | null
   mouseholeUrl: string | null
+  hasMouseholeToken: boolean
   useProxy: boolean
   countCrossSeedUnsatisfied: boolean
   hideUnreadBadges: boolean

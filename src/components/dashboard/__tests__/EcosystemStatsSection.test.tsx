@@ -28,6 +28,7 @@ function makeTracker(id: number, name: string): TrackerSummary {
     color: "#00d4ff",
     qbtTag: null,
     mouseholeUrl: null,
+    hasMouseholeToken: false,
     useProxy: false,
     countCrossSeedUnsatisfied: false,
     hideUnreadBadges: false,
