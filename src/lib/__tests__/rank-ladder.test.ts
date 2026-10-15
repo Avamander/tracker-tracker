@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest"
 import type { TrackerUserClass } from "@/data/tracker-registry"
 import { REDACTED_PREFIX } from "@/lib/privacy"
-import { buildRankLadder, findClassIndex } from "@/lib/rank-ladder"
+import { buildRankLadder, findClassIndex, ladderPosition } from "@/lib/rank-ladder"
 
 const classes: TrackerUserClass[] = [
   { name: "Banned", requirements: "Broke the rules", outsideLadder: "below" },
@@ -12,6 +12,17 @@ const classes: TrackerUserClass[] = [
   { name: "Power User", requirements: "1 TiB up" },
   { name: "VIP", requirements: "Donation", outsideLadder: "above" },
   { name: "Uploader", requirements: "Staff", outsideLadder: "above" },
+]
+
+// Shaped like Upload.cx, which lists its Parked below state after the top rung.
+const uploadcx: TrackerUserClass[] = [
+  { name: "Leech", requirements: "Ratio below 0.6", outsideLadder: "below" },
+  { name: "User", requirements: "Ratio at or above 0.6" },
+  { name: "Member", requirements: "1 TiB up" },
+  { name: "Archivist", requirements: "10 TiB seeded" },
+  { name: "Parked", requirements: "Staff-assigned", outsideLadder: "below" },
+  { name: "Uploader", requirements: "Staff", outsideLadder: "above" },
+  { name: "Moderator", requirements: "Staff", outsideLadder: "above" },
 ]
 
 describe("findClassIndex", () => {
@@ -95,5 +106,32 @@ describe("buildRankLadder", () => {
   it("returns null when the tracker has no earned classes at all", () => {
     expect(buildRankLadder([], "User")).toBeNull()
     expect(buildRankLadder([{ name: "Staff", outsideLadder: "above" }], "Staff")).toBeNull()
+  })
+})
+
+describe("ladderPosition", () => {
+  it("counts rungs only, skipping below states in the list", () => {
+    expect(ladderPosition(uploadcx, "User")).toBe(0)
+    expect(ladderPosition(uploadcx, "Archivist")).toBe(2)
+  })
+
+  it("puts every below state under the first rung, wherever it is listed", () => {
+    expect(ladderPosition(uploadcx, "Parked")).toBe(-1)
+    expect(ladderPosition(uploadcx, "Leech")).toBe(-1)
+  })
+
+  it("puts every above class one past the top rung, level with each other", () => {
+    expect(ladderPosition(uploadcx, "Uploader")).toBe(3)
+    expect(ladderPosition(uploadcx, "Moderator")).toBe(3)
+  })
+
+  it("returns null for a name the registry does not list or a redacted one", () => {
+    expect(ladderPosition(uploadcx, "Wizard")).toBeNull()
+    expect(ladderPosition(uploadcx, `${REDACTED_PREFIX}abc`)).toBeNull()
+  })
+
+  it("matches class names case-insensitively", () => {
+    expect(ladderPosition(uploadcx, "archivist")).toBe(2)
+    expect(ladderPosition(uploadcx, "PARKED")).toBe(-1)
   })
 })

@@ -1,9 +1,16 @@
 // src/lib/rank-ladder.ts
 //
-// Functions: findClassIndex, buildRankLadder
+// Functions: findClassIndex, buildRankLadder, ladderPosition
+// Constants: OUTSIDE_LADDER_NOTE
 
 import type { TrackerUserClass } from "@/data/tracker-registry"
 import { isRedacted } from "@/lib/privacy"
+
+/** Hover text for a class that is not a rung, shared by the pills and the rank tooltip. */
+export const OUTSIDE_LADDER_NOTE = {
+  above: "Granted by staff, donation or invitation, not a rung of the ladder",
+  below: "Demotion or administrative state, not a rung of the ladder",
+} as const
 
 export interface RankRung {
   name: string
@@ -48,6 +55,23 @@ export function findClassIndex(
   if (!className || isRedacted(className)) return -1
   const wanted = className.toLowerCase()
   return classes.findIndex((c) => c.name.toLowerCase() === wanted)
+}
+
+/**
+ * Where a class sits on the earned ladder: its rung, -1 for a below state,
+ * the rung count for an above class, null when unlisted. List order holds
+ * only for rungs; off-ladder classes can sit anywhere.
+ */
+export function ladderPosition(
+  classes: TrackerUserClass[],
+  className: string | null | undefined
+): number | null {
+  const index = findClassIndex(classes, className)
+  if (index === -1) return null
+  const cls = classes[index]
+  const rungs = classes.filter((c) => !c.outsideLadder)
+  if (cls.outsideLadder === "above") return rungs.length
+  return findClassIndex(rungs, cls.name)
 }
 
 export function buildRankLadder(
