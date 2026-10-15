@@ -167,6 +167,7 @@ Configured in `next.config.ts` for all routes:
 
 - `X-Content-Type-Options: nosniff`
 - `X-Frame-Options: DENY`
+- `Content-Security-Policy: frame-ancestors 'none'` (the modern form of the same rule; both are sent)
 - `X-XSS-Protection: 0` (disables legacy XSS auditor; prevents IE/Edge quirks)
 - `X-DNS-Prefetch-Control: off` (prevents DNS prefetching which can leak browsing activity)
 - `Referrer-Policy: strict-origin-when-cross-origin`
@@ -214,7 +215,7 @@ The test-connection flow (`POST /api/trackers/test`) always returns the real use
 
 1. **Progressive lockout only (no IP-based rate limiting)**: Failed login and TOTP attempts trigger escalating lockouts (5 attempts → 30s, 10 → 2min, 15 → 15min, 20 → 1hr) via `getProgressiveLockoutMs()` in `src/lib/wipe.ts`. The counter is global (not per-IP), so an unauthenticated attacker can lock out the legitimate user. Deploy behind a reverse proxy with per-IP rate limiting on `/api/auth/login` for additional protection.
 2. **API token in URL parameter**: UNIT3D (`?api_token=TOKEN`) and GGn (`?key=TOKEN`) pass tokens in the query string, which may appear in the tracker's server access logs. Gazelle trackers use `Authorization` headers (not logged by default). Upstream limitation.
-3. **No CSP header**: Content Security Policy is not yet configured due to ECharts canvas rendering complexity. Basic headers (X-Frame-Options, X-Content-Type-Options) are in place.
+3. **No full CSP**: only `frame-ancestors 'none'` is set; a full Content Security Policy is not yet configured due to ECharts canvas rendering complexity. Basic headers (X-Frame-Options, X-Content-Type-Options) are in place.
 4. **Optional 2FA**: TOTP is available but not required. Backup codes use SHA-256 + random salt (not Argon2, since high-entropy generated codes don't need a memory-hard KDF).
 5. **DNS rebinding not mitigated at fetch time**: SSRF protection validates hostnames when a user-entered address is saved (download clients, proxy, Mousehole URL), not when outbound requests are made; tracker addresses come from the registry. See [Unmitigated Attack Vectors](#6-dns-rebinding) for details.
 6. **Scheduler key persisted in DB**: The encryption key is wrapped with an HKDF-derived key from `SESSION_SECRET` and stored in `appSettings` to enable 24/7 polling. An attacker with both database access and `SESSION_SECRET` could unwrap the key and decrypt all API tokens. For Docker Compose deployments, `SESSION_SECRET` is in the same trust boundary as DB credentials. Deploy on an encrypted filesystem for defense against disk seizure. Rotating `SESSION_SECRET` invalidates the stored key, and polling resumes after the next login.
@@ -378,7 +379,7 @@ The security audit (`scripts/security-audit.ts`) performs 28 automated checks on
 | 1   | Auth enforcement         | Critical | Every non-public API route calls `authenticate()` or `getSession()`                   |
 | 2   | Dangerous functions      | Critical | No code-injection-risk functions in source                                            |
 | 3   | Hardcoded secrets        | Critical | No AWS keys, private keys, PATs, or API keys in source                                |
-| 4   | Security headers         | Critical | All 6 required headers present in `next.config.ts`                                    |
+| 4   | Security headers         | Critical | All 7 required headers present in `next.config.ts`                                    |
 | 5   | Cookie security          | Critical | All cookie operations use `httpOnly`, `sameSite: "strict"`, `secure`                  |
 | 6   | Sensitive field exposure | Critical | `encryptedApiToken`, `passwordHash`, etc. not in API responses                        |
 | 7   | Env files                | Critical | No `.env` files tracked by git                                                        |
@@ -513,6 +514,7 @@ Verify in `next.config.ts`:
 
 - [ ] `X-Content-Type-Options: nosniff`
 - [ ] `X-Frame-Options: DENY`
+- [ ] `Content-Security-Policy: frame-ancestors 'none'`
 - [ ] `Referrer-Policy: strict-origin-when-cross-origin`
 - [ ] `Permissions-Policy: camera=(), microphone=(), geolocation=()`
 - [ ] `X-DNS-Prefetch-Control: off`

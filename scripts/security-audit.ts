@@ -89,6 +89,7 @@ const AUTH_PATTERNS = [/\bauthenticate\s*\(/, /\bgetSession\s*\(/, /\brequireAut
 const REQUIRED_HEADERS = [
   "X-Content-Type-Options",
   "X-Frame-Options",
+  "Content-Security-Policy",
   "X-XSS-Protection",
   "X-DNS-Prefetch-Control",
   "Referrer-Policy",
