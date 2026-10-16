@@ -220,7 +220,7 @@ describe("AddTrackerDialog Mousehole fields", () => {
     render(<AddTrackerDialog open onClose={vi.fn()} onAdded={vi.fn()} />)
 
     await pickPreset(user, "MyAnonaMouse")
-    await paste(user, screen.getByLabelText("API Token"), "mam-id-cookie-7f3a")
+    await paste(user, screen.getByLabelText("API Token"), "not-a-real-mam-cookie")
     await paste(user, screen.getByLabelText("Mousehole URL (optional)"), "http://mh:5010")
     await paste(user, screen.getByLabelText("Mousehole API token"), "tok-7f3a")
     await user.click(screen.getByRole("button", { name: "Add Tracker" }))
