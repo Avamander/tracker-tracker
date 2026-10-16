@@ -136,12 +136,15 @@ export class GGnAdapter implements TrackerAdapter {
 
     const uploaded = requireBytes(resp.stats.uploaded, "uploaded", hostname)
     const downloaded = requireBytes(resp.stats.downloaded, "downloaded", hostname)
-    // GGn sends its ratio as a string or a number, and prints an infinity glyph
-    // for an account with nothing downloaded. A ratio that does not parse falls
-    // back to the byte totals rather than to 0.
+    // GGn sends its ratio as a string or a number. An account with nothing
+    // downloaded has no quotient to report, and a ratio that does not parse is no
+    // figure at all, so both come from the byte totals.
     const reported =
       typeof resp.stats.ratio === "number" ? resp.stats.ratio : parseFloat(resp.stats.ratio)
-    const ratio = Number.isFinite(reported) ? reported : computeRatio(uploaded, downloaded)
+    const ratio =
+      downloaded === 0n || !Number.isFinite(reported)
+        ? computeRatio(uploaded, downloaded)
+        : reported
 
     // Every field here is optional on GGnPlatformMeta, so an absent one stays
     // absent and the UI draws its unknown placeholder.
