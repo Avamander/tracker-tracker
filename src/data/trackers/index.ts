@@ -47,6 +47,7 @@ export * from "./privatehd"
 export * from "./racing4everyone"
 export * from "./redacted"
 export * from "./reelflix"
+export * from "./retromoviesclub"
 export * from "./retrotoon"
 export * from "./secretcinema"
 export * from "./seedcore"
@@ -105,6 +106,7 @@ import { privatehd } from "./privatehd"
 import { racing4everyone } from "./racing4everyone"
 import { redacted } from "./redacted"
 import { reelflix } from "./reelflix"
+import { retromoviesclub } from "./retromoviesclub"
 import { retrotoon } from "./retrotoon"
 import { secretcinema } from "./secretcinema"
 import { seedcore } from "./seedcore"
@@ -164,6 +166,7 @@ export const ALL_TRACKERS: TrackerRegistryEntry[] = [
   racing4everyone,
   redacted,
   reelflix,
+  retromoviesclub,
   retrotoon,
   secretcinema,
   seedcore,
