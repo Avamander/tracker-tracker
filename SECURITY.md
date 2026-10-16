@@ -78,6 +78,7 @@ Last audited: `2026-03-17`
 | ---------------------- | --------------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | Master password        | `app_settings.password_hash`            | Argon2 hash (irreversible)                                      | Memory-hard KDF; cannot be reversed                                                                  |
 | Tracker API tokens     | `trackers.encrypted_api_token`          | AES-256-GCM                                                     | Most sensitive field; provides account access                                                        |
+| Mousehole API token    | `trackers.encrypted_mousehole_token`    | AES-256-GCM                                                     | Mousehole's MOUSEHOLE_AUTH_TOKEN; leaves the server only as a Bearer header to Mousehole             |
 | Encryption key         | JWE session cookie + scheduler memory   | JWE (A256GCM)                                                   | In-memory copy zero-filled on destructive operations; wrapped copy persisted in DB for boot recovery |
 | Scheduler key          | `app_settings.encrypted_scheduler_key`  | AES-256-GCM (wrapped with HKDF-derived key from SESSION_SECRET) | Enables 24/7 polling; persists through logout; cleared on lockdown/nuke/password-change              |
 | Encryption salt        | `app_settings.encryption_salt`          | No                                                              | Salt is not secret; useless without master password                                                  |
@@ -129,10 +130,10 @@ Public routes are explicitly limited to: `/login`, `/setup`, `/api/auth/*`, `/ap
 
 ### Data Protection
 
-- `encryptedApiToken` is never included in API responses. `serializeTrackerResponse()` in `src/lib/tracker-serializer.ts` uses an allowlist pattern, so the token is structurally unreachable from the response object.
+- `encryptedApiToken`, `encryptedCredentials` and `encryptedMouseholeToken` are never included in API responses. `serializeTrackerResponse()` in `src/lib/tracker-serializer.ts` uses an allowlist pattern, so they are structurally unreachable from the response object. The Mousehole token is reduced to `hasMouseholeToken` in SQL by `trackerColumns` in `src/lib/server-data.ts`.
 - All database queries use Drizzle ORM (parameterized queries, no SQL injection surface).
 - No unsafe HTML injection methods anywhere in the codebase.
-- **Emergency lockdown** (`POST /api/settings/lockdown`): Stops scheduler, revokes all API tokens, rotates encryption salt, wipes TOTP/username, destroys session. Requires active session and three-checkbox UI acknowledgment.
+- **Emergency lockdown** (`POST /api/settings/lockdown`): Stops scheduler, revokes all API tokens, clears credential vaults and Mousehole API tokens, rotates encryption salt, wipes TOTP/username, destroys session. Requires active session and three-checkbox UI acknowledgment.
 - **Scrub & delete** (`POST /api/settings/nuke`): Overwrites sensitive columns with random bytes, then deletes all rows. Requires active session + master password. Disk reclamation handled by PostgreSQL autovacuum.
 - **Backup/restore**: Pure JSON format (no zip/tar). Restore validates all fields before database writes. File deletion uses `path.resolve()` + base directory prefix check. Restore requires master password re-confirmation. Encrypted fields travel as ciphertext. See [Backup Security](#backup-security).
 - External HTTP requests use `AbortSignal.timeout(15_000)`. See `src/lib/tracker-platforms/helpers/adapter-fetch.ts`.
@@ -275,7 +276,7 @@ The backup/restore system (`src/lib/backup.ts`, `src/app/api/settings/backup/`) 
 
 #### Data Handling
 
-- **Encrypted fields travel as ciphertext**: `encryptedApiToken`, `totpSecret`, `encryptedProxyPassword`, `encryptedUsername`, `encryptedPassword` are never decrypted during backup generation.
+- **Encrypted fields travel as ciphertext**: `encryptedApiToken`, `encryptedCredentials`, `encryptedMouseholeToken`, `totpSecret`, `encryptedProxyPassword`, `encryptedUsername`, `encryptedPassword` are never decrypted during backup generation.
 - **Password hash excluded**: `app_settings.password_hash` is never included in backup files. The restoring user's current password is preserved.
 - **Encryption salt included**: required to re-derive the encryption key from the master password after restore.
 - **Failed login counter reset**: `failedLoginAttempts` is always set to 0 on restore, regardless of the backup's value.

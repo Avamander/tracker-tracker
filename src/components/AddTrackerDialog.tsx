@@ -28,6 +28,11 @@ import {
   validateCredentialValues,
 } from "@/lib/credential-forms"
 import { localDateStr } from "@/lib/formatters"
+import {
+  MOUSEHOLE_TOKEN_TIP,
+  MOUSEHOLE_URL_PLACEHOLDER,
+  MOUSEHOLE_URL_TIP,
+} from "@/lib/mousehole"
 
 // ---------------------------------------------------------------------------
 // Fuzzy match
@@ -235,6 +240,7 @@ function AddTrackerDialog({ open, onClose, onAdded, existingSlugs = [] }: AddTra
   const [credentials, setCredentials] = useState<CredentialValues>(EMPTY_CREDENTIAL_VALUES)
   const [qbtTag, setQbtTag] = useState("")
   const [mouseholeUrl, setMouseholeUrl] = useState("")
+  const [mouseholeToken, setMouseholeToken] = useState("")
   const [color, setColor] = useState<string>(CHART_THEME.accent)
   const [joinedAt, setJoinedAt] = useState("")
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -251,6 +257,7 @@ function AddTrackerDialog({ open, onClose, onAdded, existingSlugs = [] }: AddTra
     setCredentials(EMPTY_CREDENTIAL_VALUES)
     setQbtTag("")
     setMouseholeUrl("")
+    setMouseholeToken("")
     setColor(CHART_THEME.accent)
     setJoinedAt("")
     setErrors({})
@@ -276,6 +283,8 @@ function AddTrackerDialog({ open, onClose, onAdded, existingSlugs = [] }: AddTra
     // Everything typed belongs to the tracker it was typed for. Keeping a token
     // across a switch would send it to the next tracker's host on submit.
     setCredentials(EMPTY_CREDENTIAL_VALUES)
+    setMouseholeUrl("")
+    setMouseholeToken("")
   }
 
   const availablePresets = useMemo(() => {
@@ -349,6 +358,7 @@ function AddTrackerDialog({ open, onClose, onAdded, existingSlugs = [] }: AddTra
           qbtTag: qbtTag.trim() || undefined,
           joinedAt: joinedAt || undefined,
           mouseholeUrl: mouseholeUrl.trim() || undefined,
+          mouseholeToken: mouseholeToken.trim() || undefined,
         }),
       })
 
@@ -464,7 +474,7 @@ function AddTrackerDialog({ open, onClose, onAdded, existingSlugs = [] }: AddTra
         </div>
 
         {selectedEntry?.platform === "mam" && (
-          <div className="flex flex-col gap-1">
+          <>
             <div className="flex items-center gap-1">
               <Input
                 label="Mousehole URL (optional)"
@@ -473,10 +483,10 @@ function AddTrackerDialog({ open, onClose, onAdded, existingSlugs = [] }: AddTra
                 data-1p-ignore
                 value={mouseholeUrl}
                 onChange={(e) => setMouseholeUrl(e.target.value)}
-                placeholder="http://localhost:7001"
+                placeholder={MOUSEHOLE_URL_PLACEHOLDER}
               />
               <InfoTip
-                content="If you run Mousehole to manage your MAM seedbox IP, enter its URL here to see status and trigger updates from Tracker Tracker."
+                content={MOUSEHOLE_URL_TIP}
                 size="sm"
                 docs={{
                   href: "https://github.com/t-mart/mousehole",
@@ -484,7 +494,20 @@ function AddTrackerDialog({ open, onClose, onAdded, existingSlugs = [] }: AddTra
                 }}
               />
             </div>
-          </div>
+            <div className="flex items-center gap-1">
+              <Input
+                type="password"
+                label="Mousehole API token"
+                name="tracker-mousehole-token"
+                autoComplete="off"
+                data-1p-ignore
+                value={mouseholeToken}
+                onChange={(e) => setMouseholeToken(e.target.value)}
+                placeholder="••••••••"
+              />
+              <InfoTip content={MOUSEHOLE_TOKEN_TIP} size="sm" />
+            </div>
+          </>
         )}
 
         <ColorPicker label="Color" value={color} onChange={setColor} />

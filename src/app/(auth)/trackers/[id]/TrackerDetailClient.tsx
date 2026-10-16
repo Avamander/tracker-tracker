@@ -80,6 +80,7 @@ export function TrackerDetailClient({
   const [debugLoading, setDebugLoading] = useState(false)
   const [debugError, setDebugError] = useState<string | null>(null)
   const [pauseLoading, setPauseLoading] = useState(false)
+  const [settingsSaves, setSettingsSaves] = useState(0)
 
   const torrentData = useTrackerTorrents({
     trackerId,
@@ -267,6 +268,7 @@ export function TrackerDetailClient({
         badgeSlots={badgeSlots}
         onTogglePause={handleTogglePause}
         pauseLoading={pauseLoading}
+        settingsSaves={settingsSaves}
       />
 
       {/* Rank Progression */}
@@ -383,6 +385,7 @@ export function TrackerDetailClient({
             return
           }
           setTracker(updated)
+          setSettingsSaves((n) => n + 1)
         }}
       />
 

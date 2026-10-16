@@ -87,6 +87,7 @@ const ISO = "2026-01-01T00:00:00.000Z"
 
 const PLAIN = {
   trackerToken: "tracker-api-token-plaintext",
+  mouseholeToken: "fake-mousehole-token-7f3a",
   clientUsername: "qbt-user",
   clientPassword: "qbt-password",
   notificationConfig: '{"webhookUrl":"https://example.com/hook"}',
@@ -181,6 +182,7 @@ function makeBackupPayload(encryptionSalt: string, ct: Ciphertexts): BackupPaylo
         remoteUserId: 42,
         platformMeta: null,
         mouseholeUrl: null,
+        encryptedMouseholeToken: ct.mouseholeToken,
         avatarData: null,
         avatarMimeType: null,
         avatarCachedAt: null,
@@ -486,6 +488,7 @@ describe("POST /api/settings/backup/restore — credential re-encryption", () =>
       remoteUserId: 42,
       platformMeta: '{"class":"Elite"}',
       mouseholeUrl: "https://mousehole.example.com/u/driftling",
+      encryptedMouseholeToken: encrypt("fake-mousehole-token-7f3a", backupKey),
       avatarData: "data:image/webp;base64,AAAA",
       avatarMimeType: "image/webp",
       avatarCachedAt: "2026-02-03T04:05:06.000Z",
@@ -633,6 +636,10 @@ describe("POST /api/settings/backup/restore — credential re-encryption", () =>
     expect(decrypt(tracker.encryptedApiToken as string, currentKey)).toBe(PLAIN.trackerToken)
     // Proves re-encryption actually happened rather than a pass-through.
     expect(tracker.encryptedApiToken).not.toBe(payload.trackers[0].encryptedApiToken)
+    expect(decrypt(tracker.encryptedMouseholeToken as string, currentKey)).toBe(
+      PLAIN.mouseholeToken
+    )
+    expect(tracker.encryptedMouseholeToken).not.toBe(payload.trackers[0].encryptedMouseholeToken)
 
     const client = onlyInsert(recorder, "download_clients")
     expect(decrypt(client.encryptedUsername as string, currentKey)).toBe(PLAIN.clientUsername)
@@ -677,6 +684,7 @@ describe("POST /api/settings/backup/restore — credential re-encryption", () =>
     const tracker = onlyInsert(recorder, "trackers")
     expect(tracker.encryptedApiToken).toBe(payload.trackers[0].encryptedApiToken)
     expect(decrypt(tracker.encryptedApiToken as string, key)).toBe(PLAIN.trackerToken)
+    expect(tracker.encryptedMouseholeToken).toBe(payload.trackers[0].encryptedMouseholeToken)
 
     const client = onlyInsert(recorder, "download_clients")
     expect(client.encryptedUsername).toBe(payload.downloadClients[0].encryptedUsername)
@@ -706,6 +714,8 @@ describe("POST /api/settings/backup/restore — credential re-encryption", () =>
 
     const tracker = onlyInsert(recorder, "trackers")
     expect(tracker.encryptedApiToken).toBe("")
+    // Nullable column: cleared to NULL, never to "".
+    expect(tracker.encryptedMouseholeToken).toBeNull()
 
     const client = onlyInsert(recorder, "download_clients")
     expect(client.encryptedUsername).toBe("")
@@ -1089,6 +1099,25 @@ describe("POST /api/settings/backup/restore — dry run", () => {
     expect(body.credentialsTotal).toBeGreaterThan(0)
     expect(body.credentialsAtRisk).toBe(0)
     expect(body.credentialsRecoverable).toBe(body.credentialsTotal)
+  })
+
+  // The probe list is hand-maintained, so a column left out of it is never
+  // counted and never proven recoverable.
+  it("counts the Mousehole API token among the credentials", async () => {
+    const backupKey = await deriveKey(PASSWORD, SALT_A)
+    const withToken = makeBackupPayload(SALT_A, encryptAll(backupKey))
+    const withoutToken = makeBackupPayload(SALT_A, encryptAll(backupKey))
+    ;(withoutToken.trackers[0] as Record<string, unknown>).encryptedMouseholeToken = null
+    mockCurrentSettings({ encryptionSalt: SALT_B })
+
+    const counted = (await (await POST(makeRequest(withToken, PASSWORD, undefined, true))).json()) as {
+      credentialsTotal: number
+    }
+    const uncounted = (await (
+      await POST(makeRequest(withoutToken, PASSWORD, undefined, true))
+    ).json()) as { credentialsTotal: number }
+
+    expect(counted.credentialsTotal).toBe(uncounted.credentialsTotal + 1)
   })
 
   it("counts credentials written under a different key as at risk", async () => {

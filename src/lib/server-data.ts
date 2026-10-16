@@ -248,7 +248,8 @@ export function serializeNotificationTarget(row: NotificationTargetRow) {
 
 /**
  * Explicit column projection for trackers. Excludes encryptedApiToken at the
- * query level so the ciphertext never enters server process memory. Also
+ * query level so the ciphertext never enters server process memory, and
+ * reduces encryptedMouseholeToken to a boolean in SQL for the same reason. Also
  * excludes avatarData (potentially large base64) since the serializer
  * doesn't include it. Avatars are served via a dedicated API route.
  */
@@ -269,6 +270,9 @@ export const trackerColumns = {
   color: trackers.color,
   qbtTag: trackers.qbtTag,
   mouseholeUrl: trackers.mouseholeUrl,
+  hasMouseholeToken: sql<boolean>`(${trackers.encryptedMouseholeToken} IS NOT NULL)`.as(
+    "has_mousehole_token"
+  ),
   remoteUserId: trackers.remoteUserId,
   platformMeta: trackers.platformMeta,
   useProxy: trackers.useProxy,

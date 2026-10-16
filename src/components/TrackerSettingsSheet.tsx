@@ -29,6 +29,11 @@ import {
   validateCredentialValues,
 } from "@/lib/credential-forms"
 import { localDateStr } from "@/lib/formatters"
+import {
+  MOUSEHOLE_TOKEN_TIP,
+  MOUSEHOLE_URL_PLACEHOLDER,
+  MOUSEHOLE_URL_TIP,
+} from "@/lib/mousehole"
 import { trackerQueryOptions } from "@/lib/query-options"
 import type { TrackerSummary } from "@/types/api"
 
@@ -117,6 +122,11 @@ function TrackerSettingsSheet({ open, tracker, onClose, onUpdated }: TrackerSett
   }, [open, proxyAvailable])
 
   const [changingKey, setChangingKey] = useState(false)
+  const [changingMouseholeToken, setChangingMouseholeToken] = useState(false)
+  // Transient like `credentials`, not part of the form. The saved token never
+  // reaches the browser, and a value typed then abandoned must not survive a
+  // close, where MaskedSecret would hide it until the next save sent it.
+  const [mouseholeToken, setMouseholeToken] = useState("")
   const [credentials, setCredentials] = useState<CredentialValues>(EMPTY_CREDENTIAL_VALUES)
   const credentialForm = credentialFormForPlatform(tracker.platformType)
 
@@ -130,6 +140,8 @@ function TrackerSettingsSheet({ open, tracker, onClose, onUpdated }: TrackerSett
 
   const resetTransientState = useCallback(() => {
     setChangingKey(false)
+    setChangingMouseholeToken(false)
+    setMouseholeToken("")
     setCredentials(EMPTY_CREDENTIAL_VALUES)
     setErrors({})
     setSaving(false)
@@ -217,11 +229,18 @@ function TrackerSettingsSheet({ open, tracker, onClose, onUpdated }: TrackerSett
       useProxy: form.useProxy,
       countCrossSeedUnsatisfied: form.countCrossSeedUnsatisfied,
       hideUnreadBadges: form.hideUnreadBadges,
-      mouseholeUrl: form.mouseholeUrl.trim() || null,
+      mouseholeUrl: form.mouseholeUrl.trim(),
     }
 
     if (changingKey && trimmedToken) {
       payload.apiToken = trimmedToken
+    }
+
+    // mouseholeToken travels only with a new value, so a save with the field
+    // blank keeps a saved token. Emptying the URL clears both on the server.
+    const trimmedMouseholeToken = mouseholeToken.trim()
+    if (trimmedMouseholeToken) {
+      payload.mouseholeToken = trimmedMouseholeToken
     }
 
     try {
@@ -358,22 +377,60 @@ function TrackerSettingsSheet({ open, tracker, onClose, onUpdated }: TrackerSett
           </div>
 
           {tracker.platformType === "mam" && (
-            <div className="flex items-center gap-1">
-              <Input
-                label="Mousehole URL (optional)"
-                value={form.mouseholeUrl}
-                onChange={(e) => updateField("mouseholeUrl", e.target.value)}
-                placeholder="http://localhost:7001"
-              />
-              <InfoTip
-                content="If you run Mousehole to manage your MAM seedbox IP, enter its URL here to see status and trigger updates from Tracker Tracker."
-                size="sm"
-                docs={{
-                  href: "https://github.com/t-mart/mousehole",
-                  description: "Mousehole on GitHub",
-                }}
-              />
-            </div>
+            <>
+              <div className="flex items-center gap-1">
+                <Input
+                  label="Mousehole URL (optional)"
+                  value={form.mouseholeUrl}
+                  onChange={(e) => updateField("mouseholeUrl", e.target.value)}
+                  placeholder={MOUSEHOLE_URL_PLACEHOLDER}
+                />
+                <InfoTip
+                  content={MOUSEHOLE_URL_TIP}
+                  size="sm"
+                  docs={{
+                    href: "https://github.com/t-mart/mousehole",
+                    description: "Mousehole on GitHub",
+                  }}
+                />
+              </div>
+              <div className="flex items-center gap-1">
+                {tracker.hasMouseholeToken && !changingMouseholeToken ? (
+                  <div className="flex flex-col gap-1 w-full">
+                    <span className="text-xs font-sans font-medium text-secondary uppercase tracking-wider">
+                      Mousehole API token
+                    </span>
+                    <MaskedSecret onChangeClick={() => setChangingMouseholeToken(true)} />
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2 w-full">
+                    <Input
+                      type="password"
+                      label="Mousehole API token"
+                      name="tracker-mousehole-token"
+                      autoComplete="off"
+                      data-1p-ignore
+                      value={mouseholeToken}
+                      onChange={(e) => setMouseholeToken(e.target.value)}
+                      placeholder="••••••••"
+                    />
+                    {changingMouseholeToken && (
+                      <Button
+                        variant="minimal"
+                        size="sm"
+                        text="Cancel"
+                        className="self-start"
+                        onClick={() => {
+                          setChangingMouseholeToken(false)
+                          setMouseholeToken("")
+                        }}
+                      />
+                    )}
+                  </div>
+                )}
+                <InfoTip content={MOUSEHOLE_TOKEN_TIP} size="sm" />
+              </div>
+            </>
           )}
 
           <ColorPicker label="Color" value={form.color} onChange={(v) => updateField("color", v)} />

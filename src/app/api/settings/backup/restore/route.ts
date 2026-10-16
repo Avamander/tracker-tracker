@@ -79,6 +79,7 @@ function backupCiphertexts(payload: BackupPayload): string[] {
     // Nullable, and absent entirely from backups written before the vault
     // existed. The typeof/length filter at the bottom drops both cases.
     ...payload.trackers.map((t) => (t as Record<string, unknown>).encryptedCredentials),
+    ...payload.trackers.map((t) => (t as Record<string, unknown>).encryptedMouseholeToken),
     ...payload.downloadClients.flatMap((c) => [
       (c as Record<string, unknown>).encryptedUsername,
       (c as Record<string, unknown>).encryptedPassword,
@@ -406,6 +407,22 @@ export async function POST(request: Request) {
           credentials = null
         }
 
+        // The Mousehole API token, under the vault's null-or-ciphertext rule.
+        let mouseholeToken: string | null
+        if (canPassThrough) {
+          mouseholeToken = (fields.encryptedMouseholeToken as string) || null
+        } else if (canReencrypt) {
+          mouseholeToken =
+            reencryptField(
+              (fields.encryptedMouseholeToken as string | null | undefined) ?? "",
+              backupKey,
+              currentKey,
+              `tracker '${fields.name}' mouseholeToken`
+            ) || null
+        } else {
+          mouseholeToken = null
+        }
+
         // The export selects the whole tracker row minus five runtime fields, so
         // a column missing from this list travels in the file and never comes
         // back. restore-route.test.ts derives the required set from the schema.
@@ -433,6 +450,7 @@ export async function POST(request: Request) {
             remoteUserId: (fields.remoteUserId as number | null) ?? null,
             platformMeta: (fields.platformMeta as string | null) ?? null,
             mouseholeUrl: (fields.mouseholeUrl as string | null) ?? null,
+            encryptedMouseholeToken: mouseholeToken,
             avatarData: (fields.avatarData as string | null) ?? null,
             avatarMimeType: (fields.avatarMimeType as string | null) ?? null,
             avatarCachedAt: fields.avatarCachedAt

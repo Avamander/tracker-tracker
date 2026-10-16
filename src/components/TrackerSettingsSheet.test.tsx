@@ -15,7 +15,7 @@
 //    nothing.
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { localDateStr } from "@/lib/formatters"
@@ -45,6 +45,7 @@ const TRACKER: TrackerSummary = {
   color: "#01d4ff",
   qbtTag: "aither",
   mouseholeUrl: null,
+  hasMouseholeToken: false,
   useProxy: false,
   countCrossSeedUnsatisfied: false,
   hideUnreadBadges: false,
@@ -168,6 +169,102 @@ describe("TrackerSettingsSheet last login shortcut", () => {
     })
     await waitFor(() => expect(props.onUpdated).toHaveBeenCalledTimes(1))
     expect(props.onClose).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe("TrackerSettingsSheet Mousehole API token", () => {
+  const MAM: TrackerSummary = {
+    ...TRACKER,
+    platformType: "mam",
+    mouseholeUrl: "http://mousehole-test:5010",
+    hasMouseholeToken: true,
+  }
+
+  // The saved token is masked, so a value typed and then abandoned would be
+  // invisible on the next open and ride along with an unrelated save.
+  it("drops a typed token on close, so a later save leaves the saved one alone", async () => {
+    const user = userEvent.setup()
+    patchResult = jsonResponse(MAM)
+    renderSheet({ tracker: MAM })
+
+    // The credentials row has its own Change button; the Mousehole one is second.
+    await user.click(screen.getAllByRole("button", { name: "Change" })[1])
+    await user.type(screen.getByLabelText("Mousehole API token"), "abandoned-token-7f3a")
+    await user.click(screen.getByRole("button", { name: "Close" }))
+
+    const nickname = screen.getByLabelText("Nickname")
+    await user.clear(nickname)
+    await user.type(nickname, "MAM (main)")
+    await user.click(screen.getByRole("button", { name: "Save Changes" }))
+
+    const [saveCall] = trackerRequests()
+    expect(saveCall[1].method).toBe("PATCH")
+    expect(JSON.parse(saveCall[1].body)).not.toHaveProperty("mouseholeToken")
+  })
+
+  it("sends a typed token with the save", async () => {
+    const user = userEvent.setup()
+    patchResult = jsonResponse(MAM)
+    renderSheet({ tracker: MAM })
+
+    await user.click(screen.getAllByRole("button", { name: "Change" })[1])
+    await user.type(screen.getByLabelText("Mousehole API token"), "fake-token-7f3a")
+    await user.click(screen.getByRole("button", { name: "Save Changes" }))
+
+    const [saveCall] = trackerRequests()
+    expect(JSON.parse(saveCall[1].body)).toMatchObject({ mouseholeToken: "fake-token-7f3a" })
+  })
+
+  it("returns to the masked token and sends nothing after Cancel", async () => {
+    const user = userEvent.setup()
+    patchResult = jsonResponse(MAM)
+    renderSheet({ tracker: MAM })
+
+    await user.click(screen.getAllByRole("button", { name: "Change" })[1])
+    const field = screen.getByLabelText("Mousehole API token")
+    await user.type(field, "abandoned-token-7f3a")
+    // The sheet footer has its own Cancel; the field's sits in the field's
+    // container, two levels above the input.
+    const row = field.parentElement?.parentElement as HTMLElement
+    await user.click(within(row).getByRole("button", { name: "Cancel" }))
+
+    expect(screen.queryByLabelText("Mousehole API token")).not.toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Save Changes" }))
+
+    const [saveCall] = trackerRequests()
+    expect(JSON.parse(saveCall[1].body)).not.toHaveProperty("mouseholeToken")
+  })
+
+  // An empty URL clears the token on the server, so a save that leaves the URL
+  // alone must send it back unchanged.
+  it("resends the saved URL, so an unrelated save keeps the token", async () => {
+    const user = userEvent.setup()
+    patchResult = jsonResponse(MAM)
+    renderSheet({ tracker: MAM })
+
+    const nickname = screen.getByLabelText("Nickname")
+    await user.clear(nickname)
+    await user.type(nickname, "MAM (main)")
+    await user.click(screen.getByRole("button", { name: "Save Changes" }))
+
+    const [saveCall] = trackerRequests()
+    const body = JSON.parse(saveCall[1].body)
+    expect(body).toMatchObject({ mouseholeUrl: "http://mousehole-test:5010" })
+    expect(body).not.toHaveProperty("mouseholeToken")
+  })
+
+  it("sends an empty URL when the Mousehole URL is removed", async () => {
+    const user = userEvent.setup()
+    patchResult = jsonResponse({ ...MAM, mouseholeUrl: null, hasMouseholeToken: false })
+    renderSheet({ tracker: MAM })
+
+    await user.clear(screen.getByLabelText("Mousehole URL (optional)"))
+    await user.click(screen.getByRole("button", { name: "Save Changes" }))
+
+    const [saveCall] = trackerRequests()
+    const body = JSON.parse(saveCall[1].body)
+    expect(body).toMatchObject({ mouseholeUrl: "" })
+    expect(body).not.toHaveProperty("mouseholeToken")
   })
 })
 

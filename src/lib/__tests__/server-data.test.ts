@@ -360,6 +360,7 @@ describe("serializeTrackerResponse excludes encryptedApiToken", () => {
       color: "#00d4ff",
       qbtTag: null,
       mouseholeUrl: null,
+      hasMouseholeToken: false,
       hideUnreadBadges: false,
       remoteUserId: null,
       platformMeta: null,
@@ -398,6 +399,11 @@ describe("trackerColumns security invariant", () => {
     expect(columnKeys).not.toContain("encryptedApiToken")
   })
 
+  it("does NOT include encryptedMouseholeToken, only its presence flag", () => {
+    expect(columnKeys).not.toContain("encryptedMouseholeToken")
+    expect(columnKeys).toContain("hasMouseholeToken")
+  })
+
   it("does NOT include avatarData (large binary, served via dedicated route)", () => {
     expect(columnKeys).not.toContain("avatarData")
     expect(columnKeys).not.toContain("avatarMimeType")
@@ -419,6 +425,7 @@ describe("trackerColumns security invariant", () => {
       "color",
       "qbtTag",
       "mouseholeUrl",
+      "hasMouseholeToken",
       "useProxy",
       "countCrossSeedUnsatisfied",
       "isFavorite",

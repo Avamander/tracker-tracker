@@ -6,6 +6,12 @@ If your tracker runs on a new platform, read [Tracker API Responses](tracker-res
 
 ---
 
+## Before you open a pull request
+
+Branch from `development` and open your pull request against `development`, not `main`. `main` is updated from `development` when a release ships, so a pull request against it is built on code that is weeks behind and has to be rebased before it can merge.
+
+---
+
 ## Standardization Philosophy
 
 Every tracker file follows the same field order and completeness rules. This makes diffs clean and reviews fast.

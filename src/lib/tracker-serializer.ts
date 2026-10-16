@@ -11,16 +11,19 @@ import type { PlatformMeta } from "@/types/tracker-stats"
 // the output object. Callers physically cannot hand this function a secret, so
 // no future edit here can serialize one by reaching for a property that was
 // never in scope. encryptedCredentials joins encryptedApiToken for that reason:
-// the credential vault leaves the server only via the reveal endpoint.
+// the credential vault leaves the server only via the reveal endpoint. The
+// Mousehole token leaves it only as a Bearer header to Mousehole; the UI gets
+// hasMouseholeToken, which server-data.ts computes in SQL.
 type TrackerRow = Omit<
   FullTrackerRow,
   | "encryptedApiToken"
   | "encryptedCredentials"
+  | "encryptedMouseholeToken"
   | "avatarData"
   | "avatarMimeType"
   | "avatarCachedAt"
   | "avatarRemoteUrl"
->
+> & { hasMouseholeToken: boolean }
 
 export function parsePlatformMeta(raw: string | null): PlatformMeta | null {
   if (!raw) return null
@@ -52,6 +55,7 @@ export function serializeTrackerResponse(
     color: tracker.color ?? DEFAULT_TRACKER_COLOR,
     qbtTag: tracker.qbtTag,
     mouseholeUrl: tracker.mouseholeUrl ?? null,
+    hasMouseholeToken: tracker.hasMouseholeToken,
     useProxy: tracker.useProxy,
     countCrossSeedUnsatisfied: tracker.countCrossSeedUnsatisfied,
     hideUnreadBadges: tracker.hideUnreadBadges,

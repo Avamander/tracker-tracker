@@ -9,9 +9,10 @@ import {
   decodeKey,
   parseJsonBody,
   validateHexColor,
-  validateHttpUrl,
   validateJoinedAt,
   validateMaxLength,
+  validateMouseholeToken,
+  validateMouseholeUrl,
 } from "@/lib/api-helpers"
 import { encrypt } from "@/lib/crypto"
 import { db } from "@/lib/db"
@@ -41,15 +42,17 @@ export async function POST(request: Request) {
   const body = await parseJsonBody(request)
   if (body instanceof NextResponse) return body
 
-  const { name, slug, apiToken, color, qbtTag, mouseholeUrl, joinedAt } = body as {
-    name?: string
-    slug?: string
-    apiToken?: string
-    color?: string
-    qbtTag?: string
-    mouseholeUrl?: string
-    joinedAt?: string
-  }
+  const { name, slug, apiToken, color, qbtTag, mouseholeUrl, mouseholeToken, joinedAt } =
+    body as {
+      name?: string
+      slug?: string
+      apiToken?: string
+      color?: string
+      qbtTag?: string
+      mouseholeUrl?: string
+      mouseholeToken?: string
+      joinedAt?: string
+    }
 
   if (
     typeof name !== "string" ||
@@ -92,11 +95,24 @@ export async function POST(request: Request) {
     if (qbtTagErr) return qbtTagErr
   }
 
-  if (typeof mouseholeUrl === "string" && mouseholeUrl.trim()) {
-    const mouseholeUrlErr = validateMaxLength(mouseholeUrl.trim(), LONG_STRING_MAX, "Mousehole URL")
+  const trimmedMouseholeUrl = typeof mouseholeUrl === "string" ? mouseholeUrl.trim() : ""
+  if (trimmedMouseholeUrl) {
+    const mouseholeUrlErr = validateMaxLength(trimmedMouseholeUrl, LONG_STRING_MAX, "Mousehole URL")
     if (mouseholeUrlErr) return mouseholeUrlErr
-    const mouseUrlErr = validateHttpUrl(mouseholeUrl.trim(), "Mousehole URL")
+    const mouseUrlErr = validateMouseholeUrl(trimmedMouseholeUrl)
     if (mouseUrlErr) return mouseUrlErr
+  }
+
+  const trimmedMouseholeToken = typeof mouseholeToken === "string" ? mouseholeToken.trim() : ""
+  if (trimmedMouseholeToken) {
+    const mouseholeTokenErr = validateMouseholeToken(trimmedMouseholeToken)
+    if (mouseholeTokenErr) return mouseholeTokenErr
+    if (!trimmedMouseholeUrl) {
+      return NextResponse.json(
+        { error: "Mousehole API token needs a Mousehole URL" },
+        { status: 400 }
+      )
+    }
   }
 
   if (typeof joinedAt === "string" && joinedAt) {
@@ -119,8 +135,8 @@ export async function POST(request: Request) {
         platformType: entry.platform,
         color: color || entry.color,
         qbtTag: typeof qbtTag === "string" ? qbtTag.trim() : null,
-        mouseholeUrl:
-          typeof mouseholeUrl === "string" && mouseholeUrl.trim() ? mouseholeUrl.trim() : null,
+        mouseholeUrl: trimmedMouseholeUrl || null,
+        encryptedMouseholeToken: trimmedMouseholeToken ? encrypt(trimmedMouseholeToken, key) : null,
         joinedAt: typeof joinedAt === "string" && joinedAt ? joinedAt : null,
       })
       .returning()

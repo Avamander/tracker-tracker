@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { CHART_THEME } from "@/components/charts/lib/theme"
 import { authenticate, parseJsonBody, parseTrackerId } from "@/lib/api-helpers"
+import { encrypt } from "@/lib/crypto"
 import { db } from "@/lib/db"
 import { pollTracker } from "@/lib/tracker-scheduler"
 import { POST as PollPOST } from "./[id]/poll/route"
@@ -466,6 +467,100 @@ describe("POST /api/trackers", () => {
     const response = await POST(request)
     expect(response.status).toBe(401)
   })
+
+  it("encrypts the Mousehole API token into its own column, never into the URL", async () => {
+    const body = {
+      name: "MAM",
+      slug: "myanonamouse",
+      apiToken: "mytoken",
+      mouseholeUrl: "http://mousehole-test:5010",
+      mouseholeToken: " fake-mousehole-token-7f3a ",
+    }
+    ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue(body)
+
+    const mockReturning = vi.fn().mockResolvedValue([{ id: 9, name: "MAM" }])
+    const mockValues = vi.fn().mockReturnValue({ returning: mockReturning })
+    ;(db.insert as ReturnType<typeof vi.fn>).mockReturnValue({ values: mockValues })
+
+    const response = await POST(makeRequest("http://localhost/api/trackers", body, "POST"))
+
+    expect(response.status).toBe(201)
+    expect(encrypt).toHaveBeenCalledWith("fake-mousehole-token-7f3a", expect.any(Buffer))
+    const inserted = mockValues.mock.calls[0][0]
+    expect(inserted.encryptedMouseholeToken).toBe("encrypted-token")
+    expect(inserted.mouseholeUrl).toBe("http://mousehole-test:5010")
+  })
+
+  it("rejects a Mousehole API token holding a control character without echoing it", async () => {
+    const body = {
+      name: "MAM",
+      slug: "myanonamouse",
+      apiToken: "mytoken",
+      mouseholeToken: "fake-token\r\nleak",
+    }
+    ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue(body)
+
+    const response = await POST(makeRequest("http://localhost/api/trackers", body, "POST"))
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toMatch(/control character \(U\+000D\) at position 10/)
+    expect(data.error).not.toContain("fake-token")
+    expect(db.insert).not.toHaveBeenCalled()
+  })
+
+  it("rejects a Mousehole API token holding a non-Latin-1 character without echoing it", async () => {
+    const body = {
+      name: "MAM",
+      slug: "myanonamouse",
+      apiToken: "mytoken",
+      mouseholeToken: "fake-token…",
+    }
+    ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue(body)
+
+    const response = await POST(makeRequest("http://localhost/api/trackers", body, "POST"))
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toMatch(/non-Latin-1 character \(U\+2026\) at position 10/)
+    expect(data.error).not.toContain("fake-token")
+    expect(db.insert).not.toHaveBeenCalled()
+  })
+
+  it("rejects a Mousehole URL that carries userinfo and points at the token field", async () => {
+    const body = {
+      name: "MAM",
+      slug: "myanonamouse",
+      apiToken: "mytoken",
+      mouseholeUrl: "http://:fake-token-7f3a@mousehole-test:5010",
+    }
+    ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue(body)
+
+    const response = await POST(makeRequest("http://localhost/api/trackers", body, "POST"))
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toMatch(/Mousehole API token field/)
+    expect(data.error).not.toContain("fake-token-7f3a")
+    expect(db.insert).not.toHaveBeenCalled()
+  })
+
+  it("rejects a Mousehole API token without a Mousehole URL", async () => {
+    const body = {
+      name: "MAM",
+      slug: "myanonamouse",
+      apiToken: "mytoken",
+      mouseholeToken: "fake-mousehole-token-7f3a",
+    }
+    ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue(body)
+
+    const response = await POST(makeRequest("http://localhost/api/trackers", body, "POST"))
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toBe("Mousehole API token needs a Mousehole URL")
+    expect(db.insert).not.toHaveBeenCalled()
+  })
 })
 
 describe("PATCH /api/trackers/[id]", () => {
@@ -779,6 +874,197 @@ describe("PATCH /api/trackers/[id]", () => {
     const updates = mockSet.mock.calls[0]?.[0]
     expect(updates.userPausedAt).toBeUndefined()
     expect(updates.pausedAt).toBeUndefined()
+  })
+
+  /** The row read when a token arrives without a URL in the body. */
+  function mockStoredMouseholeUrl(mouseholeUrl: string | null) {
+    const mockLimit = vi.fn().mockResolvedValue([{ mouseholeUrl }])
+    const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit })
+    const mockFrom = vi.fn().mockReturnValue({ where: mockWhere })
+    ;(db.select as ReturnType<typeof vi.fn>).mockReturnValueOnce({ from: mockFrom })
+  }
+
+  it("replaces the Mousehole API token when the body carries one", async () => {
+    ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue({
+      mouseholeToken: "fake-mousehole-token-7f3a",
+    })
+    mockStoredMouseholeUrl("http://mousehole-test:5010")
+
+    const mockWhere = vi.fn().mockResolvedValue([])
+    const mockSet = vi.fn().mockReturnValue({ where: mockWhere })
+    ;(db.update as ReturnType<typeof vi.fn>).mockReturnValue({ set: mockSet })
+
+    const request = makeRequest(
+      "http://localhost/api/trackers/1",
+      { mouseholeToken: "fake-mousehole-token-7f3a" },
+      "PATCH"
+    )
+    const params = Promise.resolve({ id: "1" })
+    const response = await PATCH(request, { params })
+
+    expect(response.status).toBe(200)
+    expect(encrypt).toHaveBeenCalledWith("fake-mousehole-token-7f3a", expect.any(Buffer))
+    expect(mockSet.mock.calls[0]?.[0].encryptedMouseholeToken).toBe("encrypted-token")
+  })
+
+  it("clears the Mousehole API token when the body carries an empty string", async () => {
+    ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue({ mouseholeToken: "" })
+
+    const mockWhere = vi.fn().mockResolvedValue([])
+    const mockSet = vi.fn().mockReturnValue({ where: mockWhere })
+    ;(db.update as ReturnType<typeof vi.fn>).mockReturnValue({ set: mockSet })
+
+    const request = makeRequest("http://localhost/api/trackers/1", { mouseholeToken: "" }, "PATCH")
+    const params = Promise.resolve({ id: "1" })
+    const response = await PATCH(request, { params })
+
+    expect(response.status).toBe(200)
+    const updates = mockSet.mock.calls[0]?.[0]
+    expect(updates).toHaveProperty("encryptedMouseholeToken")
+    expect(updates.encryptedMouseholeToken).toBeNull()
+    expect(encrypt).not.toHaveBeenCalled()
+  })
+
+  it("rejects a Mousehole API token when the body clears the URL", async () => {
+    ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue({
+      mouseholeUrl: "",
+      mouseholeToken: "fake-mousehole-token-7f3a",
+    })
+
+    const request = makeRequest(
+      "http://localhost/api/trackers/1",
+      { mouseholeUrl: "", mouseholeToken: "fake-mousehole-token-7f3a" },
+      "PATCH"
+    )
+    const params = Promise.resolve({ id: "1" })
+    const response = await PATCH(request, { params })
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toBe("Mousehole API token needs a Mousehole URL")
+    expect(db.update).not.toHaveBeenCalled()
+  })
+
+  it("clears the token when the URL is emptied", async () => {
+    ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue({ mouseholeUrl: "" })
+
+    const mockWhere = vi.fn().mockResolvedValue([])
+    const mockSet = vi.fn().mockReturnValue({ where: mockWhere })
+    ;(db.update as ReturnType<typeof vi.fn>).mockReturnValue({ set: mockSet })
+
+    const request = makeRequest("http://localhost/api/trackers/1", { mouseholeUrl: "" }, "PATCH")
+    const params = Promise.resolve({ id: "1" })
+    const response = await PATCH(request, { params })
+
+    expect(response.status).toBe(200)
+    const updates = mockSet.mock.calls[0]?.[0]
+    expect(updates).toHaveProperty("mouseholeUrl", null)
+    expect(updates).toHaveProperty("encryptedMouseholeToken", null)
+  })
+
+  it("saves a URL and token sent together without reading the row", async () => {
+    ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue({
+      mouseholeUrl: "http://mousehole-test:5010",
+      mouseholeToken: "fake-mousehole-token-7f3a",
+    })
+
+    const mockWhere = vi.fn().mockResolvedValue([])
+    const mockSet = vi.fn().mockReturnValue({ where: mockWhere })
+    ;(db.update as ReturnType<typeof vi.fn>).mockReturnValue({ set: mockSet })
+
+    const request = makeRequest(
+      "http://localhost/api/trackers/1",
+      { mouseholeUrl: "http://mousehole-test:5010", mouseholeToken: "fake-mousehole-token-7f3a" },
+      "PATCH"
+    )
+    const params = Promise.resolve({ id: "1" })
+    const response = await PATCH(request, { params })
+
+    expect(response.status).toBe(200)
+    expect(db.select).not.toHaveBeenCalled()
+    expect(encrypt).toHaveBeenCalledWith("fake-mousehole-token-7f3a", expect.any(Buffer))
+    const updates = mockSet.mock.calls[0]?.[0]
+    expect(updates.mouseholeUrl).toBe("http://mousehole-test:5010")
+    expect(updates.encryptedMouseholeToken).toBe("encrypted-token")
+  })
+
+  it("rejects a Mousehole API token when the row has no URL either", async () => {
+    ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue({
+      mouseholeToken: "fake-mousehole-token-7f3a",
+    })
+    mockStoredMouseholeUrl(null)
+
+    const request = makeRequest(
+      "http://localhost/api/trackers/1",
+      { mouseholeToken: "fake-mousehole-token-7f3a" },
+      "PATCH"
+    )
+    const params = Promise.resolve({ id: "1" })
+    const response = await PATCH(request, { params })
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toBe("Mousehole API token needs a Mousehole URL")
+    expect(db.update).not.toHaveBeenCalled()
+  })
+
+  it("leaves the Mousehole API token alone when the body omits it", async () => {
+    ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue({ name: "Updated Name" })
+
+    const mockWhere = vi.fn().mockResolvedValue([])
+    const mockSet = vi.fn().mockReturnValue({ where: mockWhere })
+    ;(db.update as ReturnType<typeof vi.fn>).mockReturnValue({ set: mockSet })
+
+    const request = makeRequest(
+      "http://localhost/api/trackers/1",
+      { name: "Updated Name" },
+      "PATCH"
+    )
+    const params = Promise.resolve({ id: "1" })
+    const response = await PATCH(request, { params })
+
+    expect(response.status).toBe(200)
+    expect(mockSet.mock.calls[0]?.[0]).not.toHaveProperty("encryptedMouseholeToken")
+  })
+
+  it("rejects a control character in a new Mousehole API token without writing", async () => {
+    ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue({
+      mouseholeToken: "fake-token\r\nleak",
+    })
+
+    const request = makeRequest(
+      "http://localhost/api/trackers/1",
+      { mouseholeToken: "fake-token\r\nleak" },
+      "PATCH"
+    )
+    const params = Promise.resolve({ id: "1" })
+    const response = await PATCH(request, { params })
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toMatch(/control character \(U\+000D\) at position 10/)
+    expect(data.error).not.toContain("fake-token")
+    expect(db.update).not.toHaveBeenCalled()
+  })
+
+  it("rejects a Mousehole URL that carries userinfo without writing", async () => {
+    ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue({
+      mouseholeUrl: "http://:fake-token-7f3a@mousehole-test:5010",
+    })
+
+    const request = makeRequest(
+      "http://localhost/api/trackers/1",
+      { mouseholeUrl: "http://:fake-token-7f3a@mousehole-test:5010" },
+      "PATCH"
+    )
+    const params = Promise.resolve({ id: "1" })
+    const response = await PATCH(request, { params })
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toMatch(/Mousehole API token field/)
+    expect(data.error).not.toContain("fake-token-7f3a")
+    expect(db.update).not.toHaveBeenCalled()
   })
 })
 
