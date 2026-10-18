@@ -100,6 +100,43 @@ describe("HawkeAdapter", () => {
     )
   })
 
+  it("reports an infinite ratio when nothing has been downloaded", async () => {
+    // What Hawke sends for such an account is not on record. 0 is the likeliest
+    // figure, and a non-zero one is there because a falsy fallback would also
+    // turn 0 into Infinity.
+    for (const reported of [0, 9999]) {
+      vi.spyOn(global, "fetch").mockResolvedValueOnce(
+        okResponse({
+          ...LIVE_RESPONSE,
+          data: {
+            ...LIVE_RESPONSE.data,
+            downloaded: 0,
+            ratio: reported,
+            buffer: LIVE_RESPONSE.data.uploaded,
+          },
+        })
+      )
+
+      const stats = await adapter.fetchStats("https://hawke.uno", "fake-token", "/api/profile")
+
+      expect(stats.ratio).toBe(Number.POSITIVE_INFINITY)
+    }
+  })
+
+  it("derives the ratio from the byte totals when the reported one is missing", async () => {
+    // A null ratio stored as is reads as an offline tracker.
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(
+      okResponse({ ...LIVE_RESPONSE, data: { ...LIVE_RESPONSE.data, ratio: null } })
+    )
+
+    const stats = await adapter.fetchStats("https://hawke.uno", "fake-token", "/api/profile")
+
+    expect(stats.ratio).toBeCloseTo(
+      Number(LIVE_RESPONSE.data.uploaded) / Number(LIVE_RESPONSE.data.downloaded),
+      10
+    )
+  })
+
   it("leaves fields Hawke does not report as null", async () => {
     vi.spyOn(global, "fetch").mockResolvedValueOnce(okResponse(LIVE_RESPONSE))
 

@@ -104,10 +104,12 @@ export class HawkeAdapter implements TrackerAdapter {
       group: data.group,
       uploadedBytes,
       downloadedBytes,
-      // Hawke reports a numeric ratio without infinity. Use it, otherwise derive.
-      ratio: Number.isFinite(data.ratio)
-        ? data.ratio
-        : computeRatio(uploadedBytes, downloadedBytes),
+      // Keep Hawke's reported figure, which it rounds, unless nothing has been
+      // downloaded (no quotient to report) or it is not a finite number.
+      ratio:
+        downloadedBytes === 0n || !Number.isFinite(data.ratio)
+          ? computeRatio(uploadedBytes, downloadedBytes)
+          : data.ratio,
       // Hawke reports a signed buffer that goes negative on a deficit. A
       // non-finite value falls back to the derived buffer, since
       // BigInt(Math.trunc(NaN)) throws.

@@ -114,7 +114,9 @@ If your tracker exposes nothing beyond `TrackerStats`, return no meta at all.
   `---` or `Inf` for a zero-download account, and `parseFloat` turns those into `0`, the worst
   ratio the app can hold, which then fires the ratio-danger alert.
 - If you have a reason to prefer the tracker's reported ratio, the fallback must be `computeRatio`
-  and a comment must say why. Reference: `hawke.ts:124-128`.
+  and a comment must say why. An account with nothing downloaded always takes `computeRatio`,
+  whatever figure the tracker reports, since there is no quotient to report. Reference: the
+  `ratio` field in Hawke's `fetchStats` and GGn's guard in `ggn.ts`.
 - **`bufferBytes` is `computeBufferBytes(uploaded, downloaded)`**, unless the platform reports a
   signed buffer of its own, in which case say so (`hawke.ts:129-132`).
 
