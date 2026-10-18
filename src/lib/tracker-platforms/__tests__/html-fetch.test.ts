@@ -1,5 +1,6 @@
 // src/lib/tracker-platforms/__tests__/html-fetch.test.ts
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { sanitizeNetworkError } from "@/lib/error-utils"
 import { SessionExpiredError } from "../helpers/errors"
 import { fetchTrackerHtml } from "../helpers/html-fetch"
 
@@ -220,7 +221,22 @@ describe("fetchTrackerHtml - errors", () => {
     vi.restoreAllMocks()
   })
 
-  it("falls back to a tracker-labelled message for an unrecognized status", async () => {
+  // The scheduler sanitizes the thrown message once, so the card text is what
+  // that one pass makes of it.
+  async function cardFor(status: number, statusText: string): Promise<string> {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: false,
+      status,
+      statusText,
+      headers: { get: () => null },
+    } as unknown as Response)
+    const err = await fetchTrackerHtml(BASE)
+      .then(() => null)
+      .catch((e: unknown) => (e instanceof Error ? e : null))
+    return sanitizeNetworkError(err?.message ?? "", "Poll failed")
+  }
+
+  it("words a failed status the way adapterFetch does", async () => {
     vi.spyOn(global, "fetch").mockResolvedValueOnce({
       ok: false,
       status: 500,
@@ -228,18 +244,19 @@ describe("fetchTrackerHtml - errors", () => {
       headers: { get: () => null },
     } as unknown as Response)
 
-    await expect(fetchTrackerHtml(BASE)).rejects.toThrow("ExampleTracker page fetch failed: 500")
+    await expect(fetchTrackerHtml(BASE)).rejects.toThrow(
+      "Tracker API error: 500 Internal Server Error"
+    )
   })
 
-  it("sanitizes an auth failure rather than echoing the status", async () => {
-    vi.spyOn(global, "fetch").mockResolvedValueOnce({
-      ok: false,
-      status: 403,
-      statusText: "Forbidden",
-      headers: { get: () => null },
-    } as unknown as Response)
+  it("names the status on the card rather than reading as Poll failed", async () => {
+    expect(await cardFor(500, "Internal Server Error")).toBe("API returned 500")
+    expect(await cardFor(503, "Service Unavailable")).toBe("API returned 503")
+  })
 
-    await expect(fetchTrackerHtml(BASE)).rejects.toThrow("Authentication failed")
+  it("reads an auth failure on the card as one", async () => {
+    expect(await cardFor(401, "Unauthorized")).toBe("Authentication failed")
+    expect(await cardFor(403, "Forbidden")).toBe("Authentication failed")
   })
 
   it("classifies a connection failure by hostname", async () => {

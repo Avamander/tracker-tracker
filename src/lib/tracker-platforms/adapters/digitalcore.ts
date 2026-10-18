@@ -4,7 +4,6 @@
 //            parseJsonSafe, fetchDCJson, DigitalCoreAdapter
 
 import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
-import { sanitizeNetworkError } from "@/lib/error-utils"
 import { log } from "@/lib/logger"
 import type {
   DebugApiCall,
@@ -255,13 +254,10 @@ async function fetchDCJson<T>(
     )
   }
 
+  // Same wording adapterFetch throws, which sanitizeNetworkError matches on. The
+  // scheduler and the connection test sanitize it, so it is not sanitized here.
   if (!response.ok) {
-    throw new Error(
-      sanitizeNetworkError(
-        `${response.status} ${response.statusText}`,
-        `DigitalCore API error: ${response.status}`
-      )
-    )
+    throw new Error(`Tracker API error: ${response.status} ${response.statusText}`)
   }
 
   return parseJsonSafe<T>(await response.text(), parsed.pathname)

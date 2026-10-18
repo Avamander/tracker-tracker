@@ -776,7 +776,8 @@ body, so JSON-RPC style APIs work too.
 `adapterFetch` parses the response as JSON. If your tracker has no API and you
 have to scrape an authenticated page instead, use `fetchTrackerHtml`
 (`src/lib/tracker-platforms/helpers/html-fetch.ts`). It returns the raw HTML and handles the
-browser headers, the proxy, the timeout, and sanitized errors. It takes the
+browser headers, the proxy, the timeout, and words its errors so the scheduler's sanitizer can
+classify them. It takes the
 parts that vary per tracker as options:
 
 - `label` is the tracker name used in error messages

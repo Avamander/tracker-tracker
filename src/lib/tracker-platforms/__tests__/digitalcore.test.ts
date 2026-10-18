@@ -861,8 +861,41 @@ describe("DigitalCoreAdapter.fetchStats - HTTP error handling", () => {
     vi.spyOn(global, "fetch").mockResolvedValueOnce(mockErrorResponse(503))
 
     await expect(adapter.fetchStats("https://digitalcore.club", validToken, "")).rejects.toThrow(
-      "503"
+      "Tracker API error: 503"
     )
+  })
+
+  it("leaves a failed status for the scheduler to classify once", async () => {
+    // Sanitized here as well, "Authentication failed" and "API returned N" would
+    // read "Poll failed" after the scheduler's pass.
+    for (const [status, card] of [
+      [503, "API returned 503"],
+      [403, "Authentication failed"],
+    ] as const) {
+      vi.spyOn(global, "fetch").mockResolvedValueOnce(mockErrorResponse(status))
+      const err = await adapter
+        .fetchStats("https://digitalcore.club", validToken, "")
+        .then(() => null)
+        .catch((e: unknown) => (e instanceof Error ? e : null))
+      expect(sanitizeNetworkError(err?.message ?? "", "Poll failed")).toBe(card)
+    }
+  })
+
+  it("keeps the reason phrase, which reads a proxy that wants its own login as a proxy fault", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: false,
+      status: 407,
+      statusText: "Proxy Authentication Required",
+      text: async () => "",
+    } as Response)
+
+    const err = await adapter
+      .fetchStats("https://digitalcore.club", validToken, "")
+      .then(() => null)
+      .catch((e: unknown) => (e instanceof Error ? e : null))
+
+    expect(err?.message).toBe("Tracker API error: 407 Proxy Authentication Required")
+    expect(sanitizeNetworkError(err?.message ?? "", "Poll failed")).toBe("Proxy connection failed")
   })
 
   it("throws with sanitized message on network failure", async () => {

@@ -3,11 +3,7 @@
 // Functions: buildHtmlHeaders, fetchFailure, getHtmlViaProxy, getHtml, isRedirect,
 //            followRedirectChain, fetchTrackerHtml
 
-import {
-  classifyFetchError,
-  classifyProxyFetchError,
-  sanitizeNetworkError,
-} from "@/lib/error-utils"
+import { classifyFetchError, classifyProxyFetchError } from "@/lib/error-utils"
 import { ADAPTER_FETCH_TIMEOUT_MS } from "@/lib/limits"
 import type { FetchOptions } from "../contract"
 import { SessionExpiredError } from "./errors"
@@ -37,7 +33,7 @@ const ACCEPT_HTML = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q
 export interface TrackerHtmlRequest {
   url: string
   cookies: string
-  /** Tracker display name, used in sanitized error messages. */
+  /** Tracker display name, used in the redirect error messages. */
   label: string
   /** Thrown when an authenticated request is bounced to a login page. */
   sessionExpiredMessage: string
@@ -60,10 +56,14 @@ function buildHtmlHeaders(cookies: string, userAgent?: string): Record<string, s
   }
 }
 
-function fetchFailure(label: string, status: number, statusText: string): Error {
-  return new Error(
-    sanitizeNetworkError(`${status} ${statusText}`, `${label} page fetch failed: ${status}`)
-  )
+/**
+ * Same wording adapterFetch throws, which sanitizeNetworkError matches on. The
+ * scheduler and the connection test sanitize it once, and sanitizing it here as
+ * well would turn "Authentication failed" and "API returned N" into "Poll
+ * failed".
+ */
+function fetchFailure(status: number, statusText: string): Error {
+  return new Error(`Tracker API error: ${status} ${statusText}`)
 }
 
 /**
@@ -189,8 +189,8 @@ async function followRedirectChain(
 
 /**
  * Fetches an authenticated HTML page, honoring the user's proxy when one is
- * configured. Errors are sanitized so a URL carrying a token never reaches a
- * log or an API response.
+ * configured. No error it throws names the URL, so a token carried in one never
+ * reaches a log or an API response.
  */
 export async function fetchTrackerHtml(request: TrackerHtmlRequest): Promise<string> {
   const { url, cookies, label, sessionExpiredMessage, userAgent, proxyAgent, followRedirects } =
@@ -216,7 +216,7 @@ export async function fetchTrackerHtml(request: TrackerHtmlRequest): Promise<str
     throw new SessionExpiredError(sessionExpiredMessage)
   }
 
-  if (!response.ok) throw fetchFailure(label, response.status, response.statusText)
+  if (!response.ok) throw fetchFailure(response.status, response.statusText)
 
   return response.text()
 }
