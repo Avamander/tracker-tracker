@@ -1,6 +1,7 @@
 // src/lib/error-utils.ts
 //
-// Functions: errMsg, sanitizeNetworkError, isUnreachableMessage, isDecryptionError, classifyFetchError
+// Functions: errMsg, sanitizeNetworkError, isUnreachableMessage, isDecryptionError,
+//            classifyFetchError, classifyProxyFetchError
 
 /** Extracts a string message from an unknown error value. */
 export function errMsg(err: unknown): string {
@@ -177,4 +178,18 @@ function unwrapCause(err: TypeError): { name: string; message: string; code?: st
     }
   }
   return null
+}
+
+/**
+ * Classifies a proxyFetch rejection, worded the same for every tracker
+ * transport so one sanitizer rule covers them all. proxyFetch rejects with a
+ * plain Error that carries its reason in the message, which classifyFetchError
+ * would reduce to the error's name or code.
+ */
+export function classifyProxyFetchError(err: unknown, hostname: string): Error {
+  if (err instanceof Error && err.message.includes("timed out")) {
+    return new Error(`Request to ${hostname} timed out (via proxy)`)
+  }
+  const detail = err instanceof Error ? err.message : "Unknown"
+  return new Error(`Failed to connect to ${hostname} via proxy: ${detail}`)
 }

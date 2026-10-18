@@ -137,8 +137,9 @@ matches on wording. Wording is an interface, not prose.
   recognisable string. Prefix any tracker-supplied string before throwing it, or a remote body
   containing "invalid" decides the classification for you.
 - **A body that fails to parse is not a connection failure.** `classifyFetchError` applies only to
-  an error thrown by `fetch` or `proxyFetch`. Reference: `nebulance.ts:106-107`, where a
-  `SyntaxError` becomes the shape wording and only the remaining branch is classified.
+  an error thrown by `fetch`, and `classifyProxyFetchError` only to a `proxyFetch` rejection.
+  Reference: `nebulance.ts:106-107`, where a `SyntaxError` becomes the shape wording and only the
+  remaining branch is classified.
 - **Log through `log` from `@/lib/logger`**, in the structured `log.warn({ err }, "message")`
   form, never `console`. The in-app event feed is built by parsing pino output, so a
   `console.warn` failure is invisible to the operator. Reference: `torrentleech.ts:210`.
@@ -209,7 +210,8 @@ it. Import it rather than writing it again.
 | `parseCredentialJson` | `helpers/cookie-credentials.ts` | Any credential arriving as a JSON blob | `JSON.parse(apiToken)`, shape checks, and above all the error wording |
 | `validateCookieHeader` | `helpers/cookie-credentials.ts` | A credential that is a pasted Cookie header | Prefix stripping, control-character and non-ASCII guards |
 | `SessionExpiredError` | `helpers/errors.ts` | Signalling that an authenticated request came back as a login page. Callers use `instanceof`. | Matching the message text |
-| `classifyFetchError` | `@/lib/error-utils` | Errors thrown by `fetch` or `proxyFetch`, only | Applying it to a `JSON.parse` failure |
+| `classifyFetchError` | `@/lib/error-utils` | Errors thrown by `fetch`, only | Applying it to a `JSON.parse` failure |
+| `classifyProxyFetchError` | `@/lib/error-utils` | A `proxyFetch` rejection, only. Keeps its reason, worded the way every tracker transport words it | Your own "via proxy" message, or `classifyFetchError`, which keeps only the error's name or code |
 | `log` | `@/lib/logger` | Every log line in the adapter layer | `console.warn`, `console.error` |
 | `metaFor` | `@/types/tracker-stats` | Narrowing `platformMeta` **outside** the adapter that produced it | `meta as XPlatformMeta` in a component |
 
@@ -298,7 +300,8 @@ dashes.
 - [ ] No message contains "invalid" unless it is genuinely a credential fault.
 - [ ] I do not call `sanitizeNetworkError` myself, and I classify on `response.status` or an error
       type, never on digits in a message.
-- [ ] `classifyFetchError` is applied only to a `fetch` or `proxyFetch` rejection.
+- [ ] `classifyFetchError` is applied only to a `fetch` rejection, and `classifyProxyFetchError`
+      only to a `proxyFetch` rejection.
 - [ ] A tracker-supplied error string is prefixed before it is thrown.
 - [ ] I parse credentials with `parseCredentialJson`, and a pasted header with
       `validateCookieHeader`. I never call `JSON.parse(apiToken)`.

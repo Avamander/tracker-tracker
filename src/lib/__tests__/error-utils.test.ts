@@ -3,6 +3,7 @@
 import { describe, expect, it } from "vitest"
 import {
   classifyFetchError,
+  classifyProxyFetchError,
   isDecryptionError,
   isUnreachableMessage,
   sanitizeNetworkError,
@@ -341,6 +342,36 @@ describe("classifyFetchError", () => {
   it("returns Unknown for non-Error values", () => {
     const result = classifyFetchError("string error", host)
     expect(result.message).toBe("Failed to connect to avistaz.to: Unknown")
+  })
+})
+
+// classifyProxyFetchError
+// ---------------------------------------------------------------------------
+
+describe("classifyProxyFetchError", () => {
+  const host = "www.torrentleech.org"
+
+  it("words proxyFetch's own deadline as a proxied timeout", () => {
+    const result = classifyProxyFetchError(new Error("Request timed out after 15000ms"), host)
+    expect(result.message).toBe("Request to www.torrentleech.org timed out (via proxy)")
+    expect(sanitizeNetworkError(result.message, "Poll failed")).toBe("Request timed out")
+  })
+
+  it("keeps the reason a proxied request could not connect", () => {
+    // A plain Error, which classifyFetchError would reduce to its name.
+    const result = classifyProxyFetchError(
+      new Error("Proxy connection ended before receiving CONNECT response"),
+      host
+    )
+    expect(result.message).toBe(
+      "Failed to connect to www.torrentleech.org via proxy: Proxy connection ended before receiving CONNECT response"
+    )
+    expect(sanitizeNetworkError(result.message, "Poll failed")).toBe("Proxy connection failed")
+  })
+
+  it("returns Unknown for non-Error values", () => {
+    const result = classifyProxyFetchError("string error", host)
+    expect(result.message).toBe("Failed to connect to www.torrentleech.org via proxy: Unknown")
   })
 })
 

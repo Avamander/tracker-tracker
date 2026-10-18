@@ -312,6 +312,16 @@ describe("fetchTrackerHtml - through a proxy", () => {
     await expect(run({})).rejects.toThrow("Session expired")
   })
 
+  it("keeps the reason a proxied request failed, worded like the other transports", async () => {
+    proxyFetch.mockRejectedValueOnce(
+      new Error("Proxy connection ended before receiving CONNECT response")
+    )
+
+    await expect(run({})).rejects.toThrow(
+      "Failed to connect to tracker.example via proxy: Proxy connection ended before receiving CONNECT response"
+    )
+  })
+
   it("refuses to follow a proxied redirect off-origin, and sends nothing there", async () => {
     proxyFetch.mockResolvedValueOnce(
       proxyResponse(302, "", { location: "https://evil.example/harvest" })

@@ -2,7 +2,7 @@
 //
 // Functions: adapterRequest, adapterFetch
 
-import { classifyFetchError } from "@/lib/error-utils"
+import { classifyFetchError, classifyProxyFetchError } from "@/lib/error-utils"
 import { ADAPTER_FETCH_TIMEOUT_MS } from "@/lib/limits"
 import { proxyFetch } from "@/lib/tunnel"
 import { withDefaultUserAgent } from "@/lib/user-agent"
@@ -51,11 +51,7 @@ async function adapterRequest(
         timeoutMs: ADAPTER_FETCH_TIMEOUT_MS,
       })
     } catch (err) {
-      if (err instanceof Error && err.message.includes("timed out")) {
-        throw new Error(`Request to ${hostname} timed out (via proxy)`)
-      }
-      const detail = err instanceof Error ? err.message : "Unknown"
-      throw new Error(`Failed to connect to ${hostname} via proxy: ${detail}`)
+      throw classifyProxyFetchError(err, hostname)
     }
 
     return {

@@ -3,7 +3,11 @@
 // Functions: buildHtmlHeaders, fetchFailure, getHtmlViaProxy, getHtml, isRedirect,
 //            followRedirectChain, fetchTrackerHtml
 
-import { classifyFetchError, sanitizeNetworkError } from "@/lib/error-utils"
+import {
+  classifyFetchError,
+  classifyProxyFetchError,
+  sanitizeNetworkError,
+} from "@/lib/error-utils"
 import { ADAPTER_FETCH_TIMEOUT_MS } from "@/lib/limits"
 import type { FetchOptions } from "../contract"
 import { SessionExpiredError } from "./errors"
@@ -94,13 +98,7 @@ async function getHtmlViaProxy(
       timeoutMs: ADAPTER_FETCH_TIMEOUT_MS,
     })
   } catch (err) {
-    // Worded exactly as adapter-fetch words it, so one sanitizer rule covers
-    // both transports instead of the HTML one falling through to "Poll failed".
-    if (err instanceof Error && err.message.includes("timed out")) {
-      throw new Error(`Request to ${hostname} timed out (via proxy)`)
-    }
-    const detail = err instanceof Error ? err.message : "Unknown"
-    throw new Error(`Failed to connect to ${hostname} via proxy: ${detail}`)
+    throw classifyProxyFetchError(err, hostname)
   }
   return {
     ok: result.ok,

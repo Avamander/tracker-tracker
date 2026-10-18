@@ -185,6 +185,20 @@ describe("adapterFetch - POST support", () => {
     expect(fetchSpy).not.toHaveBeenCalled()
     vi.doUnmock("@/lib/tunnel")
   })
+
+  it("words proxyFetch's own deadline as a proxied timeout", async () => {
+    const proxyFetch = vi.fn().mockRejectedValue(new Error("Request timed out after 15000ms"))
+    vi.doMock("@/lib/tunnel", () => ({ proxyFetch }))
+    vi.resetModules()
+    const { adapterFetch: freshAdapterFetch } = await import("../helpers/adapter-fetch")
+
+    await expect(
+      freshAdapterFetch("https://api.example.test/rpc", "api.example.test", {
+        proxyAgent: {} as never,
+      })
+    ).rejects.toThrow("Request to api.example.test timed out (via proxy)")
+    vi.doUnmock("@/lib/tunnel")
+  })
 })
 
 // ---------------------------------------------------------------------------
