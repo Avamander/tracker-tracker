@@ -641,4 +641,18 @@ describe("NebulanceAdapter error wording is an interface", () => {
 
     expect(sanitizeNetworkError(err?.message ?? "")).toBe("Tracker returned an unexpected response")
   })
+
+  it("reads a page served with 200 the same way in the poll and the debug call", async () => {
+    // A fresh Response per call, since a body that was already read fails the
+    // second read for the wrong reason.
+    vi.spyOn(global, "fetch").mockImplementation(() =>
+      Promise.resolve(new Response("<!DOCTYPE html><html><body>Maintenance</body></html>"))
+    )
+
+    await expect(adapter.fetchStats("https://nebulance.io", "key", "/api.php")).rejects.toThrow(
+      "Unexpected response from nebulance.io: body was not JSON"
+    )
+    const calls = await adapter.fetchRaw("https://nebulance.io", "key", "/api.php")
+    expect(calls[0].error).toBe("Unexpected response from nebulance.io: body was not JSON")
+  })
 })

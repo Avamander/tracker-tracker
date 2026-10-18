@@ -28,7 +28,7 @@ Cookie: mam_id={SESSION_COOKIE}
 
 Get it from User Preferences → Security. Create an IP-locked or ASN-locked session for API use. MAM rotates these monthly, so refresh periodically.
 
-Auth fails silently, and you get HTML instead of JSON. We detect it by checking if `username` is missing.
+Auth fails silently, and you get HTML instead of JSON. That HTML fails the JSON parse and reads as an unexpected response; a JSON body with no `username` is caught by checking for it.
 
 ## Example Response
 

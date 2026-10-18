@@ -7,7 +7,6 @@
 //   - Response may be wrapped {"status":"success","response":{...}} or flat
 
 import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
-import { classifyFetchError } from "@/lib/error-utils"
 import type {
   DebugApiCall,
   FetchOptions,
@@ -92,22 +91,7 @@ export class NebulanceAdapter implements TrackerAdapter {
     const result = await adapterRequest(url.toString(), hostname, options)
     const ok = result.ok
     const status = result.status
-    let data: NebulanceResponse
-
-    try {
-      data = await result.json<NebulanceResponse>()
-    } catch (err) {
-      // Two different faults land here. A SyntaxError is the body itself not
-      // being JSON, which is the tracker's fault and takes the wording the
-      // other adapters share so sanitizeNetworkError classifies it as a shape
-      // problem rather than a failure to reach the host. Anything else is a
-      // real transport break, which only the direct path can raise here since
-      // json() is still reading the stream, and that still gets classified.
-      if (err instanceof SyntaxError) {
-        throw new Error(`Unexpected response from ${hostname}: body was not JSON`)
-      }
-      throw classifyFetchError(err, hostname)
-    }
+    const data = await result.json<NebulanceResponse>()
 
     if (!ok || "error" in data) {
       const err = "error" in data ? data.error : undefined

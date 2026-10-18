@@ -138,8 +138,9 @@ matches on wording. Wording is an interface, not prose.
   containing "invalid" decides the classification for you.
 - **A body that fails to parse is not a connection failure.** `classifyFetchError` applies only to
   an error thrown by `fetch`, and `classifyProxyFetchError` only to a `proxyFetch` rejection.
-  Reference: `nebulance.ts:106-107`, where a `SyntaxError` becomes the shape wording and only the
-  remaining branch is classified.
+  Every `json()` from `adapterRequest` already goes through `readJson` in `helpers/adapter-fetch.ts`,
+  where a `SyntaxError` becomes the shape wording and only the remaining branch is classified. An
+  adapter that parses text itself follows `parseJsonSafe` in `digitalcore.ts`.
 - **Log through `log` from `@/lib/logger`**, in the structured `log.warn({ err }, "message")`
   form, never `console`. The in-app event feed is built by parsing pino output, so a
   `console.warn` failure is invisible to the operator. Reference: `torrentleech.ts:210`.

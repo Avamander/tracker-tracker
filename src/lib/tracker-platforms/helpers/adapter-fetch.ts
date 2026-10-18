@@ -1,6 +1,6 @@
 // src/lib/tracker-platforms/helpers/adapter-fetch.ts
 //
-// Functions: adapterRequest, adapterFetch
+// Functions: readJson, adapterRequest, adapterFetch
 
 import { classifyFetchError, classifyProxyFetchError } from "@/lib/error-utils"
 import { ADAPTER_FETCH_TIMEOUT_MS } from "@/lib/limits"
@@ -18,6 +18,24 @@ export interface AdapterResponse {
   statusText: string
   json: <T>() => Promise<T>
   text: () => Promise<string>
+}
+
+/**
+ * A SyntaxError means the tracker answered with something other than JSON, such
+ * as a maintenance or challenge page, so it gets the shape wording
+ * sanitizeNetworkError reads as an unexpected response, and not the parser's
+ * message, which can quote the body. Anything else is the body read breaking,
+ * which only the direct path can raise, and is classified like a failed fetch.
+ */
+async function readJson<T>(read: () => Promise<unknown>, hostname: string): Promise<T> {
+  try {
+    return (await read()) as T
+  } catch (err) {
+    if (err instanceof SyntaxError) {
+      throw new Error(`Unexpected response from ${hostname}: body was not JSON`)
+    }
+    throw classifyFetchError(err, hostname)
+  }
 }
 
 /**
@@ -58,7 +76,7 @@ async function adapterRequest(
       ok: result.ok,
       status: result.status,
       statusText: result.statusText,
-      json: <T>() => result.json() as Promise<T>,
+      json: <T>() => readJson<T>(() => result.json(), hostname),
       text: async () => (await result.buffer()).toString("utf8"),
     }
   }
@@ -79,7 +97,7 @@ async function adapterRequest(
     ok: response.ok,
     status: response.status,
     statusText: response.statusText,
-    json: <T>() => response.json() as Promise<T>,
+    json: <T>() => readJson<T>(() => response.json(), hostname),
     text: () => response.text(),
   }
 }
