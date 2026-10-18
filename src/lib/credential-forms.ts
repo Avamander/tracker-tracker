@@ -10,6 +10,7 @@
 
 import type { PlatformType } from "@/data/platform-types"
 import { validateCookieHeader } from "@/lib/tracker-credentials/cookie-header"
+import { validateHeaderToken } from "@/lib/tracker-credentials/header-token"
 
 export type CredentialKind = "token" | "cookies" | "cookies-username" | "uid-pass" | "login"
 
@@ -357,13 +358,14 @@ export function validateCredentialValues(
     case "token": {
       const token = values.token.trim()
       if (!token) return "API token is required"
-      // The token goes into a request header, where a control character makes
-      // undici throw a TypeError naming the whole header, which
-      // classifyFetchError flattens to something the user cannot act on.
-      if (CONTROL_CHAR.test(token)) {
-        return "API token contains a control character. Re-copy the token with no surrounding text."
+      // The check unit3d, gazelle, hawke and tr4ker run before sending the token,
+      // so for them the pre-save message matches a poll's.
+      try {
+        validateHeaderToken(token)
+        return null
+      } catch (error) {
+        return error instanceof Error ? error.message : "API token doesn't look right"
       }
-      return null
     }
     case "cookies":
       return checkCookies(form, values.cookies)

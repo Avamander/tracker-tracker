@@ -3,6 +3,7 @@
 // Functions: tr4kerClassName, bonusBytes, creditedTotals, pollError, Tr4kerAdapter
 
 import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
+import { validateHeaderToken } from "@/lib/tracker-credentials/header-token"
 import type { DebugApiCall, FetchOptions, TrackerAdapter, TrackerStats } from "../contract"
 import { adapterFetch } from "../helpers/adapter-fetch"
 import { requireBytes } from "../helpers/bytes"
@@ -93,11 +94,12 @@ export class Tr4kerAdapter implements TrackerAdapter {
     apiPath: string,
     options?: FetchOptions
   ): Promise<TrackerStats> {
+    const trimmedToken = validateHeaderToken(apiToken)
     const hostname = new URL(baseUrl).hostname
     const url = new URL(apiPath, baseUrl).toString()
 
     const data = await adapterFetch<Tr4kerApiResponse>(url, hostname, options, {
-      "X-Api-Key": apiToken,
+      "X-Api-Key": trimmedToken,
     })
 
     const { uploadedBytes, downloadedBytes } = creditedTotals(data, hostname)
@@ -129,12 +131,13 @@ export class Tr4kerAdapter implements TrackerAdapter {
     apiPath: string,
     options?: FetchOptions
   ): Promise<DebugApiCall[]> {
+    const trimmedToken = validateHeaderToken(apiToken)
     const hostname = new URL(baseUrl).hostname
     const url = new URL(apiPath, baseUrl).toString()
 
     try {
       const data = await adapterFetch<Tr4kerApiResponse>(url, hostname, options, {
-        "X-Api-Key": apiToken,
+        "X-Api-Key": trimmedToken,
       })
       // A body fetchStats would fail must not read as healthy here (adapter
       // standard 2.6).

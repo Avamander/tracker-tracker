@@ -157,10 +157,11 @@ matches on wording. Wording is an interface, not prose.
   per-account ones in `optionalFields`. Never call `JSON.parse(apiToken)` yourself.
 - **A pasted Cookie header goes through `validateCookieHeader`.** It validates a whole header. An
   individual cookie **value** you interpolate yourself is outside its scope and needs your own
-  semicolon and control-character guard.
-- **A credential interpolated into a request header must be checked for control and non-ASCII
-  characters first.** Reference: `validateMamId` (`mam.ts:83`). A token placed in a query
-  parameter or POST body relies on `URLSearchParams` encoding and needs no such check.
+  semicolon, control-character and non-Latin-1 guard, like `validateMamId` (`mam.ts:83`).
+- **A plain token sent in a request header goes through `validateHeaderToken` first**, before the
+  first request and outside `fetchRaw`'s `try`, and the header carries the value it returns. A
+  token placed in a query parameter or POST body relies on `URLSearchParams` encoding and needs no
+  such check.
 - `userAgent` is **required** for a cookie scraper, because the session is fingerprinted against
   the agent it was issued to. It is **optional** for a JSON API, where the transport supplies one.
 
@@ -208,7 +209,8 @@ it. Import it rather than writing it again.
 | `requireBytes` | `helpers/bytes.ts` | A byte total a JSON API is contracted to send. Throws naming the host and the field when it is absent or not a number, because both byte totals are non-nullable `bigint` and cannot hold unknown. | `floatBytesToBigInt` straight off the wire, which answers `0n` for an absent field |
 | `computeRatio`, `computeBufferBytes` | `@/lib/data-transforms` | `ratio` and `bufferBytes` | Reading the tracker's ratio with no `computeRatio` fallback |
 | `parseCredentialJson` | `helpers/cookie-credentials.ts` | Any credential arriving as a JSON blob | `JSON.parse(apiToken)`, shape checks, and above all the error wording |
-| `validateCookieHeader` | `helpers/cookie-credentials.ts` | A credential that is a pasted Cookie header | Prefix stripping, control-character and non-ASCII guards |
+| `validateCookieHeader` | `@/lib/tracker-credentials/cookie-header` | A credential that is a pasted Cookie header | Prefix stripping, control-character and non-ASCII guards |
+| `validateHeaderToken` | `@/lib/tracker-credentials/header-token` | A plain API token sent in a request header | Your own control-character and non-Latin-1 checks |
 | `SessionExpiredError` | `helpers/errors.ts` | Signalling that an authenticated request came back as a login page. Callers use `instanceof`. | Matching the message text |
 | `classifyFetchError` | `@/lib/error-utils` | Errors thrown by `fetch`, only | Applying it to a `JSON.parse` failure |
 | `classifyProxyFetchError` | `@/lib/error-utils` | A `proxyFetch` rejection, only. Keeps its reason, worded the way every tracker transport words it | Your own "via proxy" message, or `classifyFetchError`, which keeps only the error's name or code |
@@ -305,7 +307,8 @@ dashes.
 - [ ] A tracker-supplied error string is prefixed before it is thrown.
 - [ ] I parse credentials with `parseCredentialJson`, and a pasted header with
       `validateCookieHeader`. I never call `JSON.parse(apiToken)`.
-- [ ] A credential I interpolate into a header is checked for control and non-ASCII characters.
+- [ ] A plain token I send in a header goes through `validateHeaderToken`, and a cookie value I
+      build myself has its own control-character and non-Latin-1 guard.
 - [ ] No credential appears in any error, log line, or debug `endpoint`, `data` or `error`.
 - [ ] Any call I make directly carries `ADAPTER_FETCH_TIMEOUT_MS`. Calls through `adapterFetch`
       and `fetchTrackerHtml` get it automatically.

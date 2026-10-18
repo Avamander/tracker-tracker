@@ -3,6 +3,7 @@
 // Functions: unwrapEnvelope, HawkeAdapter
 
 import { computeBufferBytes, computeRatio, signedFloatBytesToBigInt } from "@/lib/data-transforms"
+import { validateHeaderToken } from "@/lib/tracker-credentials/header-token"
 import type {
   DebugApiCall,
   FetchOptions,
@@ -74,13 +75,14 @@ export class HawkeAdapter implements TrackerAdapter {
     apiPath: string,
     options?: FetchOptions
   ): Promise<TrackerStats> {
+    const trimmedToken = validateHeaderToken(apiToken)
     const hostname = new URL(baseUrl).hostname
     const url = new URL(apiPath, baseUrl).toString()
 
     // Bearer only. Hawke has no legacy query-param form, so none of UNIT3D's
     // probe-and-remember auth machinery applies here.
     const body = await adapterFetch<HawkeEnvelope>(url, hostname, options, {
-      Authorization: `Bearer ${apiToken}`,
+      Authorization: `Bearer ${trimmedToken}`,
     })
 
     const data = unwrapEnvelope(body, hostname)
@@ -137,12 +139,13 @@ export class HawkeAdapter implements TrackerAdapter {
     apiPath: string,
     options?: FetchOptions
   ): Promise<DebugApiCall[]> {
+    const trimmedToken = validateHeaderToken(apiToken)
     const hostname = new URL(baseUrl).hostname
     const url = new URL(apiPath, baseUrl).toString()
 
     try {
       const data = await adapterFetch<Record<string, unknown>>(url, hostname, options, {
-        Authorization: `Bearer ${apiToken}`,
+        Authorization: `Bearer ${trimmedToken}`,
       })
       return [{ label: "Profile", endpoint: apiPath, data, error: envelopeError(data) }]
     } catch (err) {

@@ -4,6 +4,7 @@
 
 import { computeBufferBytes, computeRatio, signedFloatBytesToBigInt } from "@/lib/data-transforms"
 import { log } from "@/lib/logger"
+import { validateHeaderToken } from "@/lib/tracker-credentials/header-token"
 import type {
   DebugApiCall,
   FetchOptions,
@@ -108,7 +109,8 @@ interface GazelleUserResponse {
  * registry's auth style pins.
  */
 function gazelleAuthHeader(apiToken: string, options?: FetchOptions): string {
-  return options?.authStyle === "raw" ? apiToken : `token ${apiToken}`
+  const trimmedToken = validateHeaderToken(apiToken)
+  return options?.authStyle === "raw" ? trimmedToken : `token ${trimmedToken}`
 }
 
 export class GazelleAdapter implements TrackerAdapter {

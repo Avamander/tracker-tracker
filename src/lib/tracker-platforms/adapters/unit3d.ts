@@ -12,6 +12,7 @@ import {
   signedFloatBytesToBigInt,
 } from "@/lib/data-transforms"
 import { parseBytes, parseSignedBytes } from "@/lib/parser"
+import { validateHeaderToken } from "@/lib/tracker-credentials/header-token"
 import type {
   DebugApiCall,
   FetchOptions,
@@ -240,10 +241,11 @@ export class Unit3dAdapter implements TrackerAdapter {
     apiPath: string,
     options?: FetchOptions
   ): Promise<TrackerStats> {
+    const trimmedToken = validateHeaderToken(apiToken)
     const hostname = new URL(baseUrl).hostname
 
     const { user: data, apiKeyExpiresAt } = unwrapUnit3dResponse(
-      await unit3dFetch<unknown>(baseUrl, apiPath, apiToken, hostname, options),
+      await unit3dFetch<unknown>(baseUrl, apiPath, trimmedToken, hostname, options),
       hostname
     )
 
@@ -290,13 +292,14 @@ export class Unit3dAdapter implements TrackerAdapter {
     apiPath: string,
     options?: FetchOptions
   ): Promise<DebugApiCall[]> {
+    const trimmedToken = validateHeaderToken(apiToken)
     const hostname = new URL(baseUrl).hostname
 
     try {
       const data = await unit3dFetch<Record<string, unknown>>(
         baseUrl,
         apiPath,
-        apiToken,
+        trimmedToken,
         hostname,
         options
       )
