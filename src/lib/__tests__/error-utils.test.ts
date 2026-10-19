@@ -221,6 +221,15 @@ describe("sanitizeNetworkError", () => {
     ).toBe("Tracker returned an oversized response")
   })
 
+  // A body the proxy transport could not decode arrives wrapped the same way.
+  it("maps an undecodable proxied body to an unexpected response, not a proxy failure", () => {
+    expect(
+      sanitizeNetworkError(
+        "Failed to connect to tracker.example via proxy: Unexpected response from tracker.example: could not decode the deflate body (invalid block type)"
+      )
+    ).toBe("Tracker returned an unexpected response")
+  })
+
   it("maps 'rate-limit' to IP ban message", () => {
     expect(sanitizeNetworkError("rate-limit exceeded")).toBe("IP temporarily banned by tracker")
   })

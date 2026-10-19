@@ -143,6 +143,13 @@ export const SYNC_STORE_MAX_TORRENTS = 100_000
  */
 export const QBT_RESPONSE_MAX_BYTES = SYNC_STORE_MAX_TORRENTS * 2_560
 
+/**
+ * Ceiling on a decoded proxied response when the caller set no maxBytes.
+ * Tracker pages and API responses are kilobytes, so this only has to stop a
+ * decompression bomb.
+ */
+export const PROXY_DECODED_MAX_BYTES = 16 * 1024 * 1024
+
 // ─── Image Hosting ────────────────────────────────────────────────────────────
 export const IMAGE_EXPIRATION_MIN = 60
 export const IMAGE_EXPIRATION_MAX = 15_552_000

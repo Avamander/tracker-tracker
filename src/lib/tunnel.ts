@@ -1,14 +1,17 @@
 // src/lib/tunnel.ts
 //
-// Functions: buildProxyUrl, createProxyAgent, proxyFetch, buildProxyAgentFromSettings
+// Functions: buildProxyUrl, createProxyAgent, decodeBody, isZlibWrapped, proxyFetch,
+//            buildProxyAgentFromSettings
 // Exports: VALID_PROXY_TYPES, PROXY_HOST_PATTERN, ProxyType, ProxyConfig, ProxyFetchResult, ProxySettings
 
 import type { Agent as HttpAgent, IncomingHttpHeaders } from "node:http"
 import https from "node:https"
+import zlib from "node:zlib"
 import { HttpsProxyAgent } from "https-proxy-agent"
 import { SocksProxyAgent } from "socks-proxy-agent"
 
 import { decrypt } from "@/lib/crypto"
+import { PROXY_DECODED_MAX_BYTES } from "@/lib/limits"
 import { log } from "@/lib/logger"
 
 export type ProxyType = "socks5" | "http" | "https"
@@ -48,6 +51,64 @@ export function createProxyAgent(config: ProxyConfig): HttpAgent {
     return new SocksProxyAgent(url)
   }
   return new HttpsProxyAgent(url)
+}
+
+/**
+ * Decodes the Content-Encoding that https.request leaves in place and fetch()
+ * removes on the direct path. A server may compress a response it was not
+ * asked to compress.
+ *
+ * Output is capped while inflating rather than measured afterwards, since a
+ * small compressed body can expand to gigabytes and measuring the result would
+ * already have allocated it. zlib stops at maxOutput and throws.
+ */
+export function decodeBody(
+  raw: Buffer,
+  encoding: string | string[] | undefined,
+  hostname: string,
+  maxOutput: number = PROXY_DECODED_MAX_BYTES
+): Buffer {
+  const header = Array.isArray(encoding) ? encoding[0] : encoding
+  const enc = header?.trim().toLowerCase()
+  if (!enc || enc === "identity") return raw
+
+  // The sync flush returns an empty or truncated body as far as it decodes, as
+  // fetch() does, where the default flush throws "unexpected end of file".
+  const options = { maxOutputLength: maxOutput, finishFlush: zlib.constants.Z_SYNC_FLUSH }
+  try {
+    if (enc === "gzip" || enc === "x-gzip") return zlib.gunzipSync(raw, options)
+    // "deflate" is zlib-wrapped per the RFC and bare in the wild; the header says which.
+    if (enc === "deflate") {
+      return isZlibWrapped(raw) ? zlib.inflateSync(raw, options) : zlib.inflateRawSync(raw, options)
+    }
+    if (enc === "br") {
+      return zlib.brotliDecompressSync(raw, {
+        maxOutputLength: maxOutput,
+        finishFlush: zlib.constants.BROTLI_OPERATION_FLUSH,
+      })
+    }
+  } catch (err) {
+    // Worded for sanitizeNetworkError's oversized and unexpected-response rules,
+    // which run before its proxy rule; without them a failed decode reads as the
+    // proxy being down.
+    if ((err as NodeJS.ErrnoException).code === "ERR_BUFFER_TOO_LARGE") {
+      throw new Error(`Response exceeded ${maxOutput} byte limit`)
+    }
+    throw new Error(
+      `Unexpected response from ${hostname}: could not decode the ${enc} body (${(err as Error).message})`
+    )
+  }
+
+  // Returning the bytes would hand the caller something that only looks like a
+  // parse failure. The value is the server's own, so it is stripped to header
+  // characters before it can match another sanitizer rule ("timed out").
+  const named = enc.replace(/[^a-z0-9,._-]/g, "")
+  throw new Error(`Unexpected response from ${hostname}: unsupported Content-Encoding ${named}`)
+}
+
+/** RFC 1950: the low nibble names deflate and the two header bytes are a multiple of 31. */
+function isZlibWrapped(raw: Buffer): boolean {
+  return raw.length >= 2 && (raw[0] & 0x0f) === 8 && ((raw[0] << 8) | raw[1]) % 31 === 0
 }
 
 export interface ProxyFetchResult {
@@ -141,7 +202,18 @@ export function proxyFetch(
           chunks.push(chunk)
         })
         res.on("end", () => {
-          const raw = Buffer.concat(chunks)
+          let raw: Buffer
+          try {
+            raw = decodeBody(
+              Buffer.concat(chunks),
+              res.headers["content-encoding"],
+              parsed.hostname,
+              maxBytes > 0 ? maxBytes : PROXY_DECODED_MAX_BYTES
+            )
+          } catch (err) {
+            fail(err as Error)
+            return
+          }
           done({
             ok: (res.statusCode ?? 0) >= 200 && (res.statusCode ?? 0) < 300,
             status: res.statusCode ?? 0,
