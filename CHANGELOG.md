@@ -1,5 +1,36 @@
 # Changelog
 
+## [2.13.0](https://github.com/jordanlambrecht/tracker-tracker/compare/v2.12.1...v2.13.0) (2026-10-19)
+
+### Features
+
+* **db-fleet:** store the client URL path as an encrypted credential (thanks [@vasilvestre](https://github.com/vasilvestre))
+* **trackers:** add TR4KER and its platform adapter (thanks [@vasilvestre](https://github.com/vasilvestre))
+* **trackers:** name bonus points the way each tracker does (thanks @Avamander)
+
+### Bug Fixes
+
+* **backups:** match restored trackers to the registry before polling restarts
+* **ci:** keep knip, security-audit and tracker-validation working on fork pull requests ([#224](https://github.com/jordanlambrecht/tracker-tracker/issues/224))
+* **db-fleet:** size the qBittorrent response cap to the largest library the sync store holds
+* **trackers:** check a pasted API token for characters a request header cannot carry
+* **trackers:** leave an unparseable AvistaZ date unset instead of writing Invalid Date
+* **trackers:** list skipped debug calls and let a cached user id drive the second one
+* **trackers:** name a Cloudflare challenge on the card instead of reading it as Poll failed
+* **trackers:** name an off-site or looping redirect on the card instead of Poll failed
+* **trackers:** read a non-JSON 200 as an unexpected response instead of a raw parser error
+* **trackers:** read petabyte byte totals instead of failing the poll
+* **trackers:** run the poll's own checks in the debug view and keep the body under its error
+* **trackers:** show the body BTN and Nebulance actually sent in the debug view
+* **trackers:** stop reading a TorrentLeech login 429, 5xx or Cloudflare page as bad credentials
+* **trackers:** stop sanitizing scraper status errors twice, which turned each one into Poll failed
+* **trackers:** store an absent user class as null instead of a made-up label
+* **trackers:** store an infinite Hawke ratio when nothing has been downloaded
+* **trackers:** store the Nebulance ratio unrounded so a minimum check sees the real figure
+* **trackers:** word unreadable scraper pages so the card reads them as an unexpected response
+* **trackers:** write Gazelle meta on every poll so a failed profile call cannot leave stale ranks
+* **user-proxy:** arm the deadline after the request exists so a refused header leaves no timer
+* **user-proxy:** decode a compressed response on the proxied path (thanks @Ian-Costa18)
 ## [2.12.1](https://github.com/jordanlambrecht/tracker-tracker/compare/v2.11.0...v2.12.1) (2026-10-16)
 
 MyAnonamouse seeding and leeching counts read 0 from about 2026-09-23 until this release, after MAM moved those figures in its API response. This release reads the new location; the zeros already recorded for that period stay in the charts. The Mousehole card now needs Mousehole v0.5.0 or newer with MOUSEHOLE_AUTH_TOKEN set, and the token entered in the MAM tracker's settings.
