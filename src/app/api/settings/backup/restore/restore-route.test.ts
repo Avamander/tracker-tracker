@@ -16,6 +16,7 @@ import { verifyPassword } from "@/lib/auth"
 import { type BackupPayload, encryptBackupPayload } from "@/lib/backup"
 import { decrypt, deriveKey, encrypt } from "@/lib/crypto"
 import { db } from "@/lib/db"
+import { backfillRegistrySlugs } from "@/lib/db/backfill-registry-slug"
 import { checkLockout } from "@/lib/lockout"
 import { log } from "@/lib/logger"
 import { NOTIFY_TOGGLE_KEYS } from "@/lib/notifications/types"
@@ -73,6 +74,10 @@ vi.mock("@/lib/scheduler", () => ({
   ensureSchedulerRunning: vi.fn(),
   stopScheduler: vi.fn(),
 }))
+
+// It reads the database through its own query chain, which the db mock above
+// does not model.
+vi.mock("@/lib/db/backfill-registry-slug", () => ({ backfillRegistrySlugs: vi.fn() }))
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -962,6 +967,39 @@ describe("POST /api/settings/backup/restore — credential re-encryption", () =>
     // is still cleared, so polling will not survive a process restart until the next login.
     expect(recorder.settingsUpdate?.encryptedSchedulerKey).toBeNull()
     await expect(res.json()).resolves.toMatchObject({ requiresRelogin: false })
+  })
+
+  it("names pre-slug trackers after the commit and before polling restarts", async () => {
+    // A backup from before trackers.registry_slug restores every tracker with a
+    // null slug, long after this process ran its boot-time backfill. Polled
+    // without a slug, a tracker loses its registry options, and RED's 401s
+    // would pause it within four polls. The backfill reads through the global
+    // db, so before the commit it cannot see the restored rows.
+    const backupKey = await deriveKey(PASSWORD, SALT_A)
+    const payload = makeBackupPayload(SALT_A, encryptAll(backupKey))
+    mockCurrentSettings({ encryptionSalt: SALT_A })
+    const created = createTx()
+    recorder = created.recorder
+    let committed = false
+    ;(db.transaction as ReturnType<typeof vi.fn>).mockImplementation(
+      async (fn: (tx: unknown) => Promise<unknown>) => {
+        const result = await fn(created.tx)
+        committed = true
+        return result
+      }
+    )
+    const committedAtEachCall: boolean[] = []
+    vi.mocked(backfillRegistrySlugs).mockImplementation(async () => {
+      committedAtEachCall.push(committed)
+    })
+
+    expect(await POST(makeRequest(payload, PASSWORD))).toHaveProperty("status", 200)
+
+    expect(backfillRegistrySlugs).toHaveBeenCalledWith({ force: true })
+    expect(committedAtEachCall).toEqual([true])
+    const [named] = vi.mocked(backfillRegistrySlugs).mock.invocationCallOrder
+    const [restarted] = vi.mocked(ensureSchedulerRunning).mock.invocationCallOrder
+    expect(named).toBeLessThan(restarted)
   })
 
   it("rolls back and restarts the scheduler when the transaction throws", async () => {

@@ -17,6 +17,7 @@ import {
 import { decrypt, deriveKey, reencrypt } from "@/lib/crypto"
 import { stripTrailingSlash } from "@/lib/data-transforms"
 import { db } from "@/lib/db"
+import { backfillRegistrySlugs } from "@/lib/db/backfill-registry-slug"
 import {
   appCoverageGaps,
   appSettings,
@@ -449,7 +450,7 @@ export async function POST(request: Request) {
             apiPath: fields.apiPath as string,
             platformType: fields.platformType as string,
             // Absent from backups taken before the column existed. The restore
-            // does not derive it from baseUrl; the startup backfill fills null rows.
+            // does not derive it from baseUrl; the backfill after the commit does.
             registrySlug: (fields.registrySlug as string | null) ?? null,
             encryptedApiToken: apiToken,
             encryptedCredentials: credentials,
@@ -1020,6 +1021,10 @@ export async function POST(request: Request) {
     if (backupKey.length > 0) backupKey.fill(0)
     if (currentKey !== backupKey && currentKey.length > 0) currentKey.fill(0)
   }
+
+  // The boot-time backfill ran long before these rows existed, so a tracker from
+  // a backup older than registry_slug would poll without its registry options.
+  await backfillRegistrySlugs({ force: true })
 
   // Restart the scheduler we stopped in Step 7, mirroring the failure path above.
   // Restarting here means a direct API caller does not depend on a page load to
