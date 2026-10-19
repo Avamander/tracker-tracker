@@ -159,13 +159,11 @@ export function parseAvistazProfile(
   // Group: BS3 has two badge-user spans (username, group) in the ratio bar.
   // BS5 puts the group in a separate badge element elsewhere on the page.
   const groupSpans = ratioBar.querySelectorAll("span.badge-user")
-  let group = "Unknown"
-  if (groupSpans.length >= 2) {
-    group = groupSpans[1].textContent?.trim() ?? "Unknown"
-  } else {
-    const badgeEl = doc.querySelector(".badge.bg-secondary-lt, .badge-extra.badge-sm")
-    if (badgeEl) group = badgeEl.textContent?.trim() ?? "Unknown"
-  }
+  const groupEl =
+    groupSpans.length >= 2
+      ? groupSpans[1]
+      : doc.querySelector(".badge.bg-secondary-lt, .badge-extra.badge-sm")
+  const group = groupEl?.textContent?.trim() || null
 
   // Upload / download / seeding / leeching / bonus from tooltip-titled items
   // undefined until a row is actually read, so "the ratio bar had no Upload

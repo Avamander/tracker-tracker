@@ -41,9 +41,9 @@ const ROLE_LABELS: Record<string, string> = {
   admin: "Administrateur",
 }
 
-function tr4kerClassName(role: unknown): string {
+function tr4kerClassName(role: unknown): string | null {
   const id = typeof role === "string" ? role.trim() : ""
-  if (id === "") return "Unknown"
+  if (id === "") return null
   const key = id.toLowerCase()
   return Object.hasOwn(ROLE_LABELS, key) ? ROLE_LABELS[key] : id
 }

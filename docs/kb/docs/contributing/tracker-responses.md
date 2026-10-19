@@ -13,7 +13,7 @@ All adapters return `TrackerStats` defined in `src/types/tracker-stats.ts`.
 ```typescript
 interface TrackerStats {
   username: string
-  group: string
+  group: string | null
   uploadedBytes: bigint
   downloadedBytes: bigint
   ratio: number

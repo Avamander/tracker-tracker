@@ -637,6 +637,32 @@ describe("DigitalCoreAdapter.fetchStats - class ID mapping", () => {
 
     expect(stats.group).toBe("Class 99")
   })
+
+  it("maps a class id sent as text the way it maps the number", async () => {
+    // The status types the id as a number, but nothing enforces that on the
+    // wire, and the lookup has always found "20" as well as 20.
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(mockResponse(mockStatusResponse({ class: "20" })))
+      .mockResolvedValueOnce(mockResponse(mockUserProfileResponse()))
+
+    const stats = await adapter.fetchStats("https://digitalcore.club", validToken, "")
+
+    expect(stats.group).toBe("Viceroy")
+  })
+
+  it("reports no class when the status response carries no class id", async () => {
+    // JSON.stringify drops an undefined key and keeps a null one, so this
+    // covers an omitted id and a JSON null, and a blank id is no id either.
+    for (const classId of [undefined, null, "", "  "]) {
+      vi.spyOn(global, "fetch")
+        .mockResolvedValueOnce(mockResponse(mockStatusResponse({ class: classId })))
+        .mockResolvedValueOnce(mockResponse(mockUserProfileResponse()))
+
+      const stats = await adapter.fetchStats("https://digitalcore.club", validToken, "")
+
+      expect(stats.group).toBeNull()
+    }
+  })
 })
 
 // ---------------------------------------------------------------------------

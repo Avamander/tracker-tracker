@@ -72,7 +72,7 @@ describe("Tr4kerAdapter", () => {
     }
   })
 
-  it("shows an unmapped role as sent and reports Unknown when there is none", async () => {
+  it("shows an unmapped role as sent and reports no class when there is none", async () => {
     vi.spyOn(global, "fetch").mockResolvedValueOnce(okResponse({ ...LIVE_RESPONSE, role: "vip" }))
     const unmapped = await adapter.fetchStats("https://tr4ker.net", "fake-token", "/api/me")
     expect(unmapped.group).toBe("vip")
@@ -80,7 +80,7 @@ describe("Tr4kerAdapter", () => {
     for (const role of [undefined, ""]) {
       vi.spyOn(global, "fetch").mockResolvedValueOnce(okResponse({ ...LIVE_RESPONSE, role }))
       const stats = await adapter.fetchStats("https://tr4ker.net", "fake-token", "/api/me")
-      expect(stats.group).toBe("Unknown")
+      expect(stats.group).toBeNull()
     }
   })
 

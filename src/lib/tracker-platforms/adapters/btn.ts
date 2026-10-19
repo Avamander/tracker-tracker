@@ -6,6 +6,7 @@ import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
 import { localDateStr } from "@/lib/formatters"
 import type { DebugApiCall, FetchOptions, TrackerAdapter, TrackerStats } from "../contract"
 import { adapterRequest } from "../helpers/adapter-fetch"
+import { presentClass } from "../helpers/class-name"
 import { tryParseCount } from "../helpers/html-parse"
 import { pollError } from "../helpers/poll-error"
 
@@ -75,8 +76,9 @@ function mapBtnResult(result: BtnUserInfoResult): TrackerStats {
 
   return {
     username: result.Username,
-    // `Title` is documented; `Class` appears in live responses. Accept either.
-    group: result.Class ?? result.Title ?? "Unknown",
+    // `Title` is documented; `Class` appears in live responses. Accept either,
+    // and read a blank one as absent.
+    group: presentClass(result.Class) ?? presentClass(result.Title),
     uploadedBytes,
     downloadedBytes,
     // Derived from byte totals. BTN's userInfo has no ratio field, and

@@ -78,7 +78,7 @@ Auth fails silently, and you get HTML instead of JSON. That HTML fails the JSON 
 | TrackerStats field | MAM path | Type | Notes |
 | --- | --- | --- | --- |
 | `username` | `username` | `string` | Direct |
-| `group` | `classname` | `string` | Falls back to `"Unknown"` |
+| `group` | `classname` | `string` | `null` when absent or blank |
 | `remoteUserId` | `uid` | `number` | Cached for future use |
 | `uploadedBytes` | `uploaded_bytes` | `number` | `BigInt()`, raw bytes, no parsing needed |
 | `downloadedBytes` | `downloaded_bytes` | `number` | `BigInt()`, raw bytes, no parsing needed |

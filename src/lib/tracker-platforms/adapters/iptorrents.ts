@@ -181,6 +181,8 @@ export function parseIptProfile(html: string, hostname: string): TrackerStats {
     throw new Error(`Unexpected response from ${hostname}: unreadable downloaded byte total`)
   }
 
+  // The page shows a VIP badge and no class, so "User" means no badge. It stays a
+  // string because the rank alert skips any change to or from null.
   let group = "User"
   const vipEl = doc.querySelector(".hdr-vip")
   if (vipEl && /VIP/i.test(vipEl.getAttribute("title") ?? "")) {

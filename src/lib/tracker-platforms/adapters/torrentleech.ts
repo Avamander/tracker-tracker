@@ -374,11 +374,10 @@ export function parseTlProfile(html: string, username: string, hostname: string)
       }
     }
   }
-  if (!group) group = "User"
 
   return {
     username,
-    group,
+    group: group || null,
     uploadedBytes,
     downloadedBytes,
     // Derived from byte totals, not the page's ratio cell. TorrentLeech

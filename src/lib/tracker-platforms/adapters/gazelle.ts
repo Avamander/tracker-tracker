@@ -14,6 +14,7 @@ import type {
 } from "../contract"
 import { adapterFetch } from "../helpers/adapter-fetch"
 import { requireBytes } from "../helpers/bytes"
+import { presentClass } from "../helpers/class-name"
 import { pollError } from "../helpers/poll-error"
 
 interface GazelleUserStats {
@@ -173,7 +174,7 @@ export class GazelleAdapter implements TrackerAdapter {
 
     const stats: TrackerStats = {
       username: response.username,
-      group: userStats.class ?? "Unknown",
+      group: presentClass(userStats.class),
       uploadedBytes: uploaded,
       downloadedBytes: downloaded,
       // Derived from byte totals. Gazelle reports -1 for infinite ratio.

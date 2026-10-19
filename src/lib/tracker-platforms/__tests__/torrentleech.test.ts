@@ -127,12 +127,12 @@ describe("parseTlProfile", () => {
     expect(parseTlProfile(noBadge, "testuser", TL_HOSTNAME).group).toBe("Registered")
   })
 
-  it("defaults the class to User when the page carries neither", () => {
+  it("reports no class when the page carries neither", () => {
     const noClass = `<!doctype html><html><body>${NAV_HTML}${PROFILE_HTML.replace(
       "label-user-class",
       "x"
     ).replace("<td>Class</td>", "<td>Rank</td>")}</body></html>`
-    expect(parseTlProfile(noClass, "testuser", TL_HOSTNAME).group).toBe("User")
+    expect(parseTlProfile(noClass, "testuser", TL_HOSTNAME).group).toBeNull()
   })
 
   it("counts torrents from the parenthesised figure, not the size beside it", () => {

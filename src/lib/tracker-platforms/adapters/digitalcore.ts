@@ -110,7 +110,7 @@ export function parseDigitalCoreCredentials(apiToken: string): DigitalCoreCreden
 // Class ID mapping (from DigitalCore's Angular userClasses constant)
 // ---------------------------------------------------------------------------
 
-const DC_CLASS_MAP: Record<number, string> = {
+const DC_CLASS_MAP: Record<string, string> = {
   0: "Rogue",
   10: "Sentinel",
   20: "Viceroy",
@@ -134,8 +134,10 @@ function dcFlag<T extends string | number>(value: T | undefined, truthy: T): boo
   return value === undefined ? undefined : value === truthy
 }
 
-function dcClassNameFromId(classId: number): string {
-  return DC_CLASS_MAP[classId] ?? `Class ${classId}`
+/** An unmapped id shows as sent; with no id there is no class to show. */
+function dcClassNameFromId(classId: unknown): string | null {
+  if (classId == null || (typeof classId === "string" && classId.trim() === "")) return null
+  return DC_CLASS_MAP[String(classId)] ?? `Class ${classId}`
 }
 
 // ---------------------------------------------------------------------------

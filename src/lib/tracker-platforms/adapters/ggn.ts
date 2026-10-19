@@ -10,6 +10,7 @@ import type {
 } from "../contract"
 import { adapterFetch } from "../helpers/adapter-fetch"
 import { requireBytes } from "../helpers/bytes"
+import { presentClass } from "../helpers/class-name"
 import { pollError } from "../helpers/poll-error"
 
 interface GGnQuickUserResponse {
@@ -182,7 +183,7 @@ export class GGnAdapter implements TrackerAdapter {
 
     return {
       username: resp.username || username,
-      group: resp.personal?.class ?? "Unknown",
+      group: presentClass(resp.personal?.class),
       remoteUserId: userId,
       uploadedBytes: uploaded,
       downloadedBytes: downloaded,

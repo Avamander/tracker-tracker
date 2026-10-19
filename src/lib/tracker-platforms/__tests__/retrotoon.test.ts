@@ -354,6 +354,15 @@ describe("parseRetrotoonProfile", () => {
     expect(stats.freeleechTokens).toBe(0)
   })
 
+  it("reports no class when the Class row is missing or empty", () => {
+    for (const page of [
+      PROFILE_PAGE.replace(">Class<", ">Rank<"),
+      PROFILE_PAGE.replace(">Toon<", "><"),
+    ]) {
+      expect(parseRetrotoonProfile(page, HOST).group).toBeNull()
+    }
+  })
+
   it("derives an infinite ratio from the byte totals rather than the header's ∞", () => {
     expect(parseRetrotoonProfile(PROFILE_PAGE, HOST).ratio).toBe(Number.POSITIVE_INFINITY)
   })

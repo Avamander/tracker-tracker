@@ -52,8 +52,8 @@ This is the most important rule here. It has already caused shipped bugs (`9f8aa
 A run of fabricated zeroes cannot be told apart from an account that genuinely stopped seeding,
 and it corrupts every chart drawn from snapshot history.
 
-Seven `TrackerStats` fields are nullable for exactly this reason (`types.ts:15-21`):
-`seedingCount`, `leechingCount`, `seedbonus`, `hitAndRuns`, `requiredRatio`, `warned`,
+Eight `TrackerStats` fields are nullable for exactly this reason (`src/types/tracker-stats.ts`):
+`group`, `seedingCount`, `leechingCount`, `seedbonus`, `hitAndRuns`, `requiredRatio`, `warned`,
 `freeleechTokens`. `ratio` is not among them; it is derived, never read (see 2.3).
 
 | Forbidden | Why | Write instead |
@@ -63,6 +63,13 @@ Seven `TrackerStats` fields are nullable for exactly this reason (`types.ts:15-2
 | `parseInt(text, 10) \|\| 0` on scraped text | An absent row parses as `NaN`, which `\|\| 0` turns into zero | `tryParseCount(text) ?? null` |
 | `parseFloat(x) \|\| 0` for a ratio | See 2.3 | `computeRatio(uploaded, downloaded)` |
 | `x ?? 0` in a second call | Overwrites the honest `null` the first call set | `if (typeof x === "number") stats.f = x` |
+
+**An absent or blank class is `null` in `group`, never a placeholder** such as `"Unknown"` or
+`"User"`, so rank history and the rank-change alert read it as not reported. A JSON adapter that
+receives the class as text reads it through `presentClass`, and one that receives an id maps it
+through its own table, as DigitalCore and TR4KER do. IPTorrents is the one exception. Its page
+shows a VIP badge and no class, so an account without the badge is stored as `"User"`, which keeps
+VIP gained and VIP lost alerting.
 
 **A JSON `null` on the wire is data, not an absent key.** If the API declares
 `invites: number | null` and sends `null`, the tracker is stating the figure is unknown. Map it to
@@ -213,6 +220,7 @@ it. Import it rather than writing it again.
 | `tryParseCount` | `helpers/html-parse.ts` | Any site-printed count. The first number in the text, commas stripped, decimals and sign kept, `undefined` when there is none. | `parseInt(text, 10)` with your own `NaN` test |
 | `tryParseSiteBytes` | `helpers/html-parse.ts` | Site-printed byte totals. Strips grouping commas and canonicalises the unit, so both `1,024 kB` and `1 GiB` parse. Returns `undefined` rather than throwing. | A private `parseBytes` wrapper with its own tolerances |
 | `requireBytes` | `helpers/bytes.ts` | A byte total a JSON API is contracted to send. Throws naming the host and the field when it is absent or not a number, because both byte totals are non-nullable `bigint` and cannot hold unknown. | `floatBytesToBigInt` straight off the wire, which answers `0n` for an absent field |
+| `presentClass` | `helpers/class-name.ts` | The class a JSON API sends as text for `group`. Returns it, or `null` when it is absent, blank or not a string. | `class ?? "Unknown"`, or `class \|\| null`, which keeps a whitespace-only class |
 | `computeRatio`, `computeBufferBytes` | `@/lib/data-transforms` | `ratio` and `bufferBytes` | Reading the tracker's ratio with no `computeRatio` fallback |
 | `parseCredentialJson` | `helpers/cookie-credentials.ts` | Any credential arriving as a JSON blob | `JSON.parse(apiToken)`, shape checks, and above all the error wording |
 | `validateCookieHeader` | `@/lib/tracker-credentials/cookie-header` | A credential that is a pasted Cookie header | Prefix stripping, control-character and non-ASCII guards |
@@ -292,6 +300,7 @@ dashes.
 
 - [ ] Every unreported numeric field is `null`. No `?? 0`, `|| 0` or `parseInt(...) || 0` on a
       nullable `TrackerStats` field.
+- [ ] `group` is `null` when the class is absent or blank, never a placeholder.
 - [ ] `warned` is `null` unless the response carried an actual boolean.
 - [ ] `ratio` is `computeRatio(...)`, or the reported ratio with `computeRatio` as fallback and a
       comment saying why. No `|| 0` anywhere in the ratio expression.

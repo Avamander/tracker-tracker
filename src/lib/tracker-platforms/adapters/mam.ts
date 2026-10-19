@@ -10,6 +10,7 @@ import type {
 } from "../contract"
 import { adapterFetch } from "../helpers/adapter-fetch"
 import { requireBytes } from "../helpers/bytes"
+import { presentClass } from "../helpers/class-name"
 import { pollError } from "../helpers/poll-error"
 
 interface MamSnatchCategory {
@@ -180,7 +181,7 @@ export class MamAdapter implements TrackerAdapter {
 
     return {
       username: data.username,
-      group: data.classname ?? "Unknown",
+      group: presentClass(data.classname),
       remoteUserId: data.uid,
       uploadedBytes: uploaded,
       downloadedBytes: downloaded,

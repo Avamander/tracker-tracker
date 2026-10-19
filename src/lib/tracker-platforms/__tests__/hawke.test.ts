@@ -76,6 +76,21 @@ describe("HawkeAdapter", () => {
     expect(stats.joinedDate).toBe("2024-12-02T00:09:58+00:00")
   })
 
+  it("reports no class when the profile carries none", async () => {
+    const { group: _dropped, ...withoutGroup } = LIVE_RESPONSE.data
+    for (const data of [
+      withoutGroup,
+      { ...LIVE_RESPONSE.data, group: "" },
+      { ...LIVE_RESPONSE.data, group: "   " },
+    ]) {
+      vi.spyOn(global, "fetch").mockResolvedValueOnce(okResponse({ success: true, data }))
+
+      const stats = await adapter.fetchStats("https://hawke.uno", "fake-token", "/api/profile")
+
+      expect(stats.group).toBeNull()
+    }
+  })
+
   it("preserves a negative buffer instead of clamping it to zero", async () => {
     // floatBytesToBigInt floors at 0, which would turn this deficit account's
     // -2.6 TB buffer into 0 B. The signed buffer must not go through it.

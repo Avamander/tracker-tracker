@@ -96,7 +96,7 @@ export function parseFilelistProfile(html: string, hostname: string): TrackerSta
 
   let uploadedBytes: bigint | undefined
   let downloadedBytes: bigint | undefined
-  let group = ""
+  let group: string | null = null
   let seedingCount: number | null = null
   let joinedDate: string | undefined
   let lastAccessDate: string | undefined
@@ -115,7 +115,7 @@ export function parseFilelistProfile(html: string, hostname: string): TrackerSta
     } else if (label === "Downloaded") {
       downloadedBytes = tryParseSiteBytes(value) ?? downloadedBytes
     } else if (label === "Class") {
-      group = value
+      group = value || null
     } else if (label === "Join date") {
       joinedDate = datePrefix(value) ?? joinedDate
     } else if (label === "Last seen") {

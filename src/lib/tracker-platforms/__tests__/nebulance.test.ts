@@ -133,6 +133,24 @@ describe("NebulanceAdapter", () => {
     expect(stats.group).toBe("Member")
   })
 
+  it("reports no class when Class is absent or blank, even beside a SubClass", async () => {
+    for (const overrides of [
+      { Class: undefined },
+      { Class: undefined, SubClass: "VIP" },
+      { Class: "", SubClass: "VIP" },
+      { Class: "   ", SubClass: "VIP" },
+    ]) {
+      vi.spyOn(global, "fetch").mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockNebulanceResponse(overrides),
+      } as Response)
+
+      const stats = await adapter.fetchStats("https://nebulance.io", "fake-api-key", "/api.php")
+
+      expect(stats.group).toBeNull()
+    }
+  })
+
   // A deficit account must report its actual shortfall, not 0.
   it("calculates a negative buffer when downloaded exceeds uploaded", async () => {
     vi.spyOn(global, "fetch").mockResolvedValueOnce({

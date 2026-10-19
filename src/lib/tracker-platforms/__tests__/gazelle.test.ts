@@ -119,6 +119,19 @@ describe("GazelleAdapter", () => {
     expect(stats.requiredRatio).toBeNull()
   })
 
+  it("reports no class when the index carries none", async () => {
+    for (const className of [undefined, "", "   "]) {
+      vi.spyOn(global, "fetch").mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockGazelleResponse({ class: className }),
+      } as Response)
+
+      const stats = await adapter.fetchStats("https://redacted.sh", "token", "/ajax.php")
+
+      expect(stats.group).toBeNull()
+    }
+  })
+
   it("throws on non-ok response", async () => {
     vi.spyOn(global, "fetch").mockResolvedValueOnce({
       ok: false,

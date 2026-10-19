@@ -16,6 +16,7 @@ import type {
 } from "../contract"
 import { adapterRequest } from "../helpers/adapter-fetch"
 import { requireBytes } from "../helpers/bytes"
+import { presentClass } from "../helpers/class-name"
 import { pollError } from "../helpers/poll-error"
 
 interface NebulanceUserData {
@@ -146,12 +147,13 @@ export class NebulanceAdapter implements TrackerAdapter {
       invites: resp.Invites ?? undefined,
     }
 
+    const className = presentClass(resp.Class)
+    const subClass = resp.SubClasses ?? resp.SubClass
+
     return {
       username: resp.Username,
-      group:
-        (resp.SubClasses ?? resp.SubClass)
-          ? `${resp.Class} / ${resp.SubClasses ?? resp.SubClass}`
-          : (resp.Class ?? "Unknown"),
+      // A SubClass without a Class is no class, not "undefined / VIP".
+      group: className && subClass ? `${className} / ${subClass}` : className,
       remoteUserId: resp.ID,
       uploadedBytes: uploaded,
       downloadedBytes: downloaded,

@@ -133,6 +133,16 @@ describe("GGnAdapter", () => {
     expect(stats.hitAndRuns).toBe(3)
   })
 
+  it("reports no class when the user call carries none", async () => {
+    for (const className of [undefined, "", "   "]) {
+      mockBothCalls({ personal: { class: className } })
+
+      const stats = await adapter.fetchStats("https://gazellegames.net", "key", "/api.php")
+
+      expect(stats.group).toBeNull()
+    }
+  })
+
   it("reports an infinite ratio when nothing has been downloaded", async () => {
     mockBothCalls({ stats: { uploaded: 1000, downloaded: 0, ratio: 0 } })
 

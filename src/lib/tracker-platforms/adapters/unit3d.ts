@@ -22,6 +22,7 @@ import type {
   Unit3dPlatformMeta,
 } from "../contract"
 import { adapterRequest } from "../helpers/adapter-fetch"
+import { presentClass } from "../helpers/class-name"
 import { pollError } from "../helpers/poll-error"
 
 /** True when a UNIT3D build reports an unbounded buffer rather than a byte value. */
@@ -290,7 +291,7 @@ export class Unit3dAdapter implements TrackerAdapter {
 
     return {
       username: data.username,
-      group: data.group,
+      group: presentClass(data.group),
       uploadedBytes,
       downloadedBytes,
       // Derived from byte totals, not data.ratio. UNIT3D sends "∞" for a

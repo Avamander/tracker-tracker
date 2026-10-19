@@ -65,6 +65,30 @@ describe("Unit3dAdapter", () => {
     expect(stats.hitAndRuns).toBeNull()
   })
 
+  it("reports no class when the response carries none", async () => {
+    const withoutGroup = {
+      username: "JohnDoe",
+      uploaded: "500.25 GiB",
+      downloaded: "125.50 GiB",
+      ratio: "3.99",
+      buffer: "374.75 GiB",
+    }
+    for (const body of [
+      withoutGroup,
+      { ...withoutGroup, group: "" },
+      { ...withoutGroup, group: "   " },
+    ]) {
+      vi.spyOn(global, "fetch").mockResolvedValueOnce({
+        ok: true,
+        json: async () => body,
+      } as Response)
+
+      const stats = await adapter.fetchStats("https://aither.cc", "fake-token", "/api/user")
+
+      expect(stats.group).toBeNull()
+    }
+  })
+
   it("reports an unparseable bonus as unknown rather than zero", async () => {
     vi.spyOn(global, "fetch").mockResolvedValueOnce({
       ok: true,

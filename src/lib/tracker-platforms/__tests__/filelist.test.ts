@@ -271,6 +271,19 @@ const UNREADABLE_DOWNLOAD_PAGE = editFixture(
 // such) to reach the header "Invites N" fallback.
 const NO_INVITATIONS_ROW_PAGE = editFixture(FULL_PAGE, INVITATIONS_ROW, "")
 
+// synthetic-fixture: Class row removed (a structure edit), and separately its
+// value emptied, the two ways a page can carry no class.
+const NO_CLASS_ROW_PAGE = editFixture(
+  FULL_PAGE,
+  `<tr><td class="colhead">Class</td><td style="text-align:left;"><font color="#b8b7b7">User</font></td></tr>`,
+  ""
+)
+const EMPTY_CLASS_PAGE = editFixture(
+  FULL_PAGE,
+  `<font color="#b8b7b7">User</font></td></tr>`,
+  `<font color="#b8b7b7"></font></td></tr>`
+)
+
 // synthetic-fixture: no logged-out capture exists; minimal login-page shape
 // (takelogin.php form, no logout.php link anywhere in the body).
 const LOGIN_PAGE = `<!DOCTYPE html><html><head><title>FileList</title></head><body>
@@ -296,6 +309,11 @@ describe("parseFilelistProfile", () => {
     expect(stats.lastAccessDate).toBe("2026-08-28")
     // The fetch layer owns remoteUserId; the parser never sets it.
     expect(stats.remoteUserId).toBeUndefined()
+  })
+
+  it("reports no class when the Class row is missing or empty", () => {
+    expect(parseFilelistProfile(NO_CLASS_ROW_PAGE, HOST).group).toBeNull() // synthetic-fixture
+    expect(parseFilelistProfile(EMPTY_CLASS_PAGE, HOST).group).toBeNull() // synthetic-fixture
   })
 
   it("returns ratio 0 and a zero buffer when both totals are zero", () => {

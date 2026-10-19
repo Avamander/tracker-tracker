@@ -13,6 +13,7 @@ import type {
 } from "../contract"
 import { adapterFetch } from "../helpers/adapter-fetch"
 import { requireBytes } from "../helpers/bytes"
+import { presentClass } from "../helpers/class-name"
 import { pollError } from "../helpers/poll-error"
 
 // ---------------------------------------------------------------------------
@@ -113,7 +114,7 @@ export class HawkeAdapter implements TrackerAdapter {
 
     return {
       username: data.username,
-      group: data.group,
+      group: presentClass(data.group),
       uploadedBytes,
       downloadedBytes,
       // Keep Hawke's reported figure, which it rounds, unless nothing has been

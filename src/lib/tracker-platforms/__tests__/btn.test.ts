@@ -107,7 +107,7 @@ describe("BtnAdapter", () => {
     const stats = await adapter.fetchStats("https://broadcasthe.net", "fake-api-key", API_PATH)
 
     expect(stats.username).toBe("minimal")
-    expect(stats.group).toBe("Unknown")
+    expect(stats.group).toBeNull()
     expect(stats.uploadedBytes).toBe(100n)
     expect(stats.downloadedBytes).toBe(50n)
     expect(stats.seedbonus).toBeNull()
@@ -451,6 +451,53 @@ describe("BtnAdapter - documented vs observed field names", () => {
 
     const stats = await adapter.fetchStats("https://broadcasthe.net", "fake-api-key", API_PATH)
     expect(stats.group).toBe("Power User")
+  })
+
+  it("skips a blank Class for the documented Title", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        id: 1,
+        result: {
+          UserID: "9900001",
+          Username: "testuser",
+          Upload: "1000",
+          Download: "500",
+          Class: "",
+          Title: "Power User",
+        },
+      }),
+    } as Response)
+
+    const stats = await adapter.fetchStats("https://broadcasthe.net", "fake-api-key", API_PATH)
+    expect(stats.group).toBe("Power User")
+  })
+
+  it("reports no class when Class and Title are both absent or blank", async () => {
+    for (const fields of [
+      { Title: "" },
+      { Class: "", Title: "" },
+      { Class: "   ", Title: "   " },
+    ]) {
+      vi.spyOn(global, "fetch").mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          id: 1,
+          result: {
+            UserID: "9900001",
+            Username: "testuser",
+            Upload: "1000",
+            Download: "500",
+            ...fields,
+          },
+        }),
+      } as Response)
+
+      const stats = await adapter.fetchStats("https://broadcasthe.net", "fake-api-key", API_PATH)
+      expect(stats.group).toBeNull()
+    }
   })
 
   it("reports hitAndRuns as unknown when the undocumented HnR key is absent", async () => {

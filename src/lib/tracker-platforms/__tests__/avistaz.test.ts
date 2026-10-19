@@ -323,6 +323,21 @@ describe("parseAvistazProfile", () => {
     expect(stats.ratio).toBeCloseTo(4.2)
   })
 
+  it("reports no class when the page carries no class badge or a blank one", () => {
+    const page = (groupItem: string) => `<!doctype html><html><head></head><body>
+      <div class="ratio-bar"><div class="container"><ul class="list-inline">
+        <li><span class="badge-user">testuser</span></li>
+        ${groupItem}
+        <li data-toggle="tooltip" title="Upload"><i></i> 10.00 GB</li>
+        <li data-toggle="tooltip" title="Download"><i></i> 5.00 GB</li>
+      </ul></div></div>
+    </body></html>`
+
+    for (const groupItem of ["", '<li><span class="badge-user"> </span></li>']) {
+      expect(parseAvistazProfile(page(groupItem), "testuser", "avistaz.to").group).toBeNull()
+    }
+  })
+
   it("extracts all fields from AnimeZ BS5 structure (datagrid + tooltip stats)", () => {
     const animezPage = `<!doctype html><html><head></head><body>
       <span class="badge bg-secondary-lt text-secondary badge-sm">Member</span>
