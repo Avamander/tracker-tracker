@@ -448,16 +448,16 @@ describe("parseRetrotoonProfile", () => {
   })
 
   it("throws naming the uploaded total when only the Downloaded row can be read", () => {
-    // A petabyte cell sits outside tryParseSiteBytes' unit table, so the row is
+    // An exabyte cell sits outside tryParseSiteBytes' unit table, so the row is
     // present and still unreadable.
-    const page = PROFILE_PAGE.replace(">2.10 GB<", ">2.10 PB<")
+    const page = PROFILE_PAGE.replace(">2.10 GB<", ">2.10 EB<")
     expect(() => parseRetrotoonProfile(page, HOST)).toThrow(
       "Unexpected response from retrotoon.world: unreadable uploaded byte total"
     )
   })
 
   it("throws naming the downloaded total when only the Uploaded row can be read", () => {
-    const page = PROFILE_PAGE.replace(">0.00 kB<", ">1.50 PB<")
+    const page = PROFILE_PAGE.replace(">0.00 kB<", ">1.50 EB<")
     expect(() => parseRetrotoonProfile(page, HOST)).toThrow(
       "Unexpected response from retrotoon.world: unreadable downloaded byte total"
     )
