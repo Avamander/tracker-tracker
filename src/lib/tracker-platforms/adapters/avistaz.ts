@@ -6,7 +6,7 @@
 
 import { type HTMLElement as ParsedElement, parse as parseHtml } from "node-html-parser"
 import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
-import { localDateStr } from "@/lib/formatters"
+import { trackerDateStr } from "@/lib/formatters"
 import { parseBytes } from "@/lib/parser"
 import { validateCookieHeader } from "@/lib/tracker-credentials/cookie-header"
 import type {
@@ -247,15 +247,17 @@ export function parseAvistazProfile(
   const userIdMatch = userIdText.match(/(\d+)/)
   const remoteUserId = userIdMatch ? parseInt(userIdMatch[1], 10) : undefined
 
+  // trackerDateStr returns undefined for text that is no date, such as AnimeZ's
+  // relative Last Seen, where formatting it would write "Invalid Date".
   const joinedRaw = field("Joined", "Member Since")
     .replace(/\s*\(.*\)/, "")
     .trim()
-  const joinedDate = joinedRaw ? localDateStr(new Date(joinedRaw)) : undefined
+  const joinedDate = joinedRaw ? trackerDateStr(joinedRaw) : undefined
 
   const lastAccessRaw = field("Last Access", "Last Seen")
     .replace(/\s*\(.*\)/, "")
     .trim()
-  const lastAccessDate = lastAccessRaw ? localDateStr(new Date(lastAccessRaw)) : undefined
+  const lastAccessDate = lastAccessRaw ? trackerDateStr(lastAccessRaw) : undefined
 
   // ── Private account-detail rows ────────────────────────────────────────────
   const donorText = field("Donor")

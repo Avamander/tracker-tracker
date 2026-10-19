@@ -120,12 +120,19 @@ describe("parseAvistazProfile", () => {
 
   it("extracts joinedDate from profile table", () => {
     const stats = parseAvistazProfile(FULL_PAGE, "testuser", "avistaz.to")
-    expect(stats.joinedDate).toContain("2026")
+    expect(stats.joinedDate).toBe("2026-02-27")
+  })
+
+  it("leaves joinedDate unset when its row holds no date", () => {
+    // "-" is what AvistaZ writes in a row it has nothing for, as in VIP Expiry.
+    const page = FULL_PAGE.replace("27 Feb 2026 07:21 pm (1 month ago)", "-")
+    const stats = parseAvistazProfile(page, "testuser", "avistaz.to")
+    expect(stats.joinedDate).toBeUndefined()
   })
 
   it("extracts lastAccessDate from private table", () => {
     const stats = parseAvistazProfile(FULL_PAGE, "testuser", "avistaz.to")
-    expect(stats.lastAccessDate).toContain("2026")
+    expect(stats.lastAccessDate).toBe("2026-03-29")
   })
 
   it("extracts platformMeta fields", () => {
@@ -362,6 +369,8 @@ describe("parseAvistazProfile", () => {
     expect(stats.leechingCount).toBe(1)
     expect(stats.seedbonus).toBe(344)
     expect(stats.joinedDate).toBe("2026-02-27")
+    // "11 seconds ago" is relative, so there is no date to report.
+    expect(stats.lastAccessDate).toBeUndefined()
     expect((stats.platformMeta as { twoFactorEnabled?: boolean })?.twoFactorEnabled).toBe(true)
   })
 })
