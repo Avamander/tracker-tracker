@@ -77,7 +77,7 @@ describe("RetentionPrompt", () => {
     const { queryClient } = renderWithClient(<RetentionPrompt />)
 
     await screen.findByText(/How long should snapshot history be kept/i)
-    await user.click(screen.getByRole("button", { name: "Save" }))
+    await user.click(await screen.findByRole("button", { name: "Save" }))
 
     await waitFor(() =>
       expect(queryClient.getQueryData(RETENTION_PROMPT_KEY)).toEqual({ prompted: true })
