@@ -2,6 +2,7 @@
 
 import { describe, expect, it } from "vitest"
 import { resolveSlots } from "@/components/tracker-detail/resolve-slots"
+import { torrentleech } from "@/data/trackers/torrentleech"
 import type { Snapshot, TrackerSummary } from "@/types/api"
 import type { SlotContext } from "@/types/slots"
 import type {
@@ -1065,5 +1066,35 @@ describe("UNIT3D context", () => {
   it("does not resolve for another platform carrying the same meta", () => {
     const ctx = unit3dCtx({ tracker: makeTracker({ platformType: "gazelle" }) })
     expect(slotIds(ctx, "stat-card")).not.toContain("api-key-expiry")
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Bonus name
+// ---------------------------------------------------------------------------
+
+describe("bonus name", () => {
+  const ctx = (registry: SlotContext["registry"]): SlotContext => ({
+    tracker: makeTracker({ platformType: "torrentleech" }),
+    latestSnapshot: makeSnapshot({ seedbonus: 1234 }),
+    meta: null,
+    registry,
+    accentColor: BASE_ACCENT,
+  })
+  const seedbonusCard = (c: SlotContext) =>
+    resolveSlots(c)
+      .get("stat-card")
+      ?.find((s) => s.id === "seedbonus")
+
+  it("labels TorrentLeech's bonus card with its own name and no BON unit", () => {
+    const card = seedbonusCard(ctx(torrentleech))
+    expect(card?.props).toMatchObject({ label: "TL Points" })
+    expect(card?.props.unit).toBeUndefined()
+  })
+
+  it("falls back to Seedbonus in BON with no entry or an empty bonus name", () => {
+    for (const registry of [undefined, { ...torrentleech, bonusName: "" }]) {
+      expect(seedbonusCard(ctx(registry))?.props).toMatchObject({ label: "Seedbonus", unit: "BON" })
+    }
   })
 })
