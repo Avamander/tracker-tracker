@@ -1,6 +1,6 @@
 // src/lib/tracker-platforms/adapters/gazelle.ts
 //
-// Functions: gazelleAuthHeader, GazelleAdapter
+// Functions: gazelleAuthHeader, profileFailure, GazelleAdapter
 
 import { computeBufferBytes, computeRatio, signedFloatBytesToBigInt } from "@/lib/data-transforms"
 import { log } from "@/lib/logger"
@@ -113,6 +113,14 @@ function gazelleAuthHeader(apiToken: string, options?: FetchOptions): string {
   return options?.authStyle === "raw" ? trimmedToken : `token ${trimmedToken}`
 }
 
+/** Why a profile reply carries no profile, or null when it does. */
+function profileFailure(data: GazelleUserResponse, hostname: string): string | null {
+  if (data.status !== "success") {
+    return data.error?.trim() || `Gazelle API returned status: ${data.status}`
+  }
+  return data.response ? null : `Unexpected response from ${hostname}: missing response`
+}
+
 export class GazelleAdapter implements TrackerAdapter {
   async fetchStats(
     baseUrl: string,
@@ -176,6 +184,10 @@ export class GazelleAdapter implements TrackerAdapter {
       stats.remoteUserId = response.id
     }
 
+    // Built from this poll's reads and always returned, so a failed profile call
+    // clears the profile fields instead of the scheduler keeping the last poll's.
+    let meta: GazellePlatformMeta = {}
+
     // Enrichment: fetch full user profile for ranks, community, warned, etc.
     if (options?.enrich) {
       const userId = options.remoteUserId ?? response.id
@@ -202,7 +214,7 @@ export class GazelleAdapter implements TrackerAdapter {
             if (typeof enriched.leechingCount === "number")
               stats.leechingCount = enriched.leechingCount
             if (enriched.avatarUrl) stats.avatarUrl = enriched.avatarUrl
-            stats.platformMeta = enriched.platformMeta
+            meta = enriched.platformMeta
           }
         } catch (err) {
           // Enrichment failure is non-fatal; core stats from index still
@@ -212,14 +224,11 @@ export class GazelleAdapter implements TrackerAdapter {
       }
     }
 
-    // Merge index-level data (notifications, tokens) into platformMeta
-    if (response.notifications || response.giftTokens != null || response.meritTokens != null) {
-      const meta = (stats.platformMeta as GazellePlatformMeta) ?? {}
-      if (response.notifications) meta.notifications = response.notifications
-      if (typeof response.giftTokens === "number") meta.giftTokens = response.giftTokens
-      if (typeof response.meritTokens === "number") meta.meritTokens = response.meritTokens
-      stats.platformMeta = meta
-    }
+    // Index-level data (notifications, tokens)
+    if (response.notifications) meta.notifications = response.notifications
+    if (typeof response.giftTokens === "number") meta.giftTokens = response.giftTokens
+    if (typeof response.meritTokens === "number") meta.meritTokens = response.meritTokens
+    stats.platformMeta = meta
 
     return stats
   }
@@ -328,9 +337,15 @@ export class GazelleAdapter implements TrackerAdapter {
       Authorization: authHeader,
     })
 
-    if (data.status !== "success" || !data.response) return null
-
+    const failure = profileFailure(data, hostname)
     const resp = data.response
+    if (failure !== null || !resp) {
+      // The poll keeps its core stats either way, so this line is the only trace
+      // of a profile call that came back without a profile.
+      log.warn({ hostname, reason: failure }, "gazelle: enrichment returned no profile")
+      return null
+    }
+
     const meta: GazellePlatformMeta = {
       donor: resp.personal?.donor,
       enabled: resp.personal?.enabled,

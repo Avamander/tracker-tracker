@@ -1,5 +1,6 @@
 // src/lib/tracker-platforms/__tests__/gazelle.test.ts
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { log } from "@/lib/logger"
 import { GazelleAdapter } from "../adapters/gazelle"
 
 // Minimal valid Gazelle index response
@@ -350,6 +351,59 @@ describe("GazelleAdapter", () => {
 
     expect(stats.username).toBe("JohnDoe")
     expect(stats.warned).toBeNull() // Default when enrichment fails; null means "unknown"
+  })
+
+  it("still returns meta when enrichment fails, so the last poll's ranks do not stay", async () => {
+    // With no meta in the result the scheduler keeps the previous poll's JSON,
+    // which would show the last good ranks as current (standard 2.2).
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce({ ok: true, json: async () => mockGazelleResponse() } as Response)
+      .mockRejectedValueOnce(new Error("network error"))
+
+    const stats = await adapter.fetchStats("https://redacted.sh", "token", "/ajax.php", {
+      enrich: true,
+    })
+
+    expect(stats.platformMeta).toEqual({})
+  })
+
+  it("keeps the index's own fields when enrichment fails", async () => {
+    const notifications = { messages: 2, notifications: 0, newAnnouncement: true, newBlog: false }
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          ...mockGazelleResponse(),
+          response: { ...mockGazelleResponse().response, notifications, giftTokens: 4 },
+        }),
+      } as Response)
+      .mockRejectedValueOnce(new Error("network error"))
+
+    const stats = await adapter.fetchStats("https://redacted.sh", "token", "/ajax.php", {
+      enrich: true,
+    })
+
+    expect(stats.platformMeta).toEqual({ notifications, giftTokens: 4 })
+  })
+
+  it.each([
+    [{ status: "failure", error: "bad id parameter" }, "bad id parameter"],
+    [{ status: "failure" }, "Gazelle API returned status: failure"],
+    [{ status: "failure", error: " " }, "Gazelle API returned status: failure"],
+    [{ status: "success" }, "Unexpected response from redacted.sh: missing response"],
+  ])("logs a profile reply that carries no profile once, with its reason", async (body, reason) => {
+    const warnSpy = vi.spyOn(log, "warn").mockImplementation(() => undefined)
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce({ ok: true, json: async () => mockGazelleResponse() } as Response)
+      .mockResolvedValueOnce({ ok: true, json: async () => body } as Response)
+
+    await adapter.fetchStats("https://redacted.sh", "token", "/ajax.php", { enrich: true })
+
+    expect(warnSpy).toHaveBeenCalledOnce()
+    expect(warnSpy).toHaveBeenCalledWith(
+      { hostname: "redacted.sh", reason },
+      "gazelle: enrichment returned no profile"
+    )
   })
 
   // A deficit account must report its actual shortfall, not 0.
