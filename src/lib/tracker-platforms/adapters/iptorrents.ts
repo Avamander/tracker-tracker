@@ -115,7 +115,7 @@ export function parseIptProfile(html: string, hostname: string): TrackerStats {
   const statsDiv = doc.querySelector(".stats")
   if (!statsDiv) {
     throw new Error(
-      "Could not find stats bar on IPTorrents page. The page may not be authenticated"
+      `Unexpected response from ${hostname}: Could not find stats bar on IPTorrents page. The page may not be authenticated`
     )
   }
 
@@ -167,7 +167,7 @@ export function parseIptProfile(html: string, hostname: string): TrackerStats {
   // does not know.
   if (uploadedBytes === undefined && downloadedBytes === undefined) {
     throw new Error(
-      "Could not extract upload/download bytes from the IPTorrents stats bar. The page structure may have changed."
+      `Unexpected response from ${hostname}: Could not extract upload/download bytes from the IPTorrents stats bar. The page structure may have changed.`
     )
   }
 

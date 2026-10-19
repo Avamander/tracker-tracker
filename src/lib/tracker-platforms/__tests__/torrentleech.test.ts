@@ -254,6 +254,27 @@ describe("parseTlProfile", () => {
     expect(stats.downloadedBytes).toBe(5_250_000_000n)
     expect(stats.ratio).toBe(0)
   })
+
+  it("reads a page with no profile stats as an unexpected response", () => {
+    // The tracker answered, so the card must not read "Poll failed", which is
+    // also what a host that never answered gets.
+    let message = ""
+    try {
+      parseTlProfile(
+        "<html><body><p>Down for maintenance</p></body></html>",
+        "testuser",
+        TL_HOSTNAME
+      )
+    } catch (err) {
+      message = err instanceof Error ? err.message : ""
+    }
+    expect(message).toBe(
+      `Unexpected response from ${TL_HOSTNAME}: Could not find profile stats on TorrentLeech page. The page may not be authenticated`
+    )
+    expect(sanitizeNetworkError(message, "Poll failed")).toBe(
+      "Tracker returned an unexpected response"
+    )
+  })
 })
 
 describe("parseTlCredentials", () => {

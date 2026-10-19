@@ -1,6 +1,7 @@
 // src/lib/tracker-platforms/__tests__/avistaz.test.ts
 
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { sanitizeNetworkError } from "@/lib/error-utils"
 import { AvistazAdapter, parseAvistazCredentials, parseAvistazProfile } from "../adapters/avistaz"
 import type { AvistazPlatformMeta } from "../contract"
 
@@ -353,6 +354,34 @@ describe("parseAvistazProfile", () => {
     expect(stats.seedbonus).toBe(344)
     expect(stats.joinedDate).toBe("2026-02-27")
     expect((stats.platformMeta as { twoFactorEnabled?: boolean })?.twoFactorEnabled).toBe(true)
+  })
+})
+
+describe("parseAvistazProfile pages it cannot read", () => {
+  // The tracker answered, so the card must not read "Poll failed", which is
+  // also what a host that never answered gets.
+  it.each([
+    [
+      "no ratio bar",
+      "<html><body><p>Down for maintenance</p></body></html>",
+      "Could not find ratio bar in profile page. The page may not be authenticated",
+    ],
+    [
+      "a ratio bar with no byte totals",
+      '<html><body><div class="ratio-bar"><ul class="list-inline"></ul></div></body></html>',
+      "Could not extract upload/download bytes from AvistaZ ratio bar. The page structure may have changed.",
+    ],
+  ])("reads %s as an unexpected response", (_case, page, detail) => {
+    let message = ""
+    try {
+      parseAvistazProfile(page, "testuser", "avistaz.to")
+    } catch (err) {
+      message = err instanceof Error ? err.message : ""
+    }
+    expect(message).toBe(`Unexpected response from avistaz.to: ${detail}`)
+    expect(sanitizeNetworkError(message, "Poll failed")).toBe(
+      "Tracker returned an unexpected response"
+    )
   })
 })
 

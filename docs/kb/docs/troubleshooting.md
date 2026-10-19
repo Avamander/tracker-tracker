@@ -217,6 +217,18 @@ If you see a **Last Error** banner without "Polling Paused", a recent poll faile
 
 ---
 
+### `Tracker returned an unexpected response`
+
+**Cause:** The tracker answered, but with something the adapter cannot read, such as a maintenance page, a login page in place of your profile, a changed page layout, or a reply missing a field the stats need.
+
+!!! success "Solution"
+
+    1. Open the tracker in a browser and check that the site is up and that you are still logged in.
+    2. Click the bug icon (**Fetch raw API response**) in the tracker's header to see the response that failed.
+    3. If the site looks normal, the tracker may have changed its pages or API. Check `docker compose logs tracker-tracker-app` for the `Poll failed for tracker` line and open an issue with it.
+
+---
+
 ### `API returned <status code>`
 
 **Cause:** API returned an unexpected status. E.g., 429 = rate limit, 500/503 = server error.

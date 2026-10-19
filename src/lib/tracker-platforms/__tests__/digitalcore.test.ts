@@ -915,24 +915,37 @@ describe("DigitalCoreAdapter.fetchStats - HTTP error handling", () => {
     )
   })
 
-  it("throws when status response is missing user data", async () => {
-    vi.spyOn(global, "fetch").mockResolvedValueOnce(mockResponse({ user: null, settings: {} }))
-
-    await expect(adapter.fetchStats("https://digitalcore.club", validToken, "")).rejects.toThrow(
-      "missing user data"
-    )
-  })
-
-  it("throws when status response is missing upload/download fields", async () => {
-    vi.spyOn(global, "fetch").mockResolvedValueOnce(
-      mockResponse({
+  // The tracker answered, so the card must not read "Poll failed", which is
+  // also what a host that never answered gets.
+  it.each([
+    ["no user data", { user: null, settings: {} }, "missing user data"],
+    [
+      "no byte totals",
+      {
         user: { id: 1, username: "dcuser", class: 20, uploaded: undefined, downloaded: undefined },
         settings: {},
-      })
-    )
+      },
+      "missing uploaded",
+    ],
+    [
+      "a byte total that is not a number",
+      {
+        user: { id: 1, username: "dcuser", class: 20, uploaded: "12 GB", downloaded: 0 },
+        settings: {},
+      },
+      "non-numeric uploaded",
+    ],
+  ])("reads a status response with %s as an unexpected response", async (_case, body, detail) => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(mockResponse(body))
 
-    await expect(adapter.fetchStats("https://digitalcore.club", validToken, "")).rejects.toThrow(
-      "missing upload/download data"
+    const err = await adapter
+      .fetchStats("https://digitalcore.club", validToken, "")
+      .then(() => null)
+      .catch((e: unknown) => (e instanceof Error ? e : null))
+
+    expect(err?.message).toBe(`Unexpected response from digitalcore.club: ${detail}`)
+    expect(sanitizeNetworkError(err?.message ?? "", "Poll failed")).toBe(
+      "Tracker returned an unexpected response"
     )
   })
 })

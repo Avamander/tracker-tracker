@@ -145,7 +145,9 @@ export function parseAvistazProfile(
   // ── Ratio bar ──────────────────────────────────────────────────────────────
   const ratioBar = doc.querySelector("div.ratio-bar")
   if (!ratioBar) {
-    throw new Error("Could not find ratio bar in profile page. The page may not be authenticated")
+    throw new Error(
+      `Unexpected response from ${hostname}: Could not find ratio bar in profile page. The page may not be authenticated`
+    )
   }
 
   const items = Array.from(ratioBar.querySelectorAll("ul.list-inline > li"))
@@ -203,7 +205,7 @@ export function parseAvistazProfile(
   // A brand new account, whose items read 0 B, is not.
   if (uploadedBytes === undefined && downloadedBytes === undefined) {
     throw new Error(
-      "Could not extract upload/download bytes from AvistaZ ratio bar. The page structure may have changed."
+      `Unexpected response from ${hostname}: Could not extract upload/download bytes from AvistaZ ratio bar. The page structure may have changed.`
     )
   }
   // One side readable and the other not is a page-shape change, not an account

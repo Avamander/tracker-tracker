@@ -13,6 +13,7 @@ import type {
   TrackerStats,
 } from "../contract"
 import { adapterRequest } from "../helpers/adapter-fetch"
+import { requireBytes } from "../helpers/bytes"
 import { SessionExpiredError } from "../helpers/errors"
 
 // ---------------------------------------------------------------------------
@@ -275,6 +276,7 @@ export class DigitalCoreAdapter implements TrackerAdapter {
     options?: FetchOptions
   ): Promise<TrackerStats> {
     const creds = parseDigitalCoreCredentials(apiToken)
+    const hostname = new URL(baseUrl).hostname
 
     // Call 1: /api/v1/status (core stats)
     const statusUrl = `${baseUrl}/api/v1/status`
@@ -282,15 +284,11 @@ export class DigitalCoreAdapter implements TrackerAdapter {
 
     const user = statusData.user
     if (!user?.id) {
-      throw new Error("DigitalCore status response missing user data")
+      throw new Error(`Unexpected response from ${hostname}: missing user data`)
     }
 
-    if (typeof user.uploaded !== "number" || typeof user.downloaded !== "number") {
-      throw new Error("DigitalCore status response missing upload/download data")
-    }
-
-    const uploaded = BigInt(Math.floor(user.uploaded))
-    const downloaded = BigInt(Math.floor(user.downloaded))
+    const uploaded = requireBytes(user.uploaded, "uploaded", hostname)
+    const downloaded = requireBytes(user.downloaded, "downloaded", hostname)
 
     // Build baseline platformMeta from status (survives enrichment failure)
     const baseMeta: DigitalCorePlatformMeta = {

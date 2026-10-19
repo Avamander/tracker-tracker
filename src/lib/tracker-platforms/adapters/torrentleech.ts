@@ -327,7 +327,7 @@ export function parseTlProfile(html: string, username: string, hostname: string)
 
   if (!uploadedText && !downloadedText) {
     throw new Error(
-      "Could not find profile stats on TorrentLeech page. The page may not be authenticated"
+      `Unexpected response from ${hostname}: Could not find profile stats on TorrentLeech page. The page may not be authenticated`
     )
   }
   // One side readable and the other not is a page-shape change, not an account
