@@ -178,6 +178,18 @@ describe("NebulanceAdapter", () => {
     expect(stats.ratio).toBe(0)
   })
 
+  it("stores the ratio unrounded, so a figure just under a minimum stays under it", async () => {
+    // Rounded to 2dp, 0.596 would store as 0.6 and pass Anthelion's 0.6 minimum.
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockNebulanceResponse({ Uploaded: 596, Downloaded: 1000 }),
+    } as Response)
+
+    const stats = await adapter.fetchStats("https://nebulance.io", "fake-api-key", "/api.php")
+
+    expect(stats.ratio).toBe(0.596)
+  })
+
   it("handles non-zero HnR count", async () => {
     vi.spyOn(global, "fetch").mockResolvedValueOnce({
       ok: true,

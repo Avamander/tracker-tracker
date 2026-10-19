@@ -122,10 +122,7 @@ export class NebulanceAdapter implements TrackerAdapter {
     const uploaded = requireBytes(resp.Uploaded, "Uploaded", hostname)
     const downloaded = requireBytes(resp.Downloaded, "Downloaded", hostname)
 
-    // Shared derivation, but Nebulance keeps its historical 2dp rounding for
-    // finite ratios. Infinity passes through untouched.
-    const rawRatio = computeRatio(uploaded, downloaded)
-    const ratio = Number.isFinite(rawRatio) ? Math.round(rawRatio * 100) / 100 : rawRatio
+    const ratio = computeRatio(uploaded, downloaded)
 
     const platformMeta: NebulancePlatformMeta = {
       snatched: resp.Snatched ?? undefined,
