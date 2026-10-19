@@ -72,7 +72,7 @@ function buildUserInfoRequest(
   url.searchParams.set("user", String(userId))
 
   // The key is deliberately absent from the label shown in the debug view.
-  return { url, endpoint: `${apiPath}?action=user&method=getuserinfo&user=${userId}` }
+  return { url, endpoint: `${apiPath}?action=user&method=getuserinfo&type=id&user=${userId}` }
 }
 
 /**
@@ -181,19 +181,8 @@ export class NebulanceAdapter implements TrackerAdapter {
 
     try {
       const result = await adapterRequest(url.toString(), hostname, options)
-      // fetchStats checks this too. Without it an error body renders in the
-      // debug view as a successful call, since a null error is what marks a
-      // call as healthy there.
-      if (!result.ok) {
-        return [
-          {
-            label: "User Info",
-            endpoint,
-            data: null,
-            error: `Tracker API error: ${result.status} ${result.statusText}`,
-          },
-        ]
-      }
+      // The body is read on a non-2xx too, since the poll's error quotes its
+      // message.
       const data = await result.json<NebulanceResponse>()
       return [
         {

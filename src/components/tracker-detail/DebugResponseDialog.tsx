@@ -56,7 +56,7 @@ export function DebugResponseDialog({
           const header = `── ${call.label} ── ${call.endpoint}`
           const body = JSON.stringify(call.data, null, 2)
           if (call.error != null) {
-            // A 200 the poll rejected keeps its body, which is what explains the error.
+            // A failed call that brought a body keeps it, since the body explains the error.
             return call.data == null
               ? `${header}\nError: ${call.error}`
               : `${header}\nError: ${call.error}\n${body}`

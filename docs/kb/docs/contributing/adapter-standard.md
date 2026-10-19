@@ -173,10 +173,11 @@ must not lie.
 
 - **Return the unmodified response body in `data`** for a JSON API. Mapping is `fetchStats`'s job.
   A scraper may substitute parsed output, because the raw artifact is a whole HTML page.
-- **Apply every failure test `fetchStats` applies.** `adapterFetch` throws on a non-2xx, so the
-  only failure reaching `fetchRaw` intact is one the tracker wrapped inside an HTTP 200 body, and
-  the debug view marks a call healthy purely on `error` being null. Put every check `fetchStats`
-  makes on a 200 body in one function both methods call, and in `fetchRaw` set
+- **Apply every failure test `fetchStats` applies.** `adapterFetch` throws on a non-2xx, so through
+  it the only failure reaching `fetchRaw` intact is one the tracker wrapped inside an HTTP 200 body
+  (an `adapterRequest` caller can read a non-2xx body too, as `nebulance.ts` does), and the debug
+  view marks a call healthy purely on `error` being null. Put every check `fetchStats` makes on a
+  200 body in one function both methods call, and in `fetchRaw` set
   `error: pollError(() => thatFunction(data, hostname))`, keeping the body in `data`. The dialog
   prints that body under the error. Nothing `fetchStats` does with that body afterwards may throw.
   References: `creditedTotals` in `tr4ker.ts`, `readIndex` in `gazelle.ts`. A call whose failure

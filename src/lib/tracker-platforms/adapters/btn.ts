@@ -1,12 +1,13 @@
 // src/lib/tracker-platforms/adapters/btn.ts
 //
-// Functions: parseBtnBytes, mapBtnResult, callBtnUserInfo, BtnAdapter
+// Functions: parseBtnBytes, mapBtnResult, callBtnUserInfo, readBtnUserInfo, BtnAdapter
 
 import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
 import { localDateStr } from "@/lib/formatters"
 import type { DebugApiCall, FetchOptions, TrackerAdapter, TrackerStats } from "../contract"
 import { adapterRequest } from "../helpers/adapter-fetch"
 import { tryParseCount } from "../helpers/html-parse"
+import { pollError } from "../helpers/poll-error"
 
 /**
  * BTN serves one API host for every user, so the adapter owns the URL and
@@ -40,7 +41,7 @@ interface BtnUserInfoResult {
 interface BtnJsonRpcResponse {
   id: number
   result?: BtnUserInfoResult
-  error?: { code: number; message: string }
+  error?: { code: number; message?: string }
 }
 
 /**
@@ -132,16 +133,18 @@ async function callBtnUserInfo(
     throw new Error(`Tracker API error: ${response.status} ${response.statusText}`)
   }
 
-  const data = await response.json<BtnJsonRpcResponse>()
+  return response.json<BtnJsonRpcResponse>()
+}
 
+/** The userInfo result, or the error fetchStats fails the poll with. */
+function readBtnUserInfo(data: BtnJsonRpcResponse): BtnUserInfoResult {
   if (data.error) {
-    throw new Error(data.error.message)
+    throw new Error(data.error.message?.trim() || "BTN API returned an error with no message")
   }
   if (!data.result) {
-    throw new Error(`Unexpected response from ${hostname}: missing result`)
+    throw new Error(`Unexpected response from ${BTN_API_HOSTNAME}: missing result`)
   }
-
-  return data
+  return data.result
 }
 
 export class BtnAdapter implements TrackerAdapter {
@@ -152,8 +155,7 @@ export class BtnAdapter implements TrackerAdapter {
     options?: FetchOptions
   ): Promise<TrackerStats> {
     const data = await callBtnUserInfo(BTN_API_URL, apiToken, BTN_API_HOSTNAME, options)
-    // data.result is guaranteed by callBtnUserInfo
-    return mapBtnResult(data.result as BtnUserInfoResult)
+    return mapBtnResult(readBtnUserInfo(data))
   }
 
   async fetchRaw(
@@ -164,8 +166,14 @@ export class BtnAdapter implements TrackerAdapter {
   ): Promise<DebugApiCall[]> {
     try {
       const data = await callBtnUserInfo(BTN_API_URL, apiToken, BTN_API_HOSTNAME, options)
-      const stats = mapBtnResult(data.result as BtnUserInfoResult)
-      return [{ label: "User Info", endpoint: BTN_API_URL, data: stats, error: null }]
+      return [
+        {
+          label: "User Info",
+          endpoint: BTN_API_URL,
+          data,
+          error: pollError(() => mapBtnResult(readBtnUserInfo(data))),
+        },
+      ]
     } catch (err) {
       return [
         {

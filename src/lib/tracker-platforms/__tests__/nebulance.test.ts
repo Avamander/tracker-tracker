@@ -551,8 +551,48 @@ describe("NebulanceAdapter.fetchRaw", () => {
     // A null error is what marks a call healthy in the debug view, so an error
     // body rendered as a success was the whole defect.
     expect(calls).toHaveLength(1)
-    expect(calls[0].data).toBeNull()
-    expect(calls[0].error).toContain("401")
+    expect(calls[0].data).toEqual({ error: "bad key" })
+    expect(calls[0].error).toBe("Tracker API error: 401 bad key")
+  })
+
+  it("shows a non-2xx error body under the message the poll fails with", async () => {
+    const body = { error: { code: 401, message: "Invalid API key" } }
+    vi.spyOn(global, "fetch").mockResolvedValue({
+      ok: false,
+      status: 401,
+      statusText: "Unauthorized",
+      json: async () => body,
+    } as Response)
+
+    const err = await adapter
+      .fetchStats("https://nebulance.io", "bad-key", "/api.php")
+      .then(() => null)
+      .catch((e: unknown) => (e instanceof Error ? e : null))
+    const calls = await adapter.fetchRaw("https://nebulance.io", "bad-key", "/api.php")
+
+    expect(err?.message).toBe("Tracker API error: 401 Invalid API key")
+    expect(calls[0].error).toBe("Tracker API error: 401 Invalid API key")
+    // The status text says only Unauthorized. The body says why.
+    expect(calls[0].data).toEqual(body)
+  })
+
+  it("names every parameter the request sent except the key", async () => {
+    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      json: async () => mockNebulanceResponse(),
+    } as Response)
+
+    const calls = await adapter.fetchRaw("https://nebulance.io", "my-api-key", "/api.php", {
+      remoteUserId: 9001,
+    })
+
+    expect(calls[0].endpoint).toBe("/api.php?action=user&method=getuserinfo&type=id&user=9001")
+    // Read off the request itself, so a parameter added there and not here fails.
+    const sent = new URL(fetchSpy.mock.calls[0][0] as string)
+    sent.searchParams.delete("api_key")
+    expect(calls[0].endpoint).toBe(`${sent.pathname}${sent.search}`)
   })
 
   it("returns the body on a successful call", async () => {
