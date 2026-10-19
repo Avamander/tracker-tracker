@@ -1108,6 +1108,16 @@ describe("DigitalCoreAdapter.fetchRaw", () => {
     expect(calls[0].error).toMatch(/network failure|Failed to connect/)
   })
 
+  it("records a null status body as one failed Status entry", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(mockResponse(null))
+
+    const calls = await adapter.fetchRaw("https://digitalcore.club", validToken, "")
+
+    expect(calls).toHaveLength(1)
+    expect(calls[0].label).toBe("Status")
+    expect(calls[0].error).toBe("Unexpected response from digitalcore.club: missing user data")
+  })
+
   it("captures error on user profile call when that call fails", async () => {
     vi.spyOn(global, "fetch")
       .mockResolvedValueOnce(mockResponse(mockStatusResponse()))
@@ -1131,6 +1141,21 @@ describe("DigitalCoreAdapter.fetchRaw", () => {
     })
 
     expect(calls[1].endpoint).toBe("/api/v1/users/77777")
+  })
+
+  it("still calls the profile after a status the poll rejects, when the id is cached", async () => {
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(mockResponse({ user: null, settings: {} }))
+      .mockResolvedValueOnce(mockResponse(mockUserProfileResponse()))
+
+    const calls = await adapter.fetchRaw("https://digitalcore.club", validToken, "", {
+      remoteUserId: 54321,
+    })
+
+    expect(calls).toHaveLength(2)
+    expect(calls[0].error).toBe("Unexpected response from digitalcore.club: missing user data")
+    expect(calls[1].label).toBe("User Profile")
+    expect(calls[1].error).toBeNull()
   })
 
   it("throws immediately on invalid credentials before any fetch", async () => {

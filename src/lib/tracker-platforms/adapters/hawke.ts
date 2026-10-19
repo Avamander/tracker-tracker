@@ -1,6 +1,6 @@
 // src/lib/tracker-platforms/adapters/hawke.ts
 //
-// Functions: unwrapEnvelope, HawkeAdapter
+// Functions: unwrapEnvelope, readProfile, HawkeAdapter
 
 import { computeBufferBytes, computeRatio, signedFloatBytesToBigInt } from "@/lib/data-transforms"
 import { validateHeaderToken } from "@/lib/tracker-credentials/header-token"
@@ -13,7 +13,7 @@ import type {
 } from "../contract"
 import { adapterFetch } from "../helpers/adapter-fetch"
 import { requireBytes } from "../helpers/bytes"
-import { envelopeError } from "../helpers/envelope"
+import { pollError } from "../helpers/poll-error"
 
 // ---------------------------------------------------------------------------
 // Hawke is not UNIT3D. Its profile is GET /api/profile with a Bearer key,
@@ -68,6 +68,19 @@ function unwrapEnvelope(body: HawkeEnvelope, hostname: string): HawkeProfile {
   return body.data
 }
 
+/** The profile and its byte totals, or the error fetchStats fails the poll with. */
+function readProfile(
+  body: HawkeEnvelope,
+  hostname: string
+): { data: HawkeProfile; uploadedBytes: bigint; downloadedBytes: bigint } {
+  const data = unwrapEnvelope(body, hostname)
+  return {
+    data,
+    uploadedBytes: requireBytes(data.uploaded, "uploaded", hostname),
+    downloadedBytes: requireBytes(data.downloaded, "downloaded", hostname),
+  }
+}
+
 export class HawkeAdapter implements TrackerAdapter {
   async fetchStats(
     baseUrl: string,
@@ -85,10 +98,7 @@ export class HawkeAdapter implements TrackerAdapter {
       Authorization: `Bearer ${trimmedToken}`,
     })
 
-    const data = unwrapEnvelope(body, hostname)
-
-    const uploadedBytes = requireBytes(data.uploaded, "uploaded", hostname)
-    const downloadedBytes = requireBytes(data.downloaded, "downloaded", hostname)
+    const { data, uploadedBytes, downloadedBytes } = readProfile(body, hostname)
 
     // All optional on HawkePlatformMeta, so an absent warning count or
     // permission flag stays undefined rather than defaulting.
@@ -144,10 +154,17 @@ export class HawkeAdapter implements TrackerAdapter {
     const url = new URL(apiPath, baseUrl).toString()
 
     try {
-      const data = await adapterFetch<Record<string, unknown>>(url, hostname, options, {
+      const data = await adapterFetch<HawkeEnvelope>(url, hostname, options, {
         Authorization: `Bearer ${trimmedToken}`,
       })
-      return [{ label: "Profile", endpoint: apiPath, data, error: envelopeError(data) }]
+      return [
+        {
+          label: "Profile",
+          endpoint: apiPath,
+          data,
+          error: pollError(() => readProfile(data, hostname)),
+        },
+      ]
     } catch (err) {
       return [
         {

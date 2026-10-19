@@ -175,10 +175,13 @@ must not lie.
   A scraper may substitute parsed output, because the raw artifact is a whole HTML page.
 - **Apply every failure test `fetchStats` applies.** `adapterFetch` throws on a non-2xx, so the
   only failure reaching `fetchRaw` intact is one the tracker wrapped inside an HTTP 200 body, and
-  the debug view marks a call healthy purely on `error` being null. Call `envelopeError(data)` and
-  put its result in `error`, keeping the offending body in `data`. References: `gazelle.ts:285`,
-  `ggn.ts:236`, `hawke.ts:163`. A tracker whose failure is a missing field rather than an envelope
-  flag checks for itself (`mam.ts:210-217`).
+  the debug view marks a call healthy purely on `error` being null. Put every check `fetchStats`
+  makes on a 200 body in one function both methods call, and in `fetchRaw` set
+  `error: pollError(() => thatFunction(data, hostname))`, keeping the body in `data`. The dialog
+  prints that body under the error. Nothing `fetchStats` does with that body afterwards may throw.
+  References: `creditedTotals` in `tr4ker.ts`, `readIndex` in `gazelle.ts`. A call whose failure
+  `fetchStats` tolerates takes its `error` from the function that decides the failure, so the
+  entry shows the reason `fetchStats` logs. Reference: `profileFailure` in `gazelle.ts`.
 - **Emit an entry for a call you skipped**, with `data: null` and a reason. A debug view that
   simply ends after one entry cannot be told from a one-call adapter.
 - **Do not abandon later calls when an earlier one fails** if a cached value can satisfy the
@@ -202,7 +205,7 @@ it. Import it rather than writing it again.
 | `adapterFetch` | `helpers/adapter-fetch.ts` | Every JSON API request on the happy path. Applies the shared timeout, default User-Agent and proxy, throws on non-2xx. | Your own fetch, timeout, proxy branch or non-2xx message |
 | `adapterRequest` | `helpers/adapter-fetch.ts` | Same, but returns a non-2xx instead of throwing. Only when your API reports errors in the body of a non-2xx. | Reaching for this by default |
 | `fetchTrackerHtml` | `helpers/html-fetch.ts` | Every authenticated page fetch in a scraper. Handles headers, cookies, the redirect chain, the off-origin refusal. | A private fetch with a Cookie header, your own redirect following |
-| `envelopeError` | `helpers/envelope.ts` | `fetchRaw`, on every body that arrived with HTTP 200. Returns the failure a tracker signalled inside a success, or null. Covers `{status, error}` and `{success, message}`. | Your own `status !== "success"` unwrap inside `fetchRaw` |
+| `pollError` | `helpers/poll-error.ts` | `fetchRaw`, on every 200 body `fetchStats` reads. Runs the function `fetchStats` reads it with and returns the message that function throws, or null. | Restating `fetchStats`'s checks inside `fetchRaw` |
 | `normalizeWhitespace` | `helpers/html-parse.ts` | Any text you compare against a literal label. Labels carry U+00A0, which an exact match will not survive. | `value.replace(/\s+/g, " ").trim()` |
 | `datePrefix` | `helpers/html-parse.ts` | Slicing `YYYY-MM-DD` off a site-printed datetime | Your own date regex |
 | `tryParseCount` | `helpers/html-parse.ts` | Any site-printed count. The first number in the text, commas stripped, decimals and sign kept, `undefined` when there is none. | `parseInt(text, 10)` with your own `NaN` test |
@@ -319,8 +322,8 @@ dashes.
 
 - [ ] Credentials are parsed outside the `try`.
 - [ ] For a JSON API, `data` is the unmodified response body.
-- [ ] Every 200-body failure test in `fetchStats` is applied here, via `envelopeError` or an
-      explicit check, and sets `error`.
+- [ ] Every 200-body failure test in `fetchStats` lives in one function both methods call, and
+      `fetchRaw` sets `error` from it through `pollError`, keeping the body in `data`.
 - [ ] A skipped call still gets an entry with `data: null` and a reason.
 - [ ] `endpoint` is built first and the URL derived from it.
 - [ ] Any pause or backoff in `fetchStats` is applied here too.

@@ -16,6 +16,7 @@ import type {
 } from "../contract"
 import { adapterRequest } from "../helpers/adapter-fetch"
 import { requireBytes } from "../helpers/bytes"
+import { pollError } from "../helpers/poll-error"
 
 interface NebulanceUserData {
   ID: number
@@ -74,6 +75,50 @@ function buildUserInfoRequest(
   return { url, endpoint: `${apiPath}?action=user&method=getuserinfo&user=${userId}` }
 }
 
+/**
+ * The user record and its byte totals, or the error fetchStats fails the poll
+ * with. An error body can arrive on a non-2xx or on a 200, and both read their
+ * text the same way.
+ */
+function readUserInfo(
+  data: NebulanceResponse,
+  ok: boolean,
+  status: number,
+  hostname: string
+): { resp: NebulanceUserData; uploaded: bigint; downloaded: bigint } {
+  if (!ok || "error" in data) {
+    const err = "error" in data ? data.error : undefined
+    const errMsg =
+      typeof err === "object" && err !== null
+        ? err.message
+        : typeof err === "string"
+          ? err
+          : `HTTP ${status}`
+    // Both messages use a shape sanitizeNetworkError recognises, and both
+    // keep the tracker's own text.
+    if (!ok) {
+      throw new Error(`Tracker API error: ${status} ${errMsg}`)
+    }
+    throw new Error(`Unexpected response from ${hostname}: ${errMsg}`)
+  }
+
+  // Handle both wrapped {"status":"success","response":{...}} and flat response
+  let resp: NebulanceUserData
+  if ("response" in data && (data as NebulanceWrappedResponse).response?.Username) {
+    resp = (data as NebulanceWrappedResponse).response
+  } else if ("Username" in data && (data as NebulanceUserData).Username) {
+    resp = data as NebulanceUserData
+  } else {
+    throw new Error(`Unexpected response from ${hostname}: missing user data`)
+  }
+
+  return {
+    resp,
+    uploaded: requireBytes(resp.Uploaded, "Uploaded", hostname),
+    downloaded: requireBytes(resp.Downloaded, "Downloaded", hostname),
+  }
+}
+
 export class NebulanceAdapter implements TrackerAdapter {
   async fetchStats(
     baseUrl: string,
@@ -89,38 +134,8 @@ export class NebulanceAdapter implements TrackerAdapter {
     // adapterRequest hands the non-2xx back rather than throwing, so the error
     // body below is still readable.
     const result = await adapterRequest(url.toString(), hostname, options)
-    const ok = result.ok
-    const status = result.status
     const data = await result.json<NebulanceResponse>()
-
-    if (!ok || "error" in data) {
-      const err = "error" in data ? data.error : undefined
-      const errMsg =
-        typeof err === "object" && err !== null
-          ? err.message
-          : typeof err === "string"
-            ? err
-            : `HTTP ${status}`
-      // Both messages use a shape sanitizeNetworkError recognises, and both
-      // keep the tracker's own text.
-      if (!ok) {
-        throw new Error(`Tracker API error: ${status} ${errMsg}`)
-      }
-      throw new Error(`Unexpected response from ${hostname}: ${errMsg}`)
-    }
-
-    // Handle both wrapped {"status":"success","response":{...}} and flat response
-    let resp: NebulanceUserData
-    if ("response" in data && (data as NebulanceWrappedResponse).response?.Username) {
-      resp = (data as NebulanceWrappedResponse).response
-    } else if ("Username" in data && (data as NebulanceUserData).Username) {
-      resp = data as NebulanceUserData
-    } else {
-      throw new Error(`Unexpected response from ${hostname}: missing user data`)
-    }
-
-    const uploaded = requireBytes(resp.Uploaded, "Uploaded", hostname)
-    const downloaded = requireBytes(resp.Downloaded, "Downloaded", hostname)
+    const { resp, uploaded, downloaded } = readUserInfo(data, result.ok, result.status, hostname)
 
     const ratio = computeRatio(uploaded, downloaded)
 
@@ -179,22 +194,15 @@ export class NebulanceAdapter implements TrackerAdapter {
           },
         ]
       }
-      const data = await result.json()
-
-      // fetchStats also rejects a 200 that carries an error body, so the debug
-      // view reports one as a failure too.
-      const bodyError =
-        data !== null && typeof data === "object" && "error" in data
-          ? (data as { error?: unknown }).error
-          : undefined
-      const errText =
-        bodyError === undefined
-          ? null
-          : typeof bodyError === "object" && bodyError !== null && "message" in bodyError
-            ? String((bodyError as { message: unknown }).message)
-            : String(bodyError)
-
-      return [{ label: "User Info", endpoint, data, error: errText }]
+      const data = await result.json<NebulanceResponse>()
+      return [
+        {
+          label: "User Info",
+          endpoint,
+          data,
+          error: pollError(() => readUserInfo(data, result.ok, result.status, hostname)),
+        },
+      ]
     } catch (err) {
       return [
         {

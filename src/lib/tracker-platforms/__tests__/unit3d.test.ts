@@ -757,18 +757,52 @@ describe("Unit3dAdapter.fetchRaw", () => {
     vi.restoreAllMocks()
   })
 
+  const USER = {
+    username: "JohnDoe",
+    group: "Power User",
+    uploaded: "500.25 GiB",
+    downloaded: "125.50 GiB",
+    ratio: "3.99",
+    buffer: "374.75 GiB",
+    seeding: 156,
+    leeching: 2,
+    seedbonus: "12500.00",
+    hit_and_runs: 0,
+  }
+
   it("returns the raw body as a successful call", async () => {
-    const body = { username: "JohnDoe", uploaded: "1 GiB" }
     vi.spyOn(global, "fetch").mockResolvedValueOnce({
       ok: true,
-      json: async () => body,
+      json: async () => USER,
     } as Response)
 
     const calls = await adapter.fetchRaw("https://aither.cc", "fake-token", "/api/user")
 
     expect(calls).toHaveLength(1)
     expect(calls[0].error).toBeNull()
-    expect(calls[0].data).toEqual(body)
+    expect(calls[0].data).toEqual(USER)
+  })
+
+  it("fails a body the poll rejects with the poll's message, keeping the body", async () => {
+    // A fork can change this body behind a 200 (issue #214). The debug view is
+    // where its shape gets reported, so it must not call it healthy.
+    for (const [body, message] of [
+      [
+        { username: "JohnDoe", uploaded: "1 GiB" },
+        'Unexpected response from aither.cc: missing "downloaded", "buffer"; top-level keys: username, uploaded',
+      ],
+      [{ ...USER, buffer: "plenty" }, 'Invalid byte format: "plenty"'],
+    ] as const) {
+      vi.spyOn(global, "fetch").mockResolvedValueOnce({
+        ok: true,
+        json: async () => body,
+      } as Response)
+
+      const calls = await adapter.fetchRaw("https://aither.cc", "fake-token", "/api/user")
+
+      expect(calls[0].error).toBe(message)
+      expect(calls[0].data).toEqual(body)
+    }
   })
 
   it("records a failed request instead of throwing", async () => {

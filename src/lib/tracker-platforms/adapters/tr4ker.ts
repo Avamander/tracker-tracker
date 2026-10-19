@@ -1,12 +1,13 @@
 // src/lib/tracker-platforms/adapters/tr4ker.ts
 //
-// Functions: tr4kerClassName, bonusBytes, creditedTotals, pollError, Tr4kerAdapter
+// Functions: tr4kerClassName, bonusBytes, creditedTotals, Tr4kerAdapter
 
 import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
 import { validateHeaderToken } from "@/lib/tracker-credentials/header-token"
 import type { DebugApiCall, FetchOptions, TrackerAdapter, TrackerStats } from "../contract"
 import { adapterFetch } from "../helpers/adapter-fetch"
 import { requireBytes } from "../helpers/bytes"
+import { pollError } from "../helpers/poll-error"
 
 // ---------------------------------------------------------------------------
 // TR4KER exposes a minimal JSON "me" endpoint. Auth is the documented
@@ -77,16 +78,6 @@ function creditedTotals(
   }
 }
 
-/** The message fetchStats fails the poll with for this body, or null. */
-function pollError(data: Tr4kerApiResponse, hostname: string): string | null {
-  try {
-    creditedTotals(data, hostname)
-    return null
-  } catch (err) {
-    return err instanceof Error ? err.message : "Request failed"
-  }
-}
-
 export class Tr4kerAdapter implements TrackerAdapter {
   async fetchStats(
     baseUrl: string,
@@ -141,7 +132,14 @@ export class Tr4kerAdapter implements TrackerAdapter {
       })
       // A body fetchStats would fail must not read as healthy here (adapter
       // standard 2.6).
-      return [{ label: "User Stats", endpoint: apiPath, data, error: pollError(data, hostname) }]
+      return [
+        {
+          label: "User Stats",
+          endpoint: apiPath,
+          data,
+          error: pollError(() => creditedTotals(data, hostname)),
+        },
+      ]
     } catch (err) {
       return [
         {

@@ -184,6 +184,20 @@ describe("GGnAdapter", () => {
     )
   })
 
+  it.each([
+    ["quick_user", [{ status: "failure", error: "   " }]],
+    ["user", [mockQuickUserResponse(), { status: "failure", error: "   " }]],
+  ])("names the status when a %s failure carries a blank reason", async (_call, bodies) => {
+    const fetchSpy = vi.spyOn(global, "fetch")
+    for (const body of bodies) {
+      fetchSpy.mockResolvedValueOnce({ ok: true, json: async () => body } as Response)
+    }
+
+    await expect(adapter.fetchStats("https://gazellegames.net", "key", "/api.php")).rejects.toThrow(
+      "GGn API returned status: failure"
+    )
+  })
+
   it("throws on non-ok HTTP response", async () => {
     vi.spyOn(global, "fetch").mockResolvedValueOnce({
       ok: false,
@@ -321,6 +335,22 @@ describe("GGnAdapter.fetchRaw", () => {
     expect(calls[0].label).toBe("Quick User")
     expect(calls[0].error).toBeNull()
     expect(calls[0].data).not.toBeNull()
+  })
+
+  it("stops at a quick user body the poll rejects, since the poll never makes the user call", async () => {
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ status: "success", response: { id: 70813 } }),
+      } as Response)
+      .mockResolvedValueOnce({ ok: true, json: async () => mockUserResponse() } as Response)
+
+    const calls = await adapter.fetchRaw("https://gazellegames.net", "fake-token", "/api.php")
+
+    expect(calls).toHaveLength(1)
+    expect(calls[0].error).toBe(
+      "Unexpected response from gazellegames.net: missing user ID or username"
+    )
   })
 
   it("records a failed quick user request instead of throwing", async () => {

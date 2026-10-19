@@ -142,6 +142,17 @@ describe("GazelleAdapter", () => {
     ).rejects.toThrow("Invalid API key")
   })
 
+  it("names the status when the failure carries a blank reason", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ status: "failure", error: "   " }),
+    } as Response)
+
+    await expect(
+      adapter.fetchStats("https://redacted.sh", "bad-token", "/ajax.php")
+    ).rejects.toThrow("Gazelle API returned status: failure")
+  })
+
   it("throws a sanitized error on network failure", async () => {
     vi.spyOn(global, "fetch").mockRejectedValueOnce(new Error("fetch failed"))
 
@@ -584,4 +595,27 @@ describe("GazelleAdapter.fetchRaw", () => {
     expect(calls[0].data).toBeNull()
     expect(calls[0].error).toBeTruthy()
   })
+
+  it.each([
+    [{ status: "failure", error: "bad id parameter" }, "bad id parameter"],
+    [{ status: "success" }, "Unexpected response from redacted.sh: missing response"],
+  ])(
+    "fails a profile entry that carries no profile with the reason the poll logs",
+    async (body, reason) => {
+      vi.useFakeTimers()
+      try {
+        vi.spyOn(global, "fetch")
+          .mockResolvedValueOnce({ ok: true, json: async () => mockGazelleResponse() } as Response)
+          .mockResolvedValueOnce({ ok: true, json: async () => body } as Response)
+
+        const pending = adapter.fetchRaw("https://redacted.sh", "fake-token", "/ajax.php")
+        await vi.advanceTimersByTimeAsync(1500)
+        const calls = await pending
+
+        expect(calls[1]).toMatchObject({ label: "User Profile", data: body, error: reason })
+      } finally {
+        vi.useRealTimers()
+      }
+    }
+  )
 })

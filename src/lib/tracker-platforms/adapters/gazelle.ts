@@ -1,6 +1,6 @@
 // src/lib/tracker-platforms/adapters/gazelle.ts
 //
-// Functions: gazelleAuthHeader, profileFailure, GazelleAdapter
+// Functions: gazelleAuthHeader, readIndex, profileFailure, GazelleAdapter
 
 import { computeBufferBytes, computeRatio, signedFloatBytesToBigInt } from "@/lib/data-transforms"
 import { log } from "@/lib/logger"
@@ -14,7 +14,7 @@ import type {
 } from "../contract"
 import { adapterFetch } from "../helpers/adapter-fetch"
 import { requireBytes } from "../helpers/bytes"
-import { envelopeError } from "../helpers/envelope"
+import { pollError } from "../helpers/poll-error"
 
 interface GazelleUserStats {
   uploaded: number
@@ -113,6 +113,36 @@ function gazelleAuthHeader(apiToken: string, options?: FetchOptions): string {
   return options?.authStyle === "raw" ? trimmedToken : `token ${trimmedToken}`
 }
 
+/** The index response and its byte totals, or the error fetchStats fails the poll with. */
+function readIndex(
+  data: GazelleIndexResponse,
+  hostname: string
+): {
+  response: NonNullable<GazelleIndexResponse["response"]>
+  uploaded: bigint
+  downloaded: bigint
+} {
+  if (data.status !== "success") {
+    throw new Error(data.error?.trim() || `Gazelle API returned status: ${data.status}`)
+  }
+
+  const response = data.response
+  if (!response) {
+    throw new Error(`Unexpected response from ${hostname}: missing response`)
+  }
+
+  const userStats = response.userstats
+  if (!userStats) {
+    throw new Error(`Unexpected response from ${hostname}: missing userstats`)
+  }
+
+  return {
+    response,
+    uploaded: requireBytes(userStats.uploaded, "uploaded", hostname),
+    downloaded: requireBytes(userStats.downloaded, "downloaded", hostname),
+  }
+}
+
 /** Why a profile reply carries no profile, or null when it does. */
 function profileFailure(data: GazelleUserResponse, hostname: string): string | null {
   if (data.status !== "success") {
@@ -138,22 +168,8 @@ export class GazelleAdapter implements TrackerAdapter {
       Authorization: authHeader,
     })
 
-    if (data.status !== "success") {
-      throw new Error(data.error ?? `Gazelle API returned status: ${data.status}`)
-    }
-
-    const response = data.response
-    if (!response) {
-      throw new Error(`Unexpected response from ${hostname}: missing response`)
-    }
-
+    const { response, uploaded, downloaded } = readIndex(data, hostname)
     const userStats = response.userstats
-    if (!userStats) {
-      throw new Error(`Unexpected response from ${hostname}: missing userstats`)
-    }
-
-    const uploaded = requireBytes(userStats.uploaded, "uploaded", hostname)
-    const downloaded = requireBytes(userStats.downloaded, "downloaded", hostname)
 
     const stats: TrackerStats = {
       username: response.username,
@@ -246,20 +262,17 @@ export class GazelleAdapter implements TrackerAdapter {
     // Call 1: Index
     const indexUrl = new URL(apiPath, baseUrl)
     indexUrl.searchParams.set("action", "index")
-    let indexData: Record<string, unknown> | null = null
+    let indexData: GazelleIndexResponse
 
     try {
-      indexData = await adapterFetch<Record<string, unknown>>(
-        indexUrl.toString(),
-        hostname,
-        options,
-        { Authorization: authHeader }
-      )
+      indexData = await adapterFetch<GazelleIndexResponse>(indexUrl.toString(), hostname, options, {
+        Authorization: authHeader,
+      })
       calls.push({
         label: "Index",
         endpoint: `${apiPath}?action=index`,
         data: indexData,
-        error: envelopeError(indexData),
+        error: pollError(() => readIndex(indexData, hostname)),
       })
     } catch (err) {
       calls.push({
@@ -285,7 +298,7 @@ export class GazelleAdapter implements TrackerAdapter {
       const endpoint = `${apiPath}?action=user&id=${userId}`
 
       try {
-        const userData = await adapterFetch<Record<string, unknown>>(
+        const userData = await adapterFetch<GazelleUserResponse>(
           userUrl.toString(),
           hostname,
           options,
@@ -295,7 +308,7 @@ export class GazelleAdapter implements TrackerAdapter {
           label: "User Profile",
           endpoint,
           data: userData,
-          error: envelopeError(userData),
+          error: profileFailure(userData, hostname),
         })
       } catch (err) {
         calls.push({

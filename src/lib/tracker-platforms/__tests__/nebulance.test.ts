@@ -556,17 +556,18 @@ describe("NebulanceAdapter.fetchRaw", () => {
   })
 
   it("returns the body on a successful call", async () => {
+    const body = mockNebulanceResponse()
     vi.spyOn(global, "fetch").mockResolvedValueOnce({
       ok: true,
       status: 200,
       statusText: "OK",
-      json: async () => ({ response: { Username: "seedqueen" } }),
+      json: async () => body,
     } as Response)
 
     const calls = await adapter.fetchRaw("https://nebulance.io", "good-key", "/api.php")
 
     expect(calls[0].error).toBeNull()
-    expect(calls[0].data).not.toBeNull()
+    expect(calls[0].data).toEqual(body)
   })
 })
 
@@ -590,9 +591,25 @@ describe("NebulanceAdapter.fetchRaw body-level errors", () => {
     const calls = await adapter.fetchRaw("https://nebulance.io", "key", "/api.php")
 
     expect(calls).toHaveLength(1)
-    expect(calls[0].error).toContain("bad api key")
+    expect(calls[0].error).toBe("Unexpected response from nebulance.io: bad api key")
     // The offending body is kept so the tab can still show what arrived.
     expect(calls[0].data).not.toBeNull()
+  })
+
+  it("reports a user record with no byte totals as the poll does", async () => {
+    for (const body of [{ response: { Username: "seedqueen" } }, { Username: "someone", ID: 1 }]) {
+      vi.spyOn(global, "fetch").mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        json: async () => body,
+      } as Response)
+
+      const calls = await adapter.fetchRaw("https://nebulance.io", "key", "/api.php")
+
+      expect(calls[0].error).toBe("Unexpected response from nebulance.io: missing Uploaded")
+      expect(calls[0].data).toEqual(body)
+    }
   })
 
   it("still reports a healthy call as healthy", async () => {
@@ -600,7 +617,8 @@ describe("NebulanceAdapter.fetchRaw body-level errors", () => {
       ok: true,
       status: 200,
       statusText: "OK",
-      json: async () => ({ Username: "someone", ID: 1 }),
+      // Flat, the other shape fetchStats reads.
+      json: async () => mockNebulanceResponse().response,
     } as unknown as Response)
 
     const calls = await adapter.fetchRaw("https://nebulance.io", "key", "/api.php")

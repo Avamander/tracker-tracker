@@ -1,7 +1,7 @@
 // src/lib/tracker-platforms/adapters/digitalcore.ts
 //
 // Functions: parseDigitalCoreCredentials, dcFlag, dcClassNameFromId,
-//            parseJsonSafe, fetchDCJson, DigitalCoreAdapter
+//            parseJsonSafe, fetchDCJson, readStatusUser, DigitalCoreAdapter
 
 import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
 import { log } from "@/lib/logger"
@@ -15,6 +15,7 @@ import type {
 import { adapterRequest } from "../helpers/adapter-fetch"
 import { requireBytes } from "../helpers/bytes"
 import { SessionExpiredError } from "../helpers/errors"
+import { pollError } from "../helpers/poll-error"
 
 // ---------------------------------------------------------------------------
 // Credential handling
@@ -264,6 +265,24 @@ async function fetchDCJson<T>(
   return parseJsonSafe<T>(await response.text(), parsed.pathname)
 }
 
+/** The status user and its byte totals, or the error fetchStats fails the poll with. */
+function readStatusUser(
+  data: DCStatusResponse,
+  hostname: string
+): { user: DCStatusUser; uploaded: bigint; downloaded: bigint } {
+  // A bare null body parses to null.
+  const user = data?.user
+  if (!user?.id) {
+    throw new Error(`Unexpected response from ${hostname}: missing user data`)
+  }
+
+  return {
+    user,
+    uploaded: requireBytes(user.uploaded, "uploaded", hostname),
+    downloaded: requireBytes(user.downloaded, "downloaded", hostname),
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Adapter class
 // ---------------------------------------------------------------------------
@@ -282,13 +301,7 @@ export class DigitalCoreAdapter implements TrackerAdapter {
     const statusUrl = `${baseUrl}/api/v1/status`
     const statusData = await fetchDCJson<DCStatusResponse>(statusUrl, creds, options?.proxyAgent)
 
-    const user = statusData.user
-    if (!user?.id) {
-      throw new Error(`Unexpected response from ${hostname}: missing user data`)
-    }
-
-    const uploaded = requireBytes(user.uploaded, "uploaded", hostname)
-    const downloaded = requireBytes(user.downloaded, "downloaded", hostname)
+    const { user, uploaded, downloaded } = readStatusUser(statusData, hostname)
 
     // Build baseline platformMeta from status (survives enrichment failure)
     const baseMeta: DigitalCorePlatformMeta = {
@@ -394,22 +407,23 @@ export class DigitalCoreAdapter implements TrackerAdapter {
     options?: FetchOptions
   ): Promise<DebugApiCall[]> {
     const creds = parseDigitalCoreCredentials(apiToken)
+    const hostname = new URL(baseUrl).hostname
     const calls: DebugApiCall[] = []
 
     // Call 1: Status
     let userId: number | undefined = options?.remoteUserId
     try {
       const statusUrl = `${baseUrl}/api/v1/status`
-      const statusData = await fetchDCJson<Record<string, unknown>>(
-        statusUrl,
-        creds,
-        options?.proxyAgent
-      )
-      calls.push({ label: "Status", endpoint: "/api/v1/status", data: statusData, error: null })
+      const statusData = await fetchDCJson<DCStatusResponse>(statusUrl, creds, options?.proxyAgent)
+      calls.push({
+        label: "Status",
+        endpoint: "/api/v1/status",
+        data: statusData,
+        error: pollError(() => readStatusUser(statusData, hostname)),
+      })
 
       if (!userId) {
-        const user = statusData.user as { id?: number } | undefined
-        userId = user?.id
+        userId = statusData?.user?.id
       }
     } catch (err) {
       calls.push({
