@@ -180,9 +180,18 @@ describe("parseIptProfile", () => {
     expect(() => parseIptProfile(loginRedirect, HOSTNAME)).toThrow("Session expired")
   })
 
-  it("detects a Cloudflare challenge and throws", () => {
+  it("detects a Cloudflare challenge and throws, and the card names it", () => {
     const cfChallenge = `<!doctype html><html><head><title>Just a moment...</title></head><body></body></html>`
-    expect(() => parseIptProfile(cfChallenge, HOSTNAME)).toThrow("Cloudflare")
+    let message = ""
+    try {
+      parseIptProfile(cfChallenge, HOSTNAME)
+    } catch (err) {
+      message = err instanceof Error ? err.message : ""
+    }
+    expect(message).toBe("Cloudflare challenge detected. Cookies need refreshing")
+    expect(sanitizeNetworkError(message, "Poll failed")).toBe(
+      "Cloudflare challenge blocked the request"
+    )
   })
 })
 

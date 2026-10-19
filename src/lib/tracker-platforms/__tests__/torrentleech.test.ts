@@ -211,9 +211,18 @@ describe("parseTlProfile", () => {
     expect(() => parseTlProfile(loginPage, "testuser", TL_HOSTNAME)).toThrow("Session expired")
   })
 
-  it("detects Cloudflare challenge and throws", () => {
+  it("detects Cloudflare challenge and throws, and the card names it", () => {
     const cfChallenge = `<!doctype html><html><head><title>Just a moment...</title></head><body></body></html>`
-    expect(() => parseTlProfile(cfChallenge, "testuser", TL_HOSTNAME)).toThrow("Cloudflare")
+    let message = ""
+    try {
+      parseTlProfile(cfChallenge, "testuser", TL_HOSTNAME)
+    } catch (err) {
+      message = err instanceof Error ? err.message : ""
+    }
+    expect(message).toBe("Cloudflare challenge detected. The TorrentLeech session needs refreshing")
+    expect(sanitizeNetworkError(message, "Poll failed")).toBe(
+      "Cloudflare challenge blocked the request"
+    )
   })
 
   it("throws when profile stats are missing (unauthenticated page)", () => {
@@ -642,9 +651,15 @@ describe("TorrentleechAdapter.fetchStats", () => {
       } as Partial<Response>)
     )
 
-    await expect(
-      adapter.fetchStats("https://www.torrentleech.org", validToken, "")
-    ).rejects.toThrow("Cloudflare challenge detected on the TorrentLeech login page")
+    const err = await adapter
+      .fetchStats("https://www.torrentleech.org", validToken, "")
+      .then(() => null)
+      .catch((e: unknown) => (e instanceof Error ? e : null))
+
+    expect(err?.message).toBe("Cloudflare challenge detected on the TorrentLeech login page")
+    expect(sanitizeNetworkError(err?.message ?? "", "Poll failed")).toBe(
+      "Cloudflare challenge blocked the request"
+    )
   })
 
   it("names a challenge by its other marker, and ahead of a 503 status", async () => {

@@ -984,8 +984,16 @@ describe("DigitalCoreAdapter.fetchStats - non-JSON response handling", () => {
         "<html><head><title>Just a moment...</title></head><body>Checking your browser</body></html>",
     } as Response)
 
-    await expect(adapter.fetchStats("https://digitalcore.club", validToken, "")).rejects.toThrow(
-      "HTML instead of JSON"
+    const err = await adapter
+      .fetchStats("https://digitalcore.club", validToken, "")
+      .then(() => null)
+      .catch((e: unknown) => (e instanceof Error ? e : null))
+
+    expect(err?.message).toContain("HTML instead of JSON")
+    // A shape problem, not the challenge card: an HTML body here could as well
+    // be a maintenance page.
+    expect(sanitizeNetworkError(err?.message ?? "", "Poll failed")).toBe(
+      "Tracker returned an unexpected response"
     )
   })
 

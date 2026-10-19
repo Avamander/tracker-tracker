@@ -2,6 +2,7 @@
 
 import { parse as parseHtml } from "node-html-parser"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { sanitizeNetworkError } from "@/lib/error-utils"
 import {
   extractOwnUserId,
   parseRetrotoonBonus,
@@ -418,9 +419,16 @@ describe("parseRetrotoonProfile", () => {
     expect(() => parseRetrotoonProfile(LOGIN_PAGE, HOST)).toThrow(/Session expired/)
   })
 
-  it("prefers the Cloudflare message over the generic session one", () => {
-    expect(() => parseRetrotoonProfile(CLOUDFLARE_PAGE, HOST)).toThrow(
-      /Cloudflare challenge detected/
+  it("prefers the Cloudflare message over the generic session one, and the card names it", () => {
+    let message = ""
+    try {
+      parseRetrotoonProfile(CLOUDFLARE_PAGE, HOST)
+    } catch (err) {
+      message = err instanceof Error ? err.message : ""
+    }
+    expect(message).toBe("Cloudflare challenge detected. Cookies need refreshing")
+    expect(sanitizeNetworkError(message, "Poll failed")).toBe(
+      "Cloudflare challenge blocked the request"
     )
   })
 

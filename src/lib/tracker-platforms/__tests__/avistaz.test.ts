@@ -158,9 +158,18 @@ describe("parseAvistazProfile", () => {
     )
   })
 
-  it("detects Cloudflare challenge and throws", () => {
+  it("detects Cloudflare challenge and throws, and the card names it", () => {
     const cfChallenge = `<!DOCTYPE html><html><head><title>Just a moment...</title></head><body></body></html>`
-    expect(() => parseAvistazProfile(cfChallenge, "testuser", "avistaz.to")).toThrow("Cloudflare")
+    let message = ""
+    try {
+      parseAvistazProfile(cfChallenge, "testuser", "avistaz.to")
+    } catch (err) {
+      message = err instanceof Error ? err.message : ""
+    }
+    expect(message).toBe("Cloudflare challenge detected. The cf_clearance cookie needs refreshing")
+    expect(sanitizeNetworkError(message, "Poll failed")).toBe(
+      "Cloudflare challenge blocked the request"
+    )
   })
 
   it("throws when ratio bar is missing", () => {

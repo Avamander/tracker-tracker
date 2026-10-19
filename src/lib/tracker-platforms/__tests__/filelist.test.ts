@@ -386,8 +386,15 @@ describe("parseFilelistProfile", () => {
       `<!doctype html><html><body><script src="https://challenges.cloudflare.com/turnstile/v0/api.js"></script></body></html>`,
     ]
     for (const page of markers) {
-      expect(() => parseFilelistProfile(page, HOST)).toThrow(
-        "Cloudflare challenge detected. Cookies need refreshing"
+      let message = ""
+      try {
+        parseFilelistProfile(page, HOST)
+      } catch (err) {
+        message = err instanceof Error ? err.message : ""
+      }
+      expect(message).toBe("Cloudflare challenge detected. Cookies need refreshing")
+      expect(sanitizeNetworkError(message, "Poll failed")).toBe(
+        "Cloudflare challenge blocked the request"
       )
     }
   })

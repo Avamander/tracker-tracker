@@ -389,6 +389,14 @@ describe("sanitizeNetworkError TorrentLeech auth outcomes", () => {
   })
 })
 
+describe("sanitizeNetworkError Cloudflare challenge", () => {
+  it("names the challenge instead of falling back to Poll failed", () => {
+    expect(
+      sanitizeNetworkError("Cloudflare challenge detected. Cookies need refreshing", "Poll failed")
+    ).toBe("Cloudflare challenge blocked the request")
+  })
+})
+
 // ---------------------------------------------------------------------------
 // Adapter shape errors (issue #214) read "Unexpected response from <host>: ...".
 // They get their own message and must match before the credential rule, whose

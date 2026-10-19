@@ -208,6 +208,19 @@ These appear in the **Poll Error Banner** on the tracker detail page.
 
 ---
 
+### `Cloudflare challenge blocked the request`
+
+**Cause:** Cloudflare answered with a challenge page in place of the tracker's page, and wants a browser check first.
+
+!!! success "Solution"
+
+    1. Open the tracker in the browser you copied the cookies from and pass the check.
+    2. Copy the cookies again, `cf_clearance` included where the tracker sets it, and paste them into the tracker's settings from that same browser, since Tracker Tracker records the User-Agent of the browser you save from.
+    3. TorrentLeech has no cookies to refresh. Wait a while, and raise the poll interval if the challenge keeps coming back.
+    4. If the tracker paused after repeated failures, click **Resume Polling**, then **Poll Now**.
+
+---
+
 ### Stale error banner (no pause)
 
 If you see a **Last Error** banner without "Polling Paused", a recent poll failed but not enough to trigger a pause. It clears on the next success.

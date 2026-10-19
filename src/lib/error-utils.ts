@@ -85,6 +85,12 @@ export function sanitizeNetworkError(raw: string, fallback = "Connection failed"
   if (/Unexpected response from|Invalid byte format|Negative byte values|Unknown unit/i.test(raw)) {
     return "Tracker returned an unexpected response"
   }
+  // The scrapers' Cloudflare challenge messages all open this way. What to do
+  // differs (fresh cookies for most, nothing to refresh for TorrentLeech), so
+  // the card names only the cause.
+  if (/Cloudflare challenge detected/i.test(raw)) {
+    return "Cloudflare challenge blocked the request"
+  }
   if (/timed?\s*out/i.test(raw)) return "Request timed out"
   if (/ECONNREFUSED/i.test(raw)) return "Connection refused"
   if (/ENOTFOUND/i.test(raw)) return "Host not found"
