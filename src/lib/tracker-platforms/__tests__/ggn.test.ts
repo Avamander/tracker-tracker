@@ -338,7 +338,8 @@ describe("GGnAdapter.fetchRaw", () => {
   })
 
   it("stops at a quick user body the poll rejects, since the poll never makes the user call", async () => {
-    vi.spyOn(global, "fetch")
+    const fetchSpy = vi
+      .spyOn(global, "fetch")
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ status: "success", response: { id: 70813 } }),
@@ -347,10 +348,17 @@ describe("GGnAdapter.fetchRaw", () => {
 
     const calls = await adapter.fetchRaw("https://gazellegames.net", "fake-token", "/api.php")
 
-    expect(calls).toHaveLength(1)
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    expect(calls).toHaveLength(2)
     expect(calls[0].error).toBe(
       "Unexpected response from gazellegames.net: missing user ID or username"
     )
+    expect(calls[1]).toEqual({
+      label: "User Profile",
+      endpoint: "/api.php?request=user",
+      data: null,
+      error: "Skipped: Quick User failed and no user id is cached",
+    })
   })
 
   it("records a failed quick user request instead of throwing", async () => {
@@ -362,9 +370,38 @@ describe("GGnAdapter.fetchRaw", () => {
 
     const calls = await adapter.fetchRaw("https://gazellegames.net", "fake-token", "/api.php")
 
-    expect(calls).toHaveLength(1)
+    expect(calls).toHaveLength(2)
     expect(calls[0].data).toBeNull()
     expect(calls[0].error).toBeTruthy()
+    // A view that ends after one entry cannot be told from a one-call adapter.
+    expect(calls[1]).toEqual({
+      label: "User Profile",
+      endpoint: "/api.php?request=user",
+      data: null,
+      error: "Skipped: Quick User failed and no user id is cached",
+    })
+  })
+
+  it("goes straight to the user call when the id is cached", async () => {
+    const body = mockUserResponse()
+    const fetchSpy = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce({ ok: true, json: async () => body } as Response)
+
+    const calls = await adapter.fetchRaw("https://gazellegames.net", "fake-token", "/api.php", {
+      remoteUserId: 70813,
+    })
+
+    // The poll skips quick_user on a cached id, and so does the view.
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    expect(calls).toEqual([
+      {
+        label: "User Profile",
+        endpoint: "/api.php?request=user&id=70813",
+        data: body,
+        error: null,
+      },
+    ])
   })
 })
 

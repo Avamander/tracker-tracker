@@ -591,9 +591,145 @@ describe("GazelleAdapter.fetchRaw", () => {
 
     const calls = await adapter.fetchRaw("https://redacted.sh", "fake-token", "/ajax.php")
 
-    expect(calls).toHaveLength(1)
+    expect(calls).toHaveLength(2)
     expect(calls[0].data).toBeNull()
     expect(calls[0].error).toBeTruthy()
+    // A view that ends after one entry cannot be told from a one-call adapter.
+    expect(calls[1]).toEqual({
+      label: "User Profile",
+      endpoint: "/ajax.php?action=user",
+      data: null,
+      error: "Skipped: Index failed and no user id is cached",
+    })
+  })
+
+  it("skips the profile call when the index is refused and no id is cached", async () => {
+    // A rejected key answers HTTP 200 with a failure status.
+    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: "failure", error: "bad credentials" }),
+    } as Response)
+
+    const calls = await adapter.fetchRaw("https://redacted.sh", "fake-token", "/ajax.php")
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    expect(calls[0].error).toBe("bad credentials")
+    expect(calls[1]).toEqual({
+      label: "User Profile",
+      endpoint: "/ajax.php?action=user",
+      data: null,
+      error: "Skipped: Index failed and no user id is cached",
+    })
+  })
+
+  it("skips the profile call when a healthy index carries no id", async () => {
+    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        status: "success",
+        response: {
+          username: "JohnDoe",
+          userstats: { uploaded: 100000, downloaded: 50000, ratio: 2.0, class: "User" },
+        },
+      }),
+    } as Response)
+
+    const calls = await adapter.fetchRaw("https://redacted.sh", "fake-token", "/ajax.php")
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    expect(calls[0].error).toBeNull()
+    expect(calls[1]).toEqual({
+      label: "User Profile",
+      endpoint: "/ajax.php?action=user",
+      data: null,
+      error: "Skipped: Index carried no user id",
+    })
+  })
+
+  it("does not take the profile id from an index the poll rejects", async () => {
+    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: "success", response: { username: "JohnDoe", id: 12345 } }),
+    } as Response)
+
+    const calls = await adapter.fetchRaw("https://redacted.sh", "fake-token", "/ajax.php")
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    expect(calls[0].error).toBe("Unexpected response from redacted.sh: missing userstats")
+    expect(calls[1].error).toBe("Skipped: Index failed and no user id is cached")
+  })
+
+  it("still calls the profile after a failed index, when the id is cached", async () => {
+    const profile = { status: "success", response: { username: "JohnDoe" } }
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce({ ok: false, status: 502, statusText: "Bad Gateway" } as Response)
+      .mockResolvedValueOnce({ ok: true, json: async () => profile } as Response)
+
+    const calls = await adapter.fetchRaw("https://redacted.sh", "fake-token", "/ajax.php", {
+      remoteUserId: 60517,
+    })
+
+    expect(calls).toHaveLength(2)
+    expect(calls[0].error).toBe("Tracker API error: 502 Bad Gateway")
+    expect(calls[1]).toEqual({
+      label: "User Profile",
+      endpoint: "/ajax.php?action=user&id=60517",
+      data: profile,
+      error: null,
+    })
+  })
+
+  it("still calls the profile after a refused index, when the id is cached", async () => {
+    vi.useFakeTimers()
+    try {
+      const fetchSpy = vi
+        .spyOn(global, "fetch")
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ status: "failure", error: "bad credentials" }),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ status: "success", response: { username: "JohnDoe" } }),
+        } as Response)
+
+      const pending = adapter.fetchRaw("https://redacted.sh", "fake-token", "/ajax.php", {
+        remoteUserId: 60517,
+      })
+      await vi.advanceTimersByTimeAsync(1500)
+      const calls = await pending
+
+      expect(fetchSpy).toHaveBeenCalledTimes(2)
+      expect(calls[0].error).toBe("bad credentials")
+      expect(calls[1].endpoint).toBe("/ajax.php?action=user&id=60517")
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("waits the poll's pause before the profile call", async () => {
+    // Strict Gazelle sites rate-limit back-to-back calls, and pressing debug is
+    // no exception.
+    vi.useFakeTimers()
+    try {
+      const fetchSpy = vi
+        .spyOn(global, "fetch")
+        .mockResolvedValueOnce({ ok: true, json: async () => mockGazelleResponse() } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ status: "success", response: { username: "JohnDoe" } }),
+        } as Response)
+
+      const pending = adapter.fetchRaw("https://redacted.sh", "fake-token", "/ajax.php")
+      await vi.advanceTimersByTimeAsync(1499)
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
+
+      await vi.advanceTimersByTimeAsync(1)
+      expect(fetchSpy).toHaveBeenCalledTimes(2)
+      await pending
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it.each([

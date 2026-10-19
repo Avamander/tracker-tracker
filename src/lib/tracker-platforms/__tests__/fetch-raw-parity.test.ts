@@ -110,8 +110,7 @@ describe("fetchRaw reports a failure carried in a 200 body", () => {
       name: "DigitalCore, a status user with no byte totals",
       adapter: new DigitalCoreAdapter(),
       args: ["https://digitalcore.club", JSON.stringify({ uid: "54321", pass: "abc123xyz" }), ""],
-      // The status still carries an id, so fetchRaw goes on to the profile.
-      bodies: [{ user: { id: 54321, username: "dcuser" } }, { id: 54321, username: "dcuser" }],
+      bodies: [{ user: { id: 54321, username: "dcuser" } }],
       call: 0,
     },
     {
@@ -145,7 +144,7 @@ describe("fetchRaw reports a failure carried in a 200 body", () => {
       name: "Gazelle, an index with no userstats",
       adapter: new GazelleAdapter(),
       args: ["https://redacted.sh", "fake-token", "/ajax.php"],
-      // No id, so fetchRaw stops at the index rather than pausing for the profile.
+      // No id, so fetchRaw skips the profile call rather than pausing for it.
       bodies: [{ status: "success", response: { username: "JohnDoe" } }],
       call: 0,
     },

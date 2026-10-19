@@ -230,10 +230,9 @@ export class GGnAdapter implements TrackerAdapter {
           data: quickData,
           error: bodyError,
         })
-        // A rejected key answers 200 with no response.id, so without this the
-        // second call is skipped and the whole debug view is one green call.
-        if (bodyError !== null) return calls
-        userId = quickData.response?.id
+        // The poll stops at a body it rejects, so an id in one does not carry
+        // the user call.
+        if (bodyError === null) userId = quickData.response?.id
       } catch (err) {
         calls.push({
           label: "Quick User",
@@ -241,7 +240,6 @@ export class GGnAdapter implements TrackerAdapter {
           data: null,
           error: err instanceof Error ? err.message : "Request failed",
         })
-        return calls
       }
     }
 
@@ -266,6 +264,15 @@ export class GGnAdapter implements TrackerAdapter {
           error: err instanceof Error ? err.message : "Request failed",
         })
       }
+    } else {
+      // readQuickUser fails a body with no id, so only a failed Quick User
+      // gets here.
+      calls.push({
+        label: "User Profile",
+        endpoint: `${apiPath}?request=user`,
+        data: null,
+        error: "Skipped: Quick User failed and no user id is cached",
+      })
     }
 
     return calls

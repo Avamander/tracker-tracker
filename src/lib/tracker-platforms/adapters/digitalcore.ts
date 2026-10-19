@@ -415,15 +415,18 @@ export class DigitalCoreAdapter implements TrackerAdapter {
     try {
       const statusUrl = `${baseUrl}/api/v1/status`
       const statusData = await fetchDCJson<DCStatusResponse>(statusUrl, creds, options?.proxyAgent)
+      const statusError = pollError(() => readStatusUser(statusData, hostname))
       calls.push({
         label: "Status",
         endpoint: "/api/v1/status",
         data: statusData,
-        error: pollError(() => readStatusUser(statusData, hostname)),
+        error: statusError,
       })
 
-      if (!userId) {
-        userId = statusData?.user?.id
+      // The poll stops at a status it rejects, so an id in one does not carry
+      // the profile call.
+      if (!userId && statusError === null) {
+        userId = statusData.user?.id
       }
     } catch (err) {
       calls.push({
@@ -432,7 +435,6 @@ export class DigitalCoreAdapter implements TrackerAdapter {
         data: null,
         error: err instanceof Error ? err.message : "Request failed",
       })
-      return calls
     }
 
     // Call 2: User profile
@@ -454,6 +456,15 @@ export class DigitalCoreAdapter implements TrackerAdapter {
           error: err instanceof Error ? err.message : "Request failed",
         })
       }
+    } else {
+      // readStatusUser fails a status with no id, so only a failed Status gets
+      // here.
+      calls.push({
+        label: "User Profile",
+        endpoint: "/api/v1/users",
+        data: null,
+        error: "Skipped: Status failed and no user id is cached",
+      })
     }
 
     return calls

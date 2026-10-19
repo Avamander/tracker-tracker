@@ -1097,15 +1097,71 @@ describe("DigitalCoreAdapter.fetchRaw", () => {
     expect(calls[1].error).toBeNull()
   })
 
-  it("returns only the status entry (with error) when status call fails", async () => {
+  it("records a failed status call and skips the profile it has no id for", async () => {
     vi.spyOn(global, "fetch").mockRejectedValueOnce(new Error("network failure"))
 
     const calls = await adapter.fetchRaw("https://digitalcore.club", validToken, "")
 
-    expect(calls).toHaveLength(1)
+    expect(calls).toHaveLength(2)
     expect(calls[0].label).toBe("Status")
     expect(calls[0].data).toBeNull()
     expect(calls[0].error).toMatch(/network failure|Failed to connect/)
+    // A view that ends after one entry cannot be told from a one-call adapter.
+    expect(calls[1]).toEqual({
+      label: "User Profile",
+      endpoint: "/api/v1/users",
+      data: null,
+      error: "Skipped: Status failed and no user id is cached",
+    })
+  })
+
+  it("skips the profile when a status the poll rejects leaves no id", async () => {
+    const fetchSpy = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce(mockResponse({ user: null, settings: {} }))
+
+    const calls = await adapter.fetchRaw("https://digitalcore.club", validToken, "")
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    expect(calls[0].error).toBe("Unexpected response from digitalcore.club: missing user data")
+    expect(calls[1]).toEqual({
+      label: "User Profile",
+      endpoint: "/api/v1/users",
+      data: null,
+      error: "Skipped: Status failed and no user id is cached",
+    })
+  })
+
+  it("does not take the profile id from a status the poll rejects", async () => {
+    const fetchSpy = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValue(mockResponse({ user: { id: 54321, username: "dcuser" } }))
+
+    const calls = await adapter.fetchRaw("https://digitalcore.club", validToken, "")
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    expect(calls[0].error).toBe("Unexpected response from digitalcore.club: missing uploaded")
+    expect(calls[1].error).toBe("Skipped: Status failed and no user id is cached")
+  })
+
+  it("still calls the profile after a failed status request, when the id is cached", async () => {
+    const profile = mockUserProfileResponse()
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(mockErrorResponse(502))
+      .mockResolvedValueOnce(mockResponse(profile))
+
+    const calls = await adapter.fetchRaw("https://digitalcore.club", validToken, "", {
+      remoteUserId: 54321,
+    })
+
+    expect(calls).toHaveLength(2)
+    expect(calls[0].error).toBe("Tracker API error: 502 Error 502")
+    expect(calls[1]).toEqual({
+      label: "User Profile",
+      endpoint: "/api/v1/users/54321",
+      data: profile,
+      error: null,
+    })
   })
 
   it("records a null status body as one failed Status entry", async () => {
@@ -1113,8 +1169,7 @@ describe("DigitalCoreAdapter.fetchRaw", () => {
 
     const calls = await adapter.fetchRaw("https://digitalcore.club", validToken, "")
 
-    expect(calls).toHaveLength(1)
-    expect(calls[0].label).toBe("Status")
+    expect(calls.map((c) => c.label)).toEqual(["Status", "User Profile"])
     expect(calls[0].error).toBe("Unexpected response from digitalcore.club: missing user data")
   })
 

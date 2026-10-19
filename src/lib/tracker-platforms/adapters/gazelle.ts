@@ -262,18 +262,25 @@ export class GazelleAdapter implements TrackerAdapter {
     // Call 1: Index
     const indexUrl = new URL(apiPath, baseUrl)
     indexUrl.searchParams.set("action", "index")
-    let indexData: GazelleIndexResponse
+    let userId = options?.remoteUserId
 
     try {
-      indexData = await adapterFetch<GazelleIndexResponse>(indexUrl.toString(), hostname, options, {
-        Authorization: authHeader,
-      })
+      const indexData = await adapterFetch<GazelleIndexResponse>(
+        indexUrl.toString(),
+        hostname,
+        options,
+        { Authorization: authHeader }
+      )
+      const indexError = pollError(() => readIndex(indexData, hostname))
       calls.push({
         label: "Index",
         endpoint: `${apiPath}?action=index`,
         data: indexData,
-        error: pollError(() => readIndex(indexData, hostname)),
+        error: indexError,
       })
+      // The poll stops at an index it rejects, so an id in one does not carry
+      // the profile call.
+      if (indexError === null) userId ??= indexData.response?.id
     } catch (err) {
       calls.push({
         label: "Index",
@@ -281,12 +288,9 @@ export class GazelleAdapter implements TrackerAdapter {
         data: null,
         error: err instanceof Error ? err.message : "Request failed",
       })
-      return calls
     }
 
     // Call 2: User Profile (enrichment)
-    const indexResponse = indexData?.response as { id?: number } | undefined
-    const userId = options?.remoteUserId ?? indexResponse?.id
     if (userId) {
       // The same pause fetchStats takes. The debug route runs both methods in
       // one request, so skipping it here means one press issues every call back
@@ -318,6 +322,17 @@ export class GazelleAdapter implements TrackerAdapter {
           error: err instanceof Error ? err.message : "Request failed",
         })
       }
+    } else {
+      // readIndex does not require the id, so a healthy index can lack one.
+      calls.push({
+        label: "User Profile",
+        endpoint: `${apiPath}?action=user`,
+        data: null,
+        error:
+          calls[0].error === null
+            ? "Skipped: Index carried no user id"
+            : "Skipped: Index failed and no user id is cached",
+      })
     }
 
     return calls

@@ -187,7 +187,8 @@ must not lie.
   simply ends after one entry cannot be told from a one-call adapter.
 - **Do not abandon later calls when an earlier one fails** if a cached value can satisfy the
   dependency. `options.remoteUserId` is that cached id, and a failing first call is exactly when
-  the second call's output matters most.
+  the second call's output matters most. An id read from a body the poll rejects does not count,
+  since the poll never makes the call that id would drive.
 - **Apply the same pacing `fetchStats` applies.** The debug route runs both methods in one
   request, so a missing pause means one press issues every request back to back.
 - **Build the endpoint string first and derive the URL from it**, so the two cannot encode
