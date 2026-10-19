@@ -282,7 +282,7 @@ If you see a **Last Error** banner without "Polling Paused", a recent poll faile
 
 !!! success "Solution"
 
-    Check logs: `docker compose logs app` for a line with `Poll failed for tracker` + raw error.
+    Check logs: `docker compose logs tracker-tracker-app` for a line with `Poll failed for tracker` + raw error.
 
 ---
 
