@@ -221,6 +221,28 @@ These appear in the **Poll Error Banner** on the tracker detail page.
 
 ---
 
+### `Tracker redirected to another site`
+
+**Cause:** The tracker answered with a redirect to a different site. Tracker Tracker does not follow it, because that would send your session cookies to another host.
+
+!!! success "Solution"
+
+    1. Open the tracker in a browser and check whether it has moved to a new address.
+    2. If it has, open an issue with the new address so the tracker's entry can be updated.
+
+---
+
+### `Tracker redirected too many times`
+
+**Cause:** The tracker kept redirecting between its own pages without answering with one.
+
+!!! success "Solution"
+
+    1. Open the tracker in a browser and check that its pages load.
+    2. If they do, check `docker compose logs tracker-tracker-app` for the `Poll failed for tracker` line and open an issue with it.
+
+---
+
 ### Stale error banner (no pause)
 
 If you see a **Last Error** banner without "Polling Paused", a recent poll failed but not enough to trigger a pause. It clears on the next success.

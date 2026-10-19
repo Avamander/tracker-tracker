@@ -91,6 +91,11 @@ export function sanitizeNetworkError(raw: string, fallback = "Connection failed"
   if (/Cloudflare challenge detected/i.test(raw)) {
     return "Cloudflare challenge blocked the request"
   }
+  // The scrapers refuse a redirect off the tracker's own origin, which would
+  // carry the session cookies to another host, and give up on a loop. The
+  // tracker answered either way, so neither is an unreachable host.
+  if (/redirected off-site/i.test(raw)) return "Tracker redirected to another site"
+  if (/Too many redirects from/i.test(raw)) return "Tracker redirected too many times"
   if (/timed?\s*out/i.test(raw)) return "Request timed out"
   if (/ECONNREFUSED/i.test(raw)) return "Connection refused"
   if (/ENOTFOUND/i.test(raw)) return "Host not found"

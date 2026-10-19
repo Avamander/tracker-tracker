@@ -207,12 +207,12 @@ describe("fetchTrackerHtml - redirects", () => {
     ).rejects.toThrow("Too many redirects from ExampleTracker")
   })
 
-  it("stops on a redirect with no Location header", async () => {
+  it("stops on a redirect with no Location header, which is a malformed reply and no loop", async () => {
     vi.spyOn(global, "fetch").mockResolvedValueOnce(redirectResponse(""))
 
     await expect(
       fetchTrackerHtml({ ...BASE, followRedirects: { loginPattern: /\/login/i } })
-    ).rejects.toThrow("Too many redirects from ExampleTracker")
+    ).rejects.toThrow("Unexpected response from tracker.example: redirect with no Location")
   })
 })
 

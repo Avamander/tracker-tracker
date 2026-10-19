@@ -397,6 +397,26 @@ describe("sanitizeNetworkError Cloudflare challenge", () => {
   })
 })
 
+describe("sanitizeNetworkError redirect refusals", () => {
+  // The scrapers refuse a redirect off the tracker's own origin, which would
+  // carry the session cookies to another host, and give up on a loop. The
+  // tracker answered either way, so neither may read as unreachable.
+  it("names an off-site redirect instead of falling back to Poll failed", () => {
+    const card = sanitizeNetworkError(
+      "IPTorrents redirected off-site; refusing to send credentials",
+      "Poll failed"
+    )
+    expect(card).toBe("Tracker redirected to another site")
+    expect(isUnreachableMessage(card)).toBe(false)
+  })
+
+  it("names a redirect loop instead of falling back to Poll failed", () => {
+    const card = sanitizeNetworkError("Too many redirects from FileList", "Poll failed")
+    expect(card).toBe("Tracker redirected too many times")
+    expect(isUnreachableMessage(card)).toBe(false)
+  })
+})
+
 // ---------------------------------------------------------------------------
 // Adapter shape errors (issue #214) read "Unexpected response from <host>: ...".
 // They get their own message and must match before the credential rule, whose

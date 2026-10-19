@@ -164,8 +164,14 @@ async function followRedirectChain(
 
     const location = current.location()
     if (loginPattern.test(location)) throw new SessionExpiredError(sessionExpiredMessage)
-    // A redirect with no Location is malformed and cannot be followed.
-    if (!location || hop === maxHops) break
+    // A redirect with no Location is malformed and cannot be followed. It is not
+    // a loop, so it must not read as one on the card.
+    if (!location) {
+      throw new Error(
+        `Unexpected response from ${new URL(fromUrl).hostname}: redirect with no Location`
+      )
+    }
+    if (hop === maxHops) break
 
     const nextUrl = new URL(location, currentUrl)
     // `headers` carries the user's tracker session cookie. Location is chosen by
