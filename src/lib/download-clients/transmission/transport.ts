@@ -9,7 +9,7 @@
 //   getSessionStats            - session-stats (global transfer speeds)
 //   testSession                - session-get, used purely to prove reachability
 
-import { ADAPTER_FETCH_TIMEOUT_MS } from "@/lib/limits"
+import { TRANSMISSION_RPC_TIMEOUT_MS } from "@/lib/limits"
 import { resetStore } from "../sync-store"
 import type { ClientCredentials } from "../types"
 import {
@@ -130,7 +130,7 @@ async function postRpc(
       method: "POST",
       headers,
       body,
-      signal: AbortSignal.timeout(ADAPTER_FETCH_TIMEOUT_MS),
+      signal: AbortSignal.timeout(TRANSMISSION_RPC_TIMEOUT_MS),
     })
   } catch (err) {
     const errName =
@@ -138,7 +138,7 @@ async function postRpc(
         ? String((err as { name: unknown }).name)
         : ""
     if (errName === "TimeoutError" || errName === "AbortError") {
-      throw new Error(`Request to ${host} timed out after ${ADAPTER_FETCH_TIMEOUT_MS / 1000}s`)
+      throw new Error(`Request to ${host} timed out after ${TRANSMISSION_RPC_TIMEOUT_MS / 1000}s`)
     }
     throw new Error(`Failed to connect to ${url}: ${describeFetchError(err)}`)
   }
