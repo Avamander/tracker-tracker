@@ -106,7 +106,7 @@ const goldSlot: SlotDefinition<StatCardStackedProps> = {
     const gold = Math.floor(ctx.latestSnapshot.seedbonus)
     return {
       type: "stacked" as const,
-      title: "Gold",
+      title: registryBonusName(ctx.registry) ?? "Gold",
       rows: [
         { label: "Balance", value: formatCount(gold) },
         {
