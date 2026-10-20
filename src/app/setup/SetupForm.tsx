@@ -92,7 +92,7 @@ export function SetupForm() {
           <Image
             src="/img/trackerTracker_logo.svg"
             alt="Tracker Tracker"
-            width={160}
+            width={132}
             height={40}
             className="mx-auto"
             style={{ height: 40, width: "auto" }}

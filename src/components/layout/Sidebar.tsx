@@ -119,7 +119,7 @@ function Sidebar({ collapsed, onToggle, isMobile = false }: SidebarProps) {
                 src="/img/trackerTracker_logo.svg"
                 alt="Tracker Tracker"
                 width={140}
-                height={40}
+                height={42}
                 className="shrink-0"
                 style={{ width: 140, height: "auto" }}
                 priority
