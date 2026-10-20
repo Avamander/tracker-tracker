@@ -82,6 +82,12 @@ describe("Luminance parsing", () => {
     expect(stats.seedingCount).toBe(7)
   })
 
+  it("reports no class rather than an empty one when the page shows none", () => {
+    const page = `<a class="username" href="/user.php?id=1">x</a><span class="rank"> </span>
+      <ul class="stats"><li>Uploaded: 1 GiB</li><li>Downloaded: 0 B</li></ul>`
+    expect(parseLuminanceProfile(page).group).toBeNull()
+  })
+
   it("fails rather than reporting zero when a byte total is unreadable", () => {
     expect(() => parseLuminanceProfile(PROFILE_PAGE.replace("150.00 GiB", "n/a"))).toThrow(
       /unreadable Uploaded/

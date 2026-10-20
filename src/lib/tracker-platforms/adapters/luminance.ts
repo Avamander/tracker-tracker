@@ -13,6 +13,7 @@ import { parseBytes } from "@/lib/parser"
 import { proxyFetch } from "@/lib/tunnel"
 import { DEFAULT_USER_AGENT, withDefaultUserAgent } from "@/lib/user-agent"
 import type { DebugApiCall, FetchOptions, TrackerAdapter, TrackerStats } from "../contract"
+import { presentClass } from "../helpers/class-name"
 import { parseCredentialJson } from "../helpers/cookie-credentials"
 import { fetchTrackerHtml } from "../helpers/html-fetch"
 
@@ -71,7 +72,9 @@ export function parseLuminanceProfile(html: string, remoteUserId?: number): Trac
 
   const uploadedBytes = requiredBytes(doc, "Uploaded:")
   const downloadedBytes = requiredBytes(doc, "Downloaded:")
-  const group = doc.querySelector("span.rank")?.textContent.trim() || statText(doc, "Class:") || ""
+  const group =
+    presentClass(doc.querySelector("span.rank")?.textContent.trim()) ??
+    presentClass(statText(doc, "Class:"))
   const credits =
     doc.querySelector("#bonusdiv > h4")?.textContent ??
     doc.querySelectorAll("h4").find((h) => h.textContent.includes("Credits:"))?.textContent
