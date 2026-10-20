@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.13.2](https://github.com/jordanlambrecht/tracker-tracker/compare/v2.13.1...v2.13.2) (2026-10-20)
+
+### Bug Fixes
+
+* **ci:** put every unpublished version's notes in the GitHub release body
+* **ui:** image sizing
+* **ui:** stat card icon spacing
+* **ui:** stop What's New from listing a breaking change twice
 ## [2.13.1](https://github.com/jordanlambrecht/tracker-tracker/compare/v2.13.0...v2.13.1) (2026-10-20)
 ## [2.13.0](https://github.com/jordanlambrecht/tracker-tracker/compare/v2.12.1...v2.13.0) (2026-10-19)
 
