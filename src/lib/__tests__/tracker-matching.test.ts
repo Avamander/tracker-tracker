@@ -101,6 +101,12 @@ describe("registry announceHosts", () => {
       announceMatchesTracker("routing.bgp.technology", site("https://iptorrents.com", "iptorrents"))
     ).toBe(true)
   })
+
+  it("matches Orpheus' opsfet.ch announces", () => {
+    expect(
+      announceMatchesTracker("home.opsfet.ch", site("https://orpheus.network", "orpheus"))
+    ).toBe(true)
+  })
 })
 
 describe("resolveTorrentTracker", () => {
