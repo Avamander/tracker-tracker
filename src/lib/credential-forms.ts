@@ -309,7 +309,7 @@ export const CREDENTIAL_FORMS = {
   },
   luminance: {
     kind: "login",
-    hidesJoinDate: false,
+    hidesJoinDate: true,
     dialog: {
       username: {
         label: (trackerName: string) => `${trackerName} Username`,

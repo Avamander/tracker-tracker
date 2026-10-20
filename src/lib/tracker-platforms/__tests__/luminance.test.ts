@@ -24,11 +24,14 @@ const HOME_PAGE = `<div id="userinfo"><a class="username" href="/user.php?id=42"
 const PROFILE_PAGE = `${HOME_PAGE}
 <span class="rank">Retro Rookie</span>
 <div id="bonusdiv"><h4>Credits: 1,234.5</h4></div>
-<ul class="stats">
-  <li>Joined: <span class="time" title="2025-01-01">1 year ago</span></li>
+<ul class="stats nobullet">
+  <li>Joined: <span class="time" alt="Jan 01 2025, 00:00" title="Jan 01 2025, 00:00">1 year ago</span></li>
+  <li>Last Seen: <span class="time" alt="Oct 01 2026, 09:30" title="Oct 01 2026, 09:30">Just now</span></li>
   <li>Uploaded: <span>150.00 GiB</span></li>
   <li>Downloaded: <span>50.00 GiB</span></li>
-  <li>Ratio: <span>3.00</span></li>
+  <li>Ratio: <span class="r20">3.00</span></li>
+  <li>Required ratio: 0.50</li>
+  <li><a href="/userhistory.php?action=token_history&amp;userid=42">Tokens</a>: 3</li>
   <li>Seeding: 12 (80.00 GiB)</li>
 </ul>`
 
@@ -71,6 +74,17 @@ describe("Luminance parsing", () => {
     expect(stats.leechingCount).toBeNull()
     expect(stats.seedbonus).toBe(1234.5)
     expect(stats.remoteUserId).toBe(42)
+    expect(stats.requiredRatio).toBe(0.5)
+    expect(stats.freeleechTokens).toBe(3)
+    expect(stats.joinedDate).toBe("2025-01-01 00:00")
+    expect(stats.lastAccessDate).toBe("2026-10-01 09:30")
+  })
+
+  it("leaves dates unset when a time title is not in the site's format", () => {
+    const page = PROFILE_PAGE.replace('title="Jan 01 2025, 00:00"', 'title="soon"')
+    const stats = parseLuminanceProfile(page)
+    expect(stats.joinedDate).toBeUndefined()
+    expect(stats.lastAccessDate).toBe("2026-10-01 09:30")
   })
 
   it("falls back to the stats list for class and seeding", () => {
