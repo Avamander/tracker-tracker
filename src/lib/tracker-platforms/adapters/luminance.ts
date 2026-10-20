@@ -1,7 +1,7 @@
 // src/lib/tracker-platforms/adapters/luminance.ts
 //
 // Functions: parseLuminanceCredentials, parseLuminanceLoginToken, parseLuminanceUserId,
-//            statText, requiredBytes, numberOrNull, parseLuminanceProfile, request,
+//            statText, statTime, requiredBytes, numberOrNull, parseLuminanceProfile, request,
 //            mergeCookies, flashMessages, cookieHeader, login, getSession, fetchPage,
 //            fetchProfileWith, fetchProfile, LuminanceAdapter
 
@@ -46,6 +46,22 @@ function statText(doc: ParsedElement, label: string): string | null {
     if (text.startsWith(label)) return text.slice(label.length).trim()
   }
   return null
+}
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+/** The time a stats line's span.time title gives, such as "Jan 01 2025, 00:00", as YYYY-MM-DD HH:MM. */
+function statTime(doc: ParsedElement, label: string): string | undefined {
+  for (const li of doc.querySelectorAll("ul.stats > li")) {
+    if (!li.textContent.trim().startsWith(label)) continue
+    const title = li.querySelector("span.time")?.getAttribute("title") ?? ""
+    const match = title.match(/^([A-Z][a-z]{2}) (\d{1,2}) (\d{4}), (\d{2}):(\d{2})$/)
+    const month = match ? MONTHS.indexOf(match[1]) + 1 : 0
+    if (!match || month === 0) return undefined
+    const [, , day, year, hours, minutes] = match
+    return `${year}-${String(month).padStart(2, "0")}-${day.padStart(2, "0")} ${hours}:${minutes}`
+  }
+  return undefined
 }
 
 function requiredBytes(doc: ParsedElement, label: string): bigint {
@@ -94,9 +110,11 @@ export function parseLuminanceProfile(html: string, remoteUserId?: number): Trac
     leechingCount: null,
     seedbonus: numberOrNull(credits?.split(":")[1]),
     hitAndRuns: null,
-    requiredRatio: null,
+    requiredRatio: numberOrNull(statText(doc, "Required ratio:")),
     warned: null,
-    freeleechTokens: null,
+    freeleechTokens: numberOrNull(statText(doc, "Tokens:")),
+    joinedDate: statTime(doc, "Joined:"),
+    lastAccessDate: statTime(doc, "Last Seen:"),
   }
 }
 

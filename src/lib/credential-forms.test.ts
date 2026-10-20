@@ -56,10 +56,19 @@ describe("credentialFormFor", () => {
     expect(credentialFormFor({ platform: "gazelle" }).hidesJoinDate).toBe(false)
   })
 
-  it("hides the Join Date field for exactly avistaz, c411, digitalcore, filelist, ggn, iptorrents, and retrotoon", () => {
+  it("hides the Join Date field for exactly avistaz, c411, digitalcore, filelist, ggn, iptorrents, luminance, and retrotoon", () => {
     const hidden = VALID_PLATFORM_TYPES.filter((p) => CREDENTIAL_FORMS[p].hidesJoinDate)
     expect([...hidden].sort()).toEqual(
-      ["avistaz", "c411", "digitalcore", "filelist", "ggn", "iptorrents", "retrotoon"].sort()
+      [
+        "avistaz",
+        "c411",
+        "digitalcore",
+        "filelist",
+        "ggn",
+        "iptorrents",
+        "luminance",
+        "retrotoon",
+      ].sort()
     )
   })
 })
