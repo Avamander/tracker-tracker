@@ -391,6 +391,26 @@ describe("computeTodayAtAGlance — null bufferBytes on earliest, value on lates
 })
 
 // ---------------------------------------------------------------------------
+// A bonus that starts reporting partway through the day
+// ---------------------------------------------------------------------------
+
+describe("computeTodayAtAGlance on the day a tracker starts reporting its bonus", () => {
+  beforeEach(() => {
+    const tracker = makeTracker(1)
+    const now = Date.now()
+    const snaps = [null, 500, 700].map((bonus, i) =>
+      makeSnapshot(1, new Date(now - (2 - i) * 3600000), "1000000000", "500000000", null, null, bonus)
+    )
+    seedStore([tracker], snaps)
+  })
+
+  it("counts only what was gained after the first reading with a bonus", async () => {
+    const result = await computeTodayAtAGlance()
+    expect(result.fleet.seedbonusChange).toBe(200)
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Yesterday comparison via checkpoint pairs
 // ---------------------------------------------------------------------------
 

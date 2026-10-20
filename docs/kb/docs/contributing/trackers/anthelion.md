@@ -19,6 +19,6 @@ Anthelion runs on Nebulance, a Gazelle fork. It has two quirks: the endpoint is 
 
 **Badges:** `warned` (conditional, always `false`, no enrichment on Nebulance platform)
 
-**Stat Cards:** `snatched-nebulance`, `login-deadline` (loginIntervalDays: 90)
+**Stat Cards:** `snatched-nebulance`, `seedbonus` (labelled Orbs, from the API's `Orbs` field), `login-deadline` (loginIntervalDays: 90)
 
 **Progress:** none

@@ -2,6 +2,7 @@
 
 import { describe, expect, it } from "vitest"
 import { resolveSlots } from "@/components/tracker-detail/resolve-slots"
+import { anthelion } from "@/data/trackers/anthelion"
 import { torrentleech } from "@/data/trackers/torrentleech"
 import type { Snapshot, TrackerSummary } from "@/types/api"
 import type { SlotContext } from "@/types/slots"
@@ -443,10 +444,10 @@ describe("priority ordering", () => {
 })
 
 // ---------------------------------------------------------------------------
-// Test 6: Mutual exclusion, Nebulance context
+// Test 6: Nebulance context, Snatched beside the bonus card
 // ---------------------------------------------------------------------------
 
-describe("mutual exclusion: Nebulance snatched-nebulance vs seedbonus", () => {
+describe("Nebulance: snatched-nebulance beside the bonus card", () => {
   const nebMeta: NebulancePlatformMeta = {
     snatched: 42,
     grabbed: 10,
@@ -458,7 +459,7 @@ describe("mutual exclusion: Nebulance snatched-nebulance vs seedbonus", () => {
     tracker: makeTracker({ platformType: "nebulance" }),
     latestSnapshot: snap,
     meta: nebMeta,
-    registry: undefined,
+    registry: anthelion,
     accentColor: BASE_ACCENT,
   }
 
@@ -466,8 +467,11 @@ describe("mutual exclusion: Nebulance snatched-nebulance vs seedbonus", () => {
     expect(slotIds(ctx, "stat-card")).toContain("snatched-nebulance")
   })
 
-  it("does NOT resolve seedbonus (snatched in meta blocks it)", () => {
-    expect(slotIds(ctx, "stat-card")).not.toContain("seedbonus")
+  it("resolves seedbonus too, named the way Anthelion names it", () => {
+    const card = resolveSlots(ctx)
+      .get("stat-card")
+      ?.find((s) => s.id === "seedbonus")
+    expect(card?.props.label).toBe("Orbs")
   })
 
   it("does NOT resolve gold (no hourlyGold)", () => {
