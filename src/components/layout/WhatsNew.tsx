@@ -112,5 +112,7 @@ export function parseMissedReleases(content: string, lastSeen: string | null): s
     }
   }
 
-  return items
+  // A breaking change appears twice in its release, under BREAKING CHANGES and
+  // under its own type, and the dialog keys each item by its text.
+  return [...new Set(items)]
 }

@@ -61,6 +61,23 @@ describe("parseMissedReleases", () => {
     expect(parseMissedReleases(md, "1.0.0")).toEqual(["new"])
   })
 
+  it("lists a breaking change once, though its release carries it twice", () => {
+    const md = [
+      "## 2.0.0",
+      "",
+      "### ⚠ BREAKING CHANGES",
+      "",
+      "* **trackers:** require the new token",
+      "",
+      "### Bug Fixes",
+      "",
+      "* **trackers:** require the new token",
+      "* **api:** fixed a thing",
+      "",
+    ].join("\n")
+    expect(parseMissedReleases(md, "1.0.0")).toEqual(["require the new token", "fixed a thing"])
+  })
+
   it("shows only the newest release when nothing was ever seen", () => {
     const md = ["## 2.0.0", "", "- new", "", "## 1.0.0", "", "- old", ""].join("\n")
     expect(parseMissedReleases(md, null)).toEqual(["new"])
