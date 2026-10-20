@@ -107,6 +107,15 @@ describe("registry announceHosts", () => {
       announceMatchesTracker("home.opsfet.ch", site("https://orpheus.network", "orpheus"))
     ).toBe(true)
   })
+
+  it("matches TorrentLeech's tleechreload.org announces", () => {
+    expect(
+      announceMatchesTracker(
+        "tracker.tleechreload.org",
+        site("https://www.torrentleech.org", "torrentleech")
+      )
+    ).toBe(true)
+  })
 })
 
 describe("resolveTorrentTracker", () => {
