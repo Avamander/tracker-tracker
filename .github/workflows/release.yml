@@ -241,8 +241,20 @@ jobs:
         id: changelog
         env:
           RELEASE_VERSION: ${{ needs.gate.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          NOTES=$(sed -n "/^## \[${RELEASE_VERSION}\]/,/^## /{/^## \[${RELEASE_VERSION}\]/d;/^## /d;p}" CHANGELOG.md | sed '/^$/N;/^\n$/d')
+          # Every section since the last published release, so a version cut on
+          # development that never got a Release of its own still reaches the notes.
+          PREV_TAG=$(gh release view --json tagName --jq .tagName 2>/dev/null || true)
+          PREV_HEADING="## [${PREV_TAG#v}]"
+          if [ -z "$PREV_TAG" ] || ! grep -qF "$PREV_HEADING" CHANGELOG.md; then
+            PREV_HEADING=""
+          fi
+          NOTES=$(awk -v cur="## [${RELEASE_VERSION}]" -v prev="$PREV_HEADING" '
+            index($0, cur) == 1 { on = 1; next }
+            on && index($0, "## ") == 1 && (prev == "" || index($0, prev) == 1) { exit }
+            on { print }
+          ' CHANGELOG.md | sed '/^$/N;/^\n$/d')
           if [ -z "$NOTES" ]; then
             NOTES="Release v${RELEASE_VERSION}"
           fi
