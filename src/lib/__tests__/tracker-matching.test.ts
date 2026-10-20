@@ -95,6 +95,12 @@ describe("registry announceHosts", () => {
       false
     )
   })
+
+  it("matches IPTorrents' bgp.technology announces", () => {
+    expect(
+      announceMatchesTracker("routing.bgp.technology", site("https://iptorrents.com", "iptorrents"))
+    ).toBe(true)
+  })
 })
 
 describe("resolveTorrentTracker", () => {
