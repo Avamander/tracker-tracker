@@ -1,8 +1,8 @@
 // src/lib/tracker-platforms/adapters/iptorrents.ts
 //
 // Functions: parseIptCredentials, tryParseBytes, valueAfterLabel, parseUpStatCards,
-//            parseIptProfile, parseIptProfilePath, parseIptClass, fetchHtml,
-//            IptorrentsAdapter
+//            parseIptProfile, parseIptProfilePath, parseIptClass, profileDate,
+//            parseIptProfileDates, fetchHtml, IptorrentsAdapter
 
 import { type HTMLElement as ParsedElement, parse as parseHtml } from "node-html-parser"
 import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
@@ -221,6 +221,28 @@ export function parseIptClass(html: string): string | null {
   return parseHtml(html).querySelector("span.up-class-badge")?.textContent?.trim() || null
 }
 
+/** A profile field's date, such as "2024-05-06 07:08:09 (2 years ago)", without the elapsed part. */
+function profileDate(doc: ParsedElement, label: string): string | undefined {
+  for (const field of doc.querySelectorAll(".up-field")) {
+    if (field.querySelector(".up-field-label")?.textContent.trim() !== label) continue
+    const value = field.querySelector(".up-field-value")?.textContent ?? ""
+    return value.match(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/)?.[0]
+  }
+  return undefined
+}
+
+/** The join and last-seen dates from a profile page's Profile section. */
+export function parseIptProfileDates(html: string): {
+  joinedDate?: string
+  lastAccessDate?: string
+} {
+  const doc = parseHtml(html)
+  return {
+    joinedDate: profileDate(doc, "Join Date"),
+    lastAccessDate: profileDate(doc, "Last Seen"),
+  }
+}
+
 // ---------------------------------------------------------------------------
 // HTML fetcher, direct fetch or proxy
 // ---------------------------------------------------------------------------
@@ -276,6 +298,7 @@ export class IptorrentsAdapter implements TrackerAdapter {
           options?.proxyAgent
         )
         stats.group = parseIptClass(profileHtml) ?? stats.group
+        Object.assign(stats, parseIptProfileDates(profileHtml))
       } catch (err) {
         log.warn({ hostname, error: errMsg(err) }, "iptorrents: profile page failed, class kept")
       }
@@ -311,7 +334,7 @@ export class IptorrentsAdapter implements TrackerAdapter {
           calls.push({
             label: "Profile Page",
             endpoint: profilePath,
-            data: { group: parseIptClass(profileHtml) },
+            data: { group: parseIptClass(profileHtml), ...parseIptProfileDates(profileHtml) },
             error: null,
           })
         } catch (err) {

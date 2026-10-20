@@ -7,6 +7,7 @@ import {
   parseIptClass,
   parseIptCredentials,
   parseIptProfile,
+  parseIptProfileDates,
   parseIptProfilePath,
 } from "../adapters/iptorrents"
 
@@ -25,6 +26,16 @@ const FULL_PAGE = `<!doctype html><html><head></head><body>${STATS_HTML}</body><
 const PROFILE_PAGE = `<!doctype html><html><body>
   <h1 class="up-username">testuser</h1>
   <span class="up-class-badge">Power User</span>
+  <div class="up-section">
+    <div class="up-field">
+      <span class="up-field-label">Join Date</span>
+      <span class="up-field-value">2024-05-06 07:08:09 (<span class="elapsedDate" title="Monday, May 6, 2024 at 7:08am">2 years ago</span>)</span>
+    </div>
+    <div class="up-field">
+      <span class="up-field-label">Last Seen</span>
+      <span class="up-field-value">2026-01-02 03:04:05 (<span class="elapsedDate" title="Friday, January 2, 2026 at 3:04am">3 minutes ago</span>)</span>
+    </div>
+  </div>
 </body></html>`
 
 const HOSTNAME = "iptorrents.com"
@@ -222,6 +233,17 @@ describe("parseIptProfilePath and parseIptClass", () => {
     expect(parseIptClass(PROFILE_PAGE)).toBe("Power User")
     expect(parseIptClass(FULL_PAGE)).toBeNull()
   })
+
+  it("reads the join and last-seen dates without their elapsed text", () => {
+    expect(parseIptProfileDates(PROFILE_PAGE)).toEqual({
+      joinedDate: "2024-05-06 07:08:09",
+      lastAccessDate: "2026-01-02 03:04:05",
+    })
+    expect(parseIptProfileDates(FULL_PAGE)).toEqual({
+      joinedDate: undefined,
+      lastAccessDate: undefined,
+    })
+  })
 })
 
 describe("parseIptProfile pages it cannot read", () => {
@@ -361,7 +383,7 @@ describe("IptorrentsAdapter.fetchStats - network error classification", () => {
     }
   })
 
-  it("takes the class from the profile page", async () => {
+  it("takes the class and dates from the profile page", async () => {
     vi.spyOn(global, "fetch")
       .mockResolvedValueOnce(page(FULL_PAGE))
       .mockResolvedValueOnce(page(PROFILE_PAGE))
@@ -369,6 +391,8 @@ describe("IptorrentsAdapter.fetchStats - network error classification", () => {
     const stats = await adapter.fetchStats("https://iptorrents.com", validToken, "")
 
     expect(stats.group).toBe("Power User")
+    expect(stats.joinedDate).toBe("2024-05-06 07:08:09")
+    expect(stats.lastAccessDate).toBe("2026-01-02 03:04:05")
   })
 
   it("keeps the stats bar's class when the profile page fails", async () => {
