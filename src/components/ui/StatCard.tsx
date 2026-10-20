@@ -156,7 +156,7 @@ function Header({
     alert === "danger" ? CHART_THEME.danger : alert === "warn" ? CHART_THEME.warn : null
 
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex items-center justify-between gap-2">
       <div className="flex items-center gap-2">
         <p className="text-xs font-sans font-medium text-tertiary uppercase tracking-wider">
           {label}
