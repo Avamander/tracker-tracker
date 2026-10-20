@@ -125,6 +125,7 @@ export const CREDENTIAL_FORMS = {
   btn: tokenForm(UNIT3D_TOKEN),
   hawke: tokenForm(UNIT3D_TOKEN),
   tr4ker: tokenForm("Your TR4KER API key"),
+  c411: tokenForm('Your C411 API key with the "Profil (lecture)" scope', true),
   animebytes: {
     kind: "token-username",
     hidesJoinDate: false,

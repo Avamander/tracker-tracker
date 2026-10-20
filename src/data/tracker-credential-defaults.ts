@@ -91,6 +91,7 @@ export const PLATFORM_CREDENTIAL_FIELDS: Partial<
     },
   ],
   luminance: [{ id: "username", label: "Username", secret: false }, PASSKEY_FIELD],
+  c411: [{ id: "api_key", label: "API key" }, PASSKEY_FIELD],
   // `custom` is deliberately absent. It falls through to the universal fallback,
   // which is the only honest default for a tracker we know nothing about.
 }
