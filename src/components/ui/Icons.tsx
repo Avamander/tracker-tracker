@@ -7,7 +7,7 @@
 //            LeechingIcon, SeedingIcon, TriangleWarningIcon, RatioIcon, GridIcon,
 //            ClockIcon, BoxIcon, ServerIcon, TagIcon, BookIcon, BugIcon, XIcon,
 //            TransitPapersIcon, SpinnerIcon, InfoIcon, QuestionIcon, LockIcon, UnlockIcon,
-//            FavoriteStarIcon
+//            FavoriteStarIcon, InfinitySign
 
 import type { SVGProps } from "react"
 
@@ -28,6 +28,17 @@ function InfinityIcon(props: IconProps) {
     >
       <path d="M6 1.5a4.5 4.5 0 1 0 0 9c2.5 0 4-2.25 6-4.5s3.5-4.5 6-4.5a4.5 4.5 0 1 1 0 9c-2.5 0-4-2.25-6-4.5S8.5 1.5 6 1.5Z" />
     </svg>
+  )
+}
+
+// InfinityIcon sized to the surrounding text, for an infinite ratio. The hidden
+// text keeps it readable to screen readers
+function InfinitySign() {
+  return (
+    <>
+      <InfinityIcon className="inline-block h-[0.55em] w-[1.1em] align-middle" />
+      <span className="sr-only">∞</span>
+    </>
   )
 }
 
@@ -825,7 +836,7 @@ function InfoIcon(props: IconProps) {
   )
 }
 
-// Padlock, closed. Used in the Sidebar drag-and-drop lock toggle
+// Padlock, closed. Used in the Sidebar drag-and-drop lock toggle and the BackupsSection encrypted-backup marker
 function LockIcon(props: IconProps) {
   return (
     <svg
@@ -865,7 +876,7 @@ function UnlockIcon(props: IconProps) {
   )
 }
 
-// Five-pointed star outline; fill="currentColor" fills it. Used in the Sidebar favorites filter
+// Five-pointed star outline; fill="currentColor" fills it. Used in the Sidebar favorites filter, SortableTrackerItem favorite toggle and TrackerOverviewGrid favorites pill
 function FavoriteStarIcon(props: IconProps) {
   return (
     <svg
@@ -906,6 +917,7 @@ export {
   GridIcon,
   HamburgerIcon,
   InfinityIcon,
+  InfinitySign,
   InfoIcon,
   LeechingIcon,
   LockIcon,
