@@ -237,6 +237,11 @@ export interface RetrotoonPlatformMeta {
   hnrCleanupTokens?: number
 }
 
+export interface C411PlatformMeta {
+  /** `download.allowed`: false while the tracker refuses downloads. */
+  canDownload?: boolean
+}
+
 /** Union of all platform-specific metadata types */
 export type PlatformMeta =
   | GGnPlatformMeta
@@ -249,6 +254,7 @@ export type PlatformMeta =
   | FileListPlatformMeta
   | Unit3dPlatformMeta
   | RetrotoonPlatformMeta
+  | C411PlatformMeta
 
 /** Maps platformType string → the corresponding PlatformMeta variant */
 export interface PlatformMetaMap {
@@ -262,6 +268,7 @@ export interface PlatformMetaMap {
   filelist: FileListPlatformMeta
   unit3d: Unit3dPlatformMeta
   retrotoon: RetrotoonPlatformMeta
+  c411: C411PlatformMeta
 }
 
 /**

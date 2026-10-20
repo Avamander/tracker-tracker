@@ -7,6 +7,7 @@ import { torrentleech } from "@/data/trackers/torrentleech"
 import type { Snapshot, TrackerSummary } from "@/types/api"
 import type { SlotContext } from "@/types/slots"
 import type {
+  C411PlatformMeta,
   DigitalCorePlatformMeta,
   GazellePlatformMeta,
   GGnPlatformMeta,
@@ -1004,6 +1005,43 @@ describe("slot resolution — DigitalCore", () => {
 
   it("resolves disabled badge when enabled is false", () => {
     expect(slotIds(dcCtx({ enabled: false }), "badge")).toContain("disabled")
+  })
+})
+
+// ---------------------------------------------------------------------------
+// C411 context: the downloads-disabled badge
+// ---------------------------------------------------------------------------
+
+describe("C411 context", () => {
+  function c411Ctx(meta: C411PlatformMeta): SlotContext {
+    return {
+      tracker: makeTracker({ platformType: "c411" }),
+      latestSnapshot: makeSnapshot(),
+      meta,
+      registry: undefined,
+      accentColor: BASE_ACCENT,
+    }
+  }
+
+  it("resolves the downloads-disabled badge when downloads are refused", () => {
+    const badge = resolveSlots(c411Ctx({ canDownload: false }))
+      .get("badge")
+      ?.find((s) => s.id === "c411-download-disabled")
+    expect(badge?.props.label).toBe("Downloads Disabled")
+  })
+
+  it("does not resolve it when downloads are allowed or the flag is unknown", () => {
+    for (const meta of [{ canDownload: true }, {}]) {
+      expect(slotIds(c411Ctx(meta), "badge")).not.toContain("c411-download-disabled")
+    }
+  })
+
+  it("does not resolve it for another platform's canDownload", () => {
+    const avistaz: SlotContext = {
+      ...c411Ctx({ canDownload: false }),
+      tracker: makeTracker({ platformType: "avistaz" }),
+    }
+    expect(slotIds(avistaz, "badge")).not.toContain("c411-download-disabled")
   })
 })
 
