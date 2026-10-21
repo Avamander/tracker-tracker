@@ -64,6 +64,7 @@ export * from "./tr4ker"
 export * from "./tvvault"
 export * from "./uhdbits"
 export * from "./uploadcx"
+export * from "./v3x"
 export * from "./yuscene"
 export * from "./zenith"
 
@@ -129,6 +130,7 @@ import { tr4ker } from "./tr4ker"
 import { tvvault } from "./tvvault"
 import { uhdbits } from "./uhdbits"
 import { uploadcx } from "./uploadcx"
+import { v3x } from "./v3x"
 import { yuscene } from "./yuscene"
 import { zenith } from "./zenith"
 
@@ -195,6 +197,7 @@ export const ALL_TRACKERS: TrackerRegistryEntry[] = [
   tvvault,
   uhdbits,
   uploadcx,
+  v3x,
   yuscene,
   zenith,
 ]
