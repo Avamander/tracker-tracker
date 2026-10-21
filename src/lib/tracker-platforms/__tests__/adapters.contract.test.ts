@@ -42,6 +42,7 @@ const CREDENTIALS: Record<string, string> = {
   funfile: JSON.stringify({ username: "someone", password: CANARY }),
   digitalcore: JSON.stringify({ uid: "54321", pass: CANARY }),
   luminance: JSON.stringify({ username: "someone", password: CANARY }),
+  v3x: cookieBlob(),
 }
 
 const HOST = "tracker.example"
@@ -54,12 +55,13 @@ const OPTIONS: Record<string, FetchOptions> = {
 
 /**
  * Hosts other than the configured baseUrl that appear in an adapter's errors. BTN
- * serves its API from a fixed host, which is part of the protocol; RuTracker's
- * requests go to FlareSolverr.
+ * and V3X serve their APIs from fixed hosts, which are part of the protocol;
+ * RuTracker's requests go to FlareSolverr.
  */
 const ERROR_HOSTS: Record<string, string> = {
   btn: "api.broadcasthe.net",
   rutracker: FLARESOLVERR_HOST,
+  v3x: "api.v3x.club",
 }
 
 const BASE_URL = `https://${HOST}`
