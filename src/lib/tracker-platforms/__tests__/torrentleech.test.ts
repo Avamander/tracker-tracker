@@ -286,6 +286,26 @@ describe("parseTlProfile", () => {
   })
 })
 
+describe("parseTlProfile - unread notifications", () => {
+  const bell = (count: string) =>
+    `<span class="div-menu-item"><span class="link"><i class="fa fa-bell"></i> ${count} </span></span>`
+
+  it("reads the count beside the top bar's bell", () => {
+    const page = FULL_PROFILE_PAGE.replace(TOP_BAR_HTML, `${bell("3")}${TOP_BAR_HTML}`)
+    expect(parseTlProfile(page, "testuser", TL_HOSTNAME).inbox).toEqual({
+      unreadMessages: null,
+      unreadStaffMessages: null,
+      unreadNotifications: 3,
+    })
+    const none = FULL_PROFILE_PAGE.replace(TOP_BAR_HTML, `${bell("0")}${TOP_BAR_HTML}`)
+    expect(parseTlProfile(none, "testuser", TL_HOSTNAME).inbox?.unreadNotifications).toBe(0)
+  })
+
+  it("reports no inbox without the bell, rather than zero", () => {
+    expect(parseTlProfile(FULL_PROFILE_PAGE, "testuser", TL_HOSTNAME).inbox).toBeUndefined()
+  })
+})
+
 describe("parseTlCredentials", () => {
   it("parses a valid JSON credential blob", () => {
     const json = JSON.stringify({ username: "testuser", password: "hunter2" })
