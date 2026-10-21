@@ -4,7 +4,7 @@
 
 import { useQuery } from "@tanstack/react-query"
 import { clientQueryOptions } from "@/lib/query-options"
-import type { SafeDownloadClient } from "@/types/api"
+import type { SafeDownloadClient, TrackerSummary } from "@/types/api"
 
 interface PollingIntervals {
   /** Tracker + dashboard refetch interval in ms (from trackerPollIntervalMinutes) */
@@ -20,6 +20,33 @@ export function selectMinPollInterval(clients: SafeDownloadClient[]): number | n
   const enabled = clients.filter((c) => c.enabled)
   if (enabled.length === 0) return null
   return Math.min(...enabled.map((c) => c.pollIntervalSeconds))
+}
+
+// The scheduler checks for due trackers every five minutes, so a cycle can land
+// that long after it falls due, plus the time the polls take.
+const CYCLE_GRACE_MS = 30_000
+const CYCLE_RECHECK_MS = 60_000
+
+/**
+ * How long to wait before fetching the tracker list again: until just after
+ * the next poll cycle falls due, then each minute until it lands, so a poll's
+ * results reach the sidebar within a minute rather than up to an interval
+ * late. A list whose newest poll is long past, such as one with every
+ * tracker paused, falls back to the plain interval.
+ */
+export function trackerRefetchDelay(
+  trackers: TrackerSummary[] | undefined,
+  intervalMs: number,
+  now = Date.now()
+): number {
+  let newest = 0
+  for (const t of trackers ?? []) {
+    const at = t.lastPolledAt ? Date.parse(t.lastPolledAt) : Number.NaN
+    if (at > newest) newest = at
+  }
+  if (newest === 0 || now - newest > 2 * intervalMs) return intervalMs
+  const untilDue = newest + intervalMs + CYCLE_GRACE_MS - now
+  return Math.min(intervalMs, Math.max(CYCLE_RECHECK_MS, untilDue))
 }
 
 // Reads poll intervals from app settings and client config

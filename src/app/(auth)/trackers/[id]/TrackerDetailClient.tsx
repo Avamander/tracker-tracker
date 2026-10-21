@@ -1,6 +1,7 @@
 // src/app/(auth)/trackers/[id]/TrackerDetailClient.tsx
 "use client"
 
+import { useQueryClient } from "@tanstack/react-query"
 import clsx from "clsx"
 import { useRouter } from "next/navigation"
 import { type CSSProperties, useCallback, useEffect, useMemo, useState } from "react"
@@ -63,6 +64,7 @@ export function TrackerDetailClient({
   initialTab: initialTabProp,
 }: TrackerDetailClientProps) {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const id = String(trackerId)
 
   const initialTab = VALID_TABS.includes(initialTabProp as Tab)
@@ -180,6 +182,10 @@ export function TrackerDetailClient({
         if (trackerRes.ok) setTracker(await trackerRes.json())
         if (allTimeRes.ok) setAllTimeSnapshots(await allTimeRes.json())
         if (recentRes.ok) setRecentSnapshots(await recentRes.json())
+        // The sidebar and the dashboard's inbox read the poll's stats and
+        // unread counts from these.
+        queryClient.invalidateQueries({ queryKey: ["trackers"] })
+        queryClient.invalidateQueries({ queryKey: ["inbox"] })
       }
     } catch {
       setPollError("Network error during poll")

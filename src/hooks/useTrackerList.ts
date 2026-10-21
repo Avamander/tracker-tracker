@@ -5,7 +5,7 @@ import type { DragEndEvent } from "@dnd-kit/core"
 import { arrayMove } from "@dnd-kit/sortable"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useCallback, useEffect, useMemo, useRef } from "react"
-import { usePollingIntervals } from "@/hooks/usePollingIntervals"
+import { trackerRefetchDelay, usePollingIntervals } from "@/hooks/usePollingIntervals"
 import type { StatMode } from "@/lib/formatters"
 import { trackerQueryOptions } from "@/lib/query-options"
 import type { TrackerLatestStats, TrackerSummary } from "@/types/api"
@@ -109,7 +109,7 @@ function useTrackerList({
 
   const trackersQuery = useQuery({
     ...trackerQueryOptions,
-    refetchInterval: intervals.trackerRefetchMs,
+    refetchInterval: (query) => trackerRefetchDelay(query.state.data, intervals.trackerRefetchMs),
   })
 
   const trackers = trackersQuery.data ?? []
