@@ -3,7 +3,7 @@
 
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useCallback, useMemo, useState } from "react"
-import { usePollingIntervals } from "@/hooks/usePollingIntervals"
+import { trackerRefetchDelay, usePollingIntervals } from "@/hooks/usePollingIntervals"
 import { useRetentionPromptState } from "@/hooks/useRetentionPrompt"
 import { useUpdateCheck } from "@/hooks/useUpdateCheck"
 import type { DashboardAlert } from "@/lib/dashboard"
@@ -76,7 +76,7 @@ function useDashboardData(options?: UseDashboardDataOptions): DashboardData {
   // Tracker list query
   const trackersQuery = useQuery({
     ...trackerQueryOptions,
-    refetchInterval: intervals.trackerRefetchMs,
+    refetchInterval: (query) => trackerRefetchDelay(query.state.data, intervals.trackerRefetchMs),
     select: selectActiveTrackers,
     initialData: options?.initialTrackers,
     // Use 0, not Date.now(). The sidebar renders first and creates ["trackers"], so
