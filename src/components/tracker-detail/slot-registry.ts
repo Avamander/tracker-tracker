@@ -17,6 +17,7 @@
 //   dc badge: dc-download-ban, dc-upload-ban, dc-hnr-warned, dc-parked,
 //             dc-unconnectable, dc-seedbox-donor, dc-invites, dc-hearts
 //   c411 badge: c411-download-disabled
+//   hawke badge: hawke-download-disabled
 
 import type { ComponentType, ReactNode } from "react"
 import { createElement } from "react"
@@ -1003,6 +1004,17 @@ const c411DownloadDisabledBadgeSlot: SlotDefinition<SlotBadgeProps> = {
   },
 }
 
+const hawkeDownloadDisabledBadgeSlot: SlotDefinition<SlotBadgeProps> = {
+  id: "hawke-download-disabled",
+  category: "badge",
+  component: SlotBadge,
+  priority: 12,
+  resolve(ctx) {
+    if (metaFor(ctx, "hawke")?.canDownload !== false) return null
+    return { variant: "danger", label: "Downloads Disabled" }
+  },
+}
+
 // ---------------------------------------------------------------------------
 // Exported registry
 // ---------------------------------------------------------------------------
@@ -1069,6 +1081,8 @@ export const SLOT_DEFINITIONS: AnySlotDefinition[] = [
   dcHeartsBadgeSlot,
   // C411 slots (badge)
   c411DownloadDisabledBadgeSlot,
+  // HAWKE-UNO slots (badge)
+  hawkeDownloadDisabledBadgeSlot,
 ]
 
 // Shared component lookup: single source for rendering resolved slots

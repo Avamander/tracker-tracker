@@ -11,6 +11,7 @@ import type {
   DigitalCorePlatformMeta,
   GazellePlatformMeta,
   GGnPlatformMeta,
+  HawkePlatformMeta,
   NebulancePlatformMeta,
   Unit3dPlatformMeta,
 } from "@/types/tracker-stats"
@@ -1042,6 +1043,43 @@ describe("C411 context", () => {
       tracker: makeTracker({ platformType: "avistaz" }),
     }
     expect(slotIds(avistaz, "badge")).not.toContain("c411-download-disabled")
+  })
+})
+
+// ---------------------------------------------------------------------------
+// HAWKE-UNO context: the downloads-disabled badge
+// ---------------------------------------------------------------------------
+
+describe("HAWKE-UNO context", () => {
+  function hawkeCtx(meta: HawkePlatformMeta): SlotContext {
+    return {
+      tracker: makeTracker({ platformType: "hawke" }),
+      latestSnapshot: makeSnapshot(),
+      meta,
+      registry: undefined,
+      accentColor: BASE_ACCENT,
+    }
+  }
+
+  it("resolves the downloads-disabled badge when downloads are refused", () => {
+    const badge = resolveSlots(hawkeCtx({ canDownload: false }))
+      .get("badge")
+      ?.find((s) => s.id === "hawke-download-disabled")
+    expect(badge?.props.label).toBe("Downloads Disabled")
+  })
+
+  it("does not resolve it when downloads are allowed or the flag is unknown", () => {
+    for (const meta of [{ canDownload: true }, {}]) {
+      expect(slotIds(hawkeCtx(meta), "badge")).not.toContain("hawke-download-disabled")
+    }
+  })
+
+  it("does not resolve it for another platform's canDownload", () => {
+    const c411: SlotContext = {
+      ...hawkeCtx({ canDownload: false }),
+      tracker: makeTracker({ platformType: "c411" }),
+    }
+    expect(slotIds(c411, "badge")).not.toContain("hawke-download-disabled")
   })
 })
 

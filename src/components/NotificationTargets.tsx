@@ -376,7 +376,7 @@ function NotificationCard({ target, onSaved, onRemove }: NotificationCardProps) 
           label="Download Privileges Revoked"
           checked={draft.notifyDownloadDisabled}
           onChange={(v) => updateDraft({ notifyDownloadDisabled: v })}
-          description="Alert when an AvistaZ network tracker revokes download access"
+          description="Alert when a tracker revokes download access (AvistaZ network, DigitalCore.Club, HAWKE-UNO, C411)"
         />
       </div>
 
