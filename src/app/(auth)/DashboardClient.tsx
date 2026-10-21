@@ -17,6 +17,7 @@ import { FleetDashboard } from "@/components/dashboard/FleetDashboard"
 import { InboxNewsCard } from "@/components/dashboard/InboxNewsCard"
 import { LoginTimers } from "@/components/dashboard/LoginTimers"
 import { PollAllButton } from "@/components/dashboard/PollAllButton"
+import { ProwlarrOverview } from "@/components/dashboard/ProwlarrOverview"
 import { RankStacks } from "@/components/dashboard/RankStacks"
 import { TagGroupsSection } from "@/components/dashboard/TagGroupsSection"
 import { TodayAtAGlance } from "@/components/dashboard/TodayAtAGlance"
@@ -132,6 +133,7 @@ export function DashboardClient({
   const rankStacksExpanded = isExpanded("rank-stacks")
   const inboxExpanded = isExpanded("inbox")
   const tagGroupsExpanded = isExpanded("tag-groups")
+  const prowlarrExpanded = isExpanded("prowlarr")
 
   if (data.loading) {
     return <DashboardSkeleton />
@@ -261,6 +263,13 @@ export function DashboardClient({
         />
         {leaderboardExpanded && <TrackerLeaderboard trackers={data.trackers} />}
       </div>
+
+      {/* Prowlarr. Renders nothing until an instance is configured */}
+      <ProwlarrOverview
+        trackers={data.trackers}
+        expanded={prowlarrExpanded}
+        onToggleExpanded={() => sectionCollapse.toggle("prowlarr")}
+      />
 
       <Divider />
 

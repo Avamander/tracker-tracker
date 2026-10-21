@@ -109,6 +109,8 @@ vi.mock("@/lib/db/schema", () => ({
     createdAt: "createdAt",
     updatedAt: "updatedAt",
   },
+  prowlarrIndexers: {},
+  prowlarrInstances: {},
   notificationTargets: {
     id: "id",
     name: "name",
@@ -380,6 +382,7 @@ describe("serializeTrackerResponse excludes encryptedApiToken", () => {
       joinedAt: null,
       lastAccessAt: null,
       profileUrl: null,
+      prowlarrIndexer: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     }
