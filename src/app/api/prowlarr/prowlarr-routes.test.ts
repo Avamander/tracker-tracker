@@ -5,7 +5,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { authenticate } from "@/lib/api-helpers"
 import { decrypt } from "@/lib/crypto"
 import { db } from "@/lib/db"
-import { pollProwlarrInstance, testProwlarrInstance } from "@/lib/prowlarr/sync"
+import {
+  pollProwlarrInstance,
+  retestProwlarrIndexer,
+  testProwlarrInstance,
+} from "@/lib/prowlarr/sync"
+import { POST as RETEST } from "./[id]/indexers/[indexerId]/test/route"
 import { DELETE, PATCH } from "./[id]/route"
 import { POST as TEST } from "./[id]/test/route"
 import { GET as INDEXERS } from "./indexers/route"
@@ -23,6 +28,7 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/lib/prowlarr/sync", () => ({
   pollProwlarrInstance: vi.fn(async () => undefined),
   testProwlarrInstance: vi.fn(),
+  retestProwlarrIndexer: vi.fn(),
   listIndexerOptions: vi.fn(async () => []),
 }))
 
@@ -43,6 +49,9 @@ function jsonRequest(body: unknown, method = "POST"): Request {
 }
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) })
+const indexerParams = (id: string, indexerId: string) => ({
+  params: Promise.resolve({ id, indexerId }),
+})
 
 function mockInsertReturning(row: Record<string, unknown>) {
   const values = vi.fn(() => ({ returning: vi.fn(async () => [row]) }))
@@ -75,6 +84,10 @@ describe("auth gate", () => {
     ["PATCH /api/prowlarr/[id]", () => PATCH(jsonRequest({}, "PATCH"), params("1"))],
     ["DELETE /api/prowlarr/[id]", () => DELETE(new Request("http://localhost"), params("1"))],
     ["POST /api/prowlarr/[id]/test", () => TEST(new Request("http://localhost"), params("1"))],
+    [
+      "POST /api/prowlarr/[id]/indexers/[indexerId]/test",
+      () => RETEST(new Request("http://localhost"), indexerParams("1", "12")),
+    ],
   ])("%s returns 401 without a session", async (_name, call) => {
     vi.mocked(authenticate).mockResolvedValue(
       NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -209,5 +222,44 @@ describe("POST /api/prowlarr/[id]/test", () => {
 
     expect(res.status).toBe(502)
     expect((await res.json()).error).toBe("API key rejected by Prowlarr")
+  })
+})
+
+describe("POST /api/prowlarr/[id]/indexers/[indexerId]/test", () => {
+  const INSTANCE = { id: 1, url: "http://prowlarr.test:9696", encryptedApiKey: "ciphertext" }
+  const retest = (indexerId = "12") =>
+    RETEST(new Request("http://localhost"), indexerParams("1", indexerId))
+
+  it("tests the indexer", async () => {
+    mockSelectRow(INSTANCE)
+    vi.mocked(retestProwlarrIndexer).mockResolvedValue({ ok: true })
+
+    const res = await retest()
+
+    expect(res.status).toBe(200)
+    expect(vi.mocked(retestProwlarrIndexer).mock.calls[0]?.[1]).toBe(12)
+  })
+
+  it("answers a failed test with Prowlarr's reasons", async () => {
+    mockSelectRow(INSTANCE)
+    vi.mocked(retestProwlarrIndexer).mockResolvedValue({ failures: ["Unable to connect", "Bad"] })
+
+    const res = await retest()
+
+    expect(res.status).toBe(422)
+    expect((await res.json()).error).toBe("Unable to connect; Bad")
+  })
+
+  it("answers an unreachable Prowlarr as a 502", async () => {
+    mockSelectRow(INSTANCE)
+    vi.mocked(retestProwlarrIndexer).mockResolvedValue({ error: "Connection refused" })
+
+    expect((await retest()).status).toBe(502)
+  })
+
+  it("refuses a bad id and a missing instance", async () => {
+    expect((await retest("x")).status).toBe(400)
+    mockSelectRow(null)
+    expect((await retest()).status).toBe(404)
   })
 })

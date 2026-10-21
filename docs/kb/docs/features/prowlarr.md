@@ -7,7 +7,7 @@ description: Read indexer health from Prowlarr and flag trackers whose indexer i
 
 Tracker Tracker can read indexer health from one or more [Prowlarr](https://prowlarr.com) instances. When a tracker's indexer starts failing in Prowlarr, the tracker shows a warning, and the dashboard gets a Prowlarr card with each matched tracker's status and traffic.
 
-Only read requests are made. Prowlarr's settings are never changed.
+Apart from the indexer test that **Resume** runs, only read requests are made. Prowlarr's settings are never changed.
 
 ## Adding an Instance
 
@@ -34,6 +34,8 @@ Prowlarr backs an indexer off after failed requests and retries it later. While 
 - shows the amber warning dot in the sidebar, on the dashboard and on its page
 - gets an **Indexer Failing** banner with when it started failing and when Prowlarr retries
 - shows **Failing** on its Prowlarr card
+
+The banner's **Resume** button runs Prowlarr's test for that indexer. A passing test clears the backoff, so the indexer is searched again immediately; a failed test shows Prowlarr's validation message under the banner.
 
 The warning never hides a worse state. A tracker that is erroring, paused, offline or below its required ratio keeps that status.
 
