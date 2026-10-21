@@ -407,8 +407,9 @@ export async function pollTracker(
                 }
               : tracker.platformType === "avistaz"
                 ? {
-                    currentSeedbonus: stats.seedbonus ?? null,
-                    previousSeedbonus: previousSnapshot?.seedbonus ?? null,
+                    // The 99,999 bonus cap these feed is MAM's.
+                    currentSeedbonus: null,
+                    previousSeedbonus: null,
                     vipUntil: avistazMeta?.vipExpiry ?? null,
                     unsatisfiedCount: null,
                     unsatisfiedLimit: null,
@@ -420,8 +421,9 @@ export async function pollTracker(
                   }
                 : tracker.platformType === "digitalcore"
                   ? {
-                      currentSeedbonus: stats.seedbonus ?? null,
-                      previousSeedbonus: previousSnapshot?.seedbonus ?? null,
+                      // The 99,999 bonus cap these feed is MAM's.
+                      currentSeedbonus: null,
+                      previousSeedbonus: null,
                       vipUntil: null,
                       unsatisfiedCount: null,
                       unsatisfiedLimit: null,

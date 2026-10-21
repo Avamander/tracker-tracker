@@ -2,7 +2,8 @@
 //
 // The download-revoked alert compares this poll's canDownload with the stored
 // one, and the scheduler only hands both to dispatch for platforms it lists. A
-// platform left off never gets the alert.
+// platform left off never gets the alert. The bonus cap is MAM's alone, so no
+// other platform's context carries a seedbonus.
 
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -170,4 +171,31 @@ describe("pollTracker download-revoked context", () => {
     const ctx = vi.mocked(dispatchNotifications).mock.calls[0]?.[0]
     expect(ctx?.platformContext).toMatchObject({ canDownload: false, previousCanDownload: null })
   })
+})
+
+describe("pollTracker bonus-cap context", () => {
+  it("hands MAM's seedbonus to dispatch", async () => {
+    seedTracker("mam")
+    fetchStats.mockResolvedValue({ ...STATS, platformMeta: {} })
+
+    await pollTracker(42, KEY, false)
+
+    const ctx = vi.mocked(dispatchNotifications).mock.calls[0]?.[0]
+    expect(ctx?.platformContext?.currentSeedbonus).toBe(1840)
+  })
+
+  // Any other seedbonus would fire "spend them before they're wasted" at 99,999.
+  it.each(["avistaz", "digitalcore"])(
+    "keeps %s's bonus points out of the MAM bonus cap",
+    async (platform) => {
+      seedTracker(platform)
+      fetchStats.mockResolvedValue({ ...STATS, platformMeta: {} })
+
+      await pollTracker(42, KEY, false)
+
+      const ctx = vi.mocked(dispatchNotifications).mock.calls[0]?.[0]
+      expect(ctx?.platformContext).toBeDefined()
+      expect(ctx?.platformContext?.currentSeedbonus).toBeNull()
+    }
+  )
 })

@@ -348,7 +348,7 @@ function NotificationCard({ target, onSaved, onRemove }: NotificationCardProps) 
           label="Bonus Points Capped"
           checked={draft.notifyBonusCap}
           onChange={(v) => updateDraft({ notifyBonusCap: v })}
-          description="Alert when seedbonus hits the cap (i.e. 99,999 on MAM)"
+          description="Alert when bonus points hit the 99,999 cap (MAM)"
         />
 
         <Toggle
