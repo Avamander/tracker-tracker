@@ -1,7 +1,8 @@
 // src/lib/tracker-platforms/adapters/torrentleech.ts
 //
 // Functions: parseTlCredentials, login, textAfterNode, firstText, topBarCell, parenCount,
-//            trailingCount, parseTlProfile, fetchHtml, withTlSession, TorrentleechAdapter
+//            trailingCount, unreadNotificationCount, parseTlProfile, fetchHtml, withTlSession,
+//            TorrentleechAdapter
 
 import { type HTMLElement as ParsedElement, parse as parseHtml } from "node-html-parser"
 import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
@@ -199,6 +200,17 @@ function trailingCount(text: string): number | null {
   return parseInt(matches[matches.length - 1].replace(/,/g, ""), 10)
 }
 
+/**
+ * The bell in the top bar, TorrentLeech's one unread count, which links to the
+ * notifications page. Null when the bell is missing, rather than zero.
+ */
+function unreadNotificationCount(doc: ParsedElement): number | null {
+  for (const item of doc.querySelectorAll(".div-menu-item")) {
+    if (item.querySelector("i.fa-bell")) return trailingCount(item.textContent ?? "")
+  }
+  return null
+}
+
 export function parseTlProfile(html: string, username: string, hostname: string): TrackerStats {
   if (html.includes("/user/account/login")) {
     throw new SessionExpiredError("Session expired. TorrentLeech cookies need to be refreshed")
@@ -261,6 +273,8 @@ export function parseTlProfile(html: string, username: string, hostname: string)
     if (Number.isFinite(parsed)) seedbonus = parsed
   }
 
+  const unreadNotifications = unreadNotificationCount(doc)
+
   // User class, from the badge beside the avatar, falling back to the "Class"
   // row of the profile table. A whole-page text match on "Class" would hit the
   // "Classic TL" nav link first.
@@ -291,6 +305,10 @@ export function parseTlProfile(html: string, username: string, hostname: string)
     requiredRatio: null,
     warned: null,
     freeleechTokens: null,
+    inbox:
+      unreadNotifications === null
+        ? undefined
+        : { unreadMessages: null, unreadStaffMessages: null, unreadNotifications },
   }
 }
 
@@ -354,13 +372,17 @@ export class TorrentleechAdapter implements TrackerAdapter {
     const hostname = new URL(baseUrl).hostname
     const profileUrl = `${baseUrl}/profile/${encodeURIComponent(creds.username)}`
 
-    return withTlSession(baseUrl, creds, options?.proxyAgent, async (cookies) =>
+    const stats = await withTlSession(baseUrl, creds, options?.proxyAgent, async (cookies) =>
       parseTlProfile(
         await fetchHtml(profileUrl, cookies, options?.proxyAgent),
         creds.username,
         hostname
       )
     )
+    // The notifications page's address names the user, which privacy mode
+    // keeps out of the database. The site's own header leads there.
+    if (stats.inbox) stats.inbox.links = { inbox: new URL("/", baseUrl).toString() }
+    return stats
   }
 
   async fetchRaw(
