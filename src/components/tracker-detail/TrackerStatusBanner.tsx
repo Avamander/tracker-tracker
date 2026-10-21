@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/Button"
 import { Card } from "@/components/ui/Card"
 import { DOCS } from "@/lib/constants"
 import { formatDateTime } from "@/lib/formatters"
+import { describeProwlarrFailure, getProwlarrFailure } from "@/lib/prowlarr/status"
 import { getPauseState } from "@/lib/tracker-status"
 import type { TrackerSummary } from "@/types/api"
 
@@ -48,8 +49,14 @@ export function TrackerStatusBanner({
   // returned, not a claim about a poll that is still scheduled, so archiving
   // does not retire it.
   const showLastError = !pollError && !showUserPaused && !showAutoPaused && !!tracker.lastError
+  // Lowest priority: the tracker's own errors and pauses take precedence.
+  const prowlarrFailure =
+    !showPollError && !showUserPaused && !showAutoPaused && !showLastError && !isArchived
+      ? getProwlarrFailure(tracker)
+      : null
 
-  if (!showPollError && !showUserPaused && !showAutoPaused && !showLastError) return null
+  if (!showPollError && !showUserPaused && !showAutoPaused && !showLastError && !prowlarrFailure)
+    return null
 
   return (
     <>
@@ -118,6 +125,20 @@ export function TrackerStatusBanner({
             )}
           </div>
           <p className="text-danger text-sm font-mono">{tracker.lastError}</p>
+        </Card>
+      )}
+      {prowlarrFailure && (
+        <Card glow glowColor="var(--color-warn-dim)" elevation="elevated">
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <p className="text-xs font-sans font-medium text-warn uppercase tracking-wider">
+              Indexer Failing
+            </p>
+            <span className="timestamp shrink-0">{prowlarrFailure.instanceName}</span>
+          </div>
+          <p className="text-sm font-mono text-secondary">
+            {describeProwlarrFailure(prowlarrFailure)}. Prowlarr is not searching{" "}
+            {prowlarrFailure.name} until then, so check the site and its credentials in Prowlarr.
+          </p>
         </Card>
       )}
     </>
