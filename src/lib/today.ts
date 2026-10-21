@@ -162,7 +162,10 @@ export async function computeTodayAtAGlance(): Promise<TodayAtAGlance> {
       const bufferDelta = BigInt(latestBuffer) - BigInt(earliestBuffer)
 
       const ratioChange = (latest.ratio ?? 0) - (earliest.ratio ?? 0)
-      const seedbonusChange = (latest.seedbonus ?? 0) - (earliest.seedbonus ?? 0)
+      // Only readings that carry a bonus count, so a tracker that starts
+      // reporting one partway through the day does not book its whole balance.
+      const bonuses = snaps.map((s) => s.seedbonus).filter((v): v is number => v != null)
+      const seedbonusChange = bonuses.length >= 2 ? bonuses[bonuses.length - 1] - bonuses[0] : 0
 
       trackerDeltas.push({
         id: tracker.id,

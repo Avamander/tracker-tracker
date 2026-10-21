@@ -106,7 +106,7 @@ export const seedpool: TrackerRegistryEntry = {
   rules: {
     minimumRatio: 1,
     seedTimeHours: 240,
-    loginIntervalDays: 0,
+    loginIntervalDays: 120,
   },
 
   // ── Status ──────────────────────────────────────────────────────────
