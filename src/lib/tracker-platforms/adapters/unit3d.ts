@@ -4,7 +4,8 @@
 //            missingByteFields, quoteList, describeKeys, readApiKeyExpiry,
 //            unwrapUnit3dResponse, readUnit3dUser, readAuthStyle, rememberAuthStyle,
 //            buildRequest, unit3dFetch, parseFreeleechUntil, readGlobalFreeleech,
-//            rawGlobalFreeleech, fetchGlobalFreeleech, Unit3dAdapter
+//            rawGlobalFreeleech, fetchGlobalFreeleech, unreadCount, unit3dInbox,
+//            Unit3dAdapter
 
 import {
   computeBufferBytes,
@@ -19,6 +20,7 @@ import type {
   DebugApiCall,
   FetchOptions,
   TrackerAdapter,
+  TrackerInbox,
   TrackerStats,
   Unit3dAuthStyle,
   Unit3dPlatformMeta,
@@ -75,6 +77,9 @@ interface Unit3dApiResponse {
   leeching?: number
   seedbonus?: string | number
   hit_and_runs?: number
+  // Aither's fork adds these; stock UNIT3D sends neither.
+  unread_pms?: number
+  unread_notifications?: number
 }
 
 // ---------------------------------------------------------------------------
@@ -374,6 +379,27 @@ async function fetchGlobalFreeleech(
   }
 }
 
+function unreadCount(value: unknown): number | null {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : null
+}
+
+/**
+ * Unread counts, on a fork whose user resource carries them. The inbox page's
+ * address names the user, which privacy mode keeps out of the database, so the
+ * link is the site itself, whose header leads to both.
+ */
+function unit3dInbox(user: Unit3dApiResponse, baseUrl: string): TrackerInbox | undefined {
+  const unreadMessages = unreadCount(user.unread_pms)
+  const unreadNotifications = unreadCount(user.unread_notifications)
+  if (unreadMessages === null && unreadNotifications === null) return undefined
+  return {
+    unreadMessages,
+    unreadStaffMessages: null,
+    unreadNotifications,
+    links: { inbox: new URL("/", baseUrl).toString() },
+  }
+}
+
 export class Unit3dAdapter implements TrackerAdapter {
   async fetchStats(
     baseUrl: string,
@@ -416,6 +442,7 @@ export class Unit3dAdapter implements TrackerAdapter {
       // one overwrites the stale date instead of leaving the card counting down
       // to it. JSON.stringify drops the undefined member.
       platformMeta: { apiKeyExpiresAt, ...globalFreeleech } satisfies Unit3dPlatformMeta,
+      inbox: unit3dInbox(data, baseUrl),
     }
   }
 
