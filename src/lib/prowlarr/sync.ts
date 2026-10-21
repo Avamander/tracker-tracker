@@ -1,7 +1,7 @@
 // src/lib/prowlarr/sync.ts
 //
-// Functions: decryptInstanceKey, testProwlarrInstance, pollProwlarrInstance,
-//            loadTrackerProwlarrStates, listIndexerOptions
+// Functions: decryptInstanceKey, testProwlarrInstance, retestProwlarrIndexer,
+//            pollProwlarrInstance, loadTrackerProwlarrStates, listIndexerOptions
 //
 // Reads each Prowlarr instance into prowlarr_indexers and turns those rows into
 // the per-tracker state on TrackerSummary. A failed poll is recorded on the
@@ -23,6 +23,7 @@ import {
   fetchIndexers,
   fetchSystemStatus,
   type ProwlarrConnection,
+  retestIndexer,
   sanitizeProwlarrError,
 } from "@/lib/prowlarr/client"
 import { matchTrackerIndexers } from "@/lib/prowlarr/matching"
@@ -73,6 +74,26 @@ export async function testProwlarrInstance(
   } catch (err) {
     return { error: describeFailure(err) }
   }
+}
+
+/**
+ * Runs Prowlarr's test for one indexer, then re-reads the instance so a cleared
+ * backoff is shown immediately. A failed test is returned as a test result, not
+ * as a connection error.
+ */
+export async function retestProwlarrIndexer(
+  instance: KeyedInstance & { id: number },
+  indexerId: number,
+  key: Buffer
+): Promise<{ ok: true } | { failures: string[] } | { error: string }> {
+  let result: { ok: true } | { failures: string[] }
+  try {
+    result = await retestIndexer(decryptInstanceKey(instance, key), indexerId)
+  } catch (err) {
+    return { error: describeFailure(err) }
+  }
+  await pollProwlarrInstance(instance.id, key)
+  return result
 }
 
 /**

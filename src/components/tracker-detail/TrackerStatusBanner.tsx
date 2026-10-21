@@ -1,18 +1,21 @@
 // src/components/tracker-detail/TrackerStatusBanner.tsx
 
+import { useState } from "react"
 import { Button } from "@/components/ui/Button"
 import { Card } from "@/components/ui/Card"
 import { DOCS } from "@/lib/constants"
 import { formatDateTime } from "@/lib/formatters"
 import { describeProwlarrFailure, getProwlarrFailure } from "@/lib/prowlarr/status"
 import { getPauseState } from "@/lib/tracker-status"
-import type { TrackerSummary } from "@/types/api"
+import type { TrackerProwlarrIndexer, TrackerSummary } from "@/types/api"
 
 interface TrackerStatusBannerProps {
   tracker: TrackerSummary
   pollError: string | null
   onDismissPollError: () => void
   onResume: () => void
+  /** Tests the indexer in Prowlarr. Resolves to the reason it failed, or null. */
+  onResumeIndexer: (indexer: TrackerProwlarrIndexer) => Promise<string | null>
 }
 
 export function TrackerStatusBanner({
@@ -20,8 +23,11 @@ export function TrackerStatusBanner({
   pollError,
   onDismissPollError,
   onResume,
+  onResumeIndexer,
 }: TrackerStatusBannerProps) {
   const pause = getPauseState(tracker)
+  const [resumingIndexer, setResumingIndexer] = useState(false)
+  const [resumeIndexerError, setResumeIndexerError] = useState<string | null>(null)
 
   // An archived tracker is not polled at all, the poll cycle selects on
   // `isActive = true` (tracker-scheduler.ts), so a pause banner announces a
@@ -135,10 +141,26 @@ export function TrackerStatusBanner({
             </p>
             <span className="timestamp shrink-0">{prowlarrFailure.instanceName}</span>
           </div>
-          <p className="text-sm font-mono text-secondary">
-            {describeProwlarrFailure(prowlarrFailure)}. Prowlarr is not searching{" "}
-            {prowlarrFailure.name} until then, so check the site and its credentials in Prowlarr.
+          <p className="text-sm font-mono text-secondary mb-3">
+            {describeProwlarrFailure(prowlarrFailure)}.
           </p>
+          {resumeIndexerError && (
+            <p className="text-xs font-mono text-danger/80 mb-3">
+              Test failed: {resumeIndexerError}
+            </p>
+          )}
+          <Button
+            variant="secondary"
+            size="sm"
+            text="Resume"
+            loading={resumingIndexer}
+            disabled={resumingIndexer}
+            onClick={async () => {
+              setResumingIndexer(true)
+              setResumeIndexerError(await onResumeIndexer(prowlarrFailure))
+              setResumingIndexer(false)
+            }}
+          />
         </Card>
       )}
     </>
