@@ -963,3 +963,52 @@ describe("Unit3dAdapter - global freeleech", () => {
     })
   })
 })
+
+describe("Unit3dAdapter - unread counts", () => {
+  const adapter = new Unit3dAdapter()
+
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  const USER = {
+    username: "JohnDoe",
+    group: "Power User",
+    uploaded: "500.25 GiB",
+    downloaded: "125.50 GiB",
+    ratio: "3.99",
+    buffer: "374.75 GiB",
+  }
+
+  async function poll(body: unknown) {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => body,
+    } as Response)
+    return adapter.fetchStats("https://aither.cc", "fake-token", "/api/user", {
+      unit3dAuthStyle: "bearer",
+    })
+  }
+
+  it("reports the fork's unread messages and notifications, linking the site", async () => {
+    const stats = await poll({ ...USER, unread_pms: 2, unread_notifications: 0 })
+
+    expect(stats.inbox).toEqual({
+      unreadMessages: 2,
+      unreadStaffMessages: null,
+      unreadNotifications: 0,
+      links: { inbox: "https://aither.cc/" },
+    })
+  })
+
+  it("keeps a count it cannot read unknown, not zero", async () => {
+    const stats = await poll({ ...USER, unread_pms: "2", unread_notifications: 1 })
+
+    expect(stats.inbox?.unreadMessages).toBeNull()
+    expect(stats.inbox?.unreadNotifications).toBe(1)
+  })
+
+  it("reports no inbox for stock UNIT3D", async () => {
+    expect((await poll(USER)).inbox).toBeUndefined()
+  })
+})
