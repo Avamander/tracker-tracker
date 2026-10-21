@@ -23,6 +23,12 @@ interface SortableTrackerItemProps {
   onToggleFavorite: (id: number, current: boolean) => void
 }
 
+/** "2 unread messages", or "" for none. */
+function plural(count: number, noun: string): string {
+  if (count <= 0) return ""
+  return `${count} ${noun}${count === 1 ? "" : "s"}`
+}
+
 function SortableTrackerItem({
   tracker,
   isActive,
@@ -40,7 +46,16 @@ function SortableTrackerItem({
   const stat = formatStatValue(tracker.latestStats, statMode)
   const inbox = tracker.hideUnreadBadges ? null : tracker.inbox
   const staffCount = inbox?.unreadStaffMessages ?? 0
-  const unreadCount = staffCount + (inbox?.unreadMessages ?? 0)
+  const messageCount = inbox?.unreadMessages ?? 0
+  const notificationCount = inbox?.unreadNotifications ?? 0
+  const unreadCount = staffCount + messageCount + notificationCount
+  const unreadTitle = [
+    plural(staffCount, "unread staff message"),
+    plural(messageCount, "unread message"),
+    plural(notificationCount, "unread notification"),
+  ]
+    .filter(Boolean)
+    .join(", ")
 
   const dragStyle: CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -77,13 +92,13 @@ function SortableTrackerItem({
         <span
           className={clsx(
             "shrink-0 rounded-full px-1.5 font-mono text-3xs leading-4 tabular-nums",
-            staffCount > 0 ? "bg-danger/20 text-danger" : "bg-warn/20 text-warn"
-          )}
-          title={
             staffCount > 0
-              ? `${staffCount} unread staff message${staffCount === 1 ? "" : "s"}`
-              : `${unreadCount} unread message${unreadCount === 1 ? "" : "s"}`
-          }
+              ? "bg-danger/20 text-danger"
+              : messageCount > 0
+                ? "bg-warn/20 text-warn"
+                : "bg-accent/20 text-accent"
+          )}
+          title={unreadTitle}
         >
           {unreadCount}
         </span>
