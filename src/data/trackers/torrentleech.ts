@@ -75,7 +75,7 @@ export const torrentleech: TrackerRegistryEntry = {
     // is the safe direction to be wrong in.
     seedTimeHours: 240,
     satisfactionMode: "any",
-    loginIntervalDays: 0,
+    loginIntervalDays: 120,
   },
 
   // ── Status ──────────────────────────────────────────────────────────
