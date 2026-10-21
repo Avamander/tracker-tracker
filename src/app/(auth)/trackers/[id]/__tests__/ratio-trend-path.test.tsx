@@ -8,6 +8,7 @@
 // the same requirement as the health badge, which takes the live figure first
 // and the registry's second.
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { act, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import type { ReactElement } from "react"
@@ -152,6 +153,12 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+// The detail page refreshes the shared tracker and inbox queries after a poll.
+function renderWithQuery(ui: ReactElement) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>)
+}
+
 describe("ratio trend from the page to the card", () => {
   it("loads the last two days unbucketed and hands them to the client", async () => {
     getSnapshotsForTracker.mockImplementation(async (_id: number, days: number) =>
@@ -169,7 +176,7 @@ describe("ratio trend from the page to the card", () => {
   })
 
   it("draws the arrow and the 24h line from the recent series", () => {
-    render(
+    renderWithQuery(
       <TrackerDetailClient
         trackerId={7}
         initialTracker={tracker}
@@ -194,7 +201,7 @@ describe("ratio trend from the page to the card", () => {
     })
     vi.stubGlobal("fetch", fetchMock)
 
-    render(
+    renderWithQuery(
       <TrackerDetailClient
         trackerId={7}
         initialTracker={tracker}
