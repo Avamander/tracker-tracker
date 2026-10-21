@@ -11,7 +11,7 @@
 import { describe, expect, it } from "vitest"
 import { selectClientIdName } from "@/components/dashboard/FleetDashboard"
 import { selectActiveTrackers, selectClientsForAlerts } from "@/hooks/useDashboardData"
-import { selectMinPollInterval } from "@/hooks/usePollingIntervals"
+import { selectMinPollInterval, trackerRefetchDelay } from "@/hooks/usePollingIntervals"
 import type { SafeDownloadClient, TrackerSummary } from "@/types/api"
 
 // ---------------------------------------------------------------------------
@@ -261,5 +261,34 @@ describe("selectClientsForAlerts", () => {
     ]
     const result = selectClientsForAlerts(clients)
     expect(result.map((c) => c.id)).toEqual([10, 20])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// trackerRefetchDelay
+// ---------------------------------------------------------------------------
+
+describe("trackerRefetchDelay", () => {
+  const HOUR = 3_600_000
+  const NOW = Date.parse("2026-10-21T12:00:00Z")
+  const polledAgo = (...ms: (number | null)[]) =>
+    ms.map((m) => ({
+      lastPolledAt: m === null ? null : new Date(NOW - m).toISOString(),
+    })) as TrackerSummary[]
+
+  it("waits until just after the next cycle falls due", () => {
+    expect(trackerRefetchDelay(polledAgo(50 * 60_000, 2 * HOUR, null), HOUR, NOW)).toBe(
+      10 * 60_000 + 30_000
+    )
+  })
+
+  it("checks each minute while a due cycle has not landed", () => {
+    expect(trackerRefetchDelay(polledAgo(HOUR + 2 * 60_000), HOUR, NOW)).toBe(60_000)
+  })
+
+  it("falls back to the interval with no recent poll", () => {
+    expect(trackerRefetchDelay(polledAgo(3 * HOUR), HOUR, NOW)).toBe(HOUR)
+    expect(trackerRefetchDelay(polledAgo(null), HOUR, NOW)).toBe(HOUR)
+    expect(trackerRefetchDelay(undefined, HOUR, NOW)).toBe(HOUR)
   })
 })

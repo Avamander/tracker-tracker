@@ -2,8 +2,9 @@
 
 "use client"
 
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import Link from "next/link"
+import { useEffect, useRef } from "react"
 import { InboxTrackerSection } from "@/components/inbox/InboxTrackerSection"
 import { SectionToggle } from "@/components/ui/SectionToggle"
 import { inboxQueryOptions } from "@/lib/query-options"
@@ -30,6 +31,20 @@ export function InboxNewsCard({ trackers, expanded, onToggleExpanded }: InboxNew
     ...inboxQueryOptions,
     enabled: trackers.some((t) => t.inbox !== null),
   })
+
+  // A poll that checked an inbox moves its checkedAt, which arrives with the
+  // tracker list. Refetch the inbox then, rather than on the next visit.
+  const queryClient = useQueryClient()
+  const lastChecked = trackers.reduce((max, t) => {
+    const at = t.inbox?.checkedAt ?? ""
+    return at > max ? at : max
+  }, "")
+  const seenChecked = useRef(lastChecked)
+  useEffect(() => {
+    if (lastChecked === seenChecked.current) return
+    seenChecked.current = lastChecked
+    queryClient.invalidateQueries({ queryKey: inboxQueryOptions.queryKey })
+  }, [lastChecked, queryClient])
   const entries = (data ?? []).filter(hasContent).sort((a, b) => urgency(b) - urgency(a))
   if (entries.length === 0) return null
 
