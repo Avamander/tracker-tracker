@@ -48,7 +48,7 @@
     "echarts": "^6.1.0",
     "echarts-for-react": "^3.0.6",
     "echarts-gl": "^2.1.0",
-    "emoji-picker-react": "^4.19.1",
+    "emoji-picker-react": "^5.0.0",
     "https-proxy-agent": "^9.1.0",
     "jose": "^6.2.12",
     "next": "^16.4.2",
