@@ -8,7 +8,7 @@ import fs from "node:fs"
 import path from "node:path"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { DEFAULT_API_PATHS, VALID_PLATFORM_TYPES } from "@/data/platform-types"
-import { getAdapter } from "@/lib/tracker-platforms"
+import { type FetchOptions, getAdapter } from "@/lib/tracker-platforms"
 
 /** Appears somewhere inside every credential below. Must never come back out. */
 const CANARY = "CANARY9f3a2b1c0d4e5f6a7b8c9d0e1f2a3b"
@@ -36,20 +36,31 @@ const CREDENTIALS: Record<string, string> = {
   filelist: cookieBlob(),
   iptorrents: cookieBlob(),
   retrotoon: cookieBlob(),
+  rutracker: JSON.stringify({ username: "someone", password: CANARY }),
   torrentleech: JSON.stringify({ username: "someone", password: CANARY }),
   digitalcore: JSON.stringify({ uid: "54321", pass: CANARY }),
   luminance: JSON.stringify({ username: "someone", password: CANARY }),
   c411: CANARY,
 }
 
-/**
- * BTN serves its API from a fixed host, not the configured baseUrl, so its
- * errors name that host. Declaring it is a claim that the host is part of the
- * protocol. A second adapter like this wants a lookup, not a second const.
- */
-const BTN_API_HOST = "api.broadcasthe.net"
-
 const HOST = "tracker.example"
+
+/** RuTracker is polled only through FlareSolverr, so its cases run with one configured. */
+const FLARESOLVERR_HOST = "flaresolverr.example"
+const OPTIONS: Record<string, FetchOptions> = {
+  rutracker: { flaresolverr: { url: `http://${FLARESOLVERR_HOST}:8191`, maxTimeout: 60000 } },
+}
+
+/**
+ * Hosts other than the configured baseUrl that appear in an adapter's errors. BTN
+ * serves its API from a fixed host, which is part of the protocol; RuTracker's
+ * requests go to FlareSolverr.
+ */
+const ERROR_HOSTS: Record<string, string> = {
+  btn: "api.broadcasthe.net",
+  rutracker: FLARESOLVERR_HOST,
+}
+
 const BASE_URL = `https://${HOST}`
 const PLATFORMS = VALID_PLATFORM_TYPES.filter((p) => p !== "custom")
 
@@ -104,12 +115,12 @@ async function drive(platform: string) {
   const surfaces: string[] = []
 
   await adapter
-    .fetchStats(BASE_URL, token, path)
+    .fetchStats(BASE_URL, token, path, OPTIONS[platform])
     .then((stats) => surfaces.push(surfaceOf(stats)))
     .catch((err: unknown) => surfaces.push(surfaceOf(err)))
 
   await adapter
-    .fetchRaw(BASE_URL, token, path)
+    .fetchRaw(BASE_URL, token, path, OPTIONS[platform])
     .then((calls) => surfaces.push(surfaceOf(calls)))
     .catch((err: unknown) => surfaces.push(surfaceOf(err)))
 
@@ -165,13 +176,13 @@ describe("every registered adapter", () => {
         )
 
         const err = await getAdapter(platform)
-          .fetchStats(BASE_URL, CREDENTIALS[platform], pathFor(platform))
+          .fetchStats(BASE_URL, CREDENTIALS[platform], pathFor(platform), OPTIONS[platform])
           .then(() => null)
           .catch((e: unknown) => (e instanceof Error ? e : null))
 
         expect(err).not.toBeNull()
         // Without a host the card cannot say which tracker went quiet.
-        expect(err?.message).toContain(platform === "btn" ? BTN_API_HOST : HOST)
+        expect(err?.message).toContain(ERROR_HOSTS[platform] ?? HOST)
       })
 
       it("returns debug calls with the declared shape and a Title Case label", async () => {
@@ -185,7 +196,7 @@ describe("every registered adapter", () => {
         } as unknown as Response)
 
         const calls = await getAdapter(platform)
-          .fetchRaw(BASE_URL, CREDENTIALS[platform], pathFor(platform))
+          .fetchRaw(BASE_URL, CREDENTIALS[platform], pathFor(platform), OPTIONS[platform])
           .catch(() => null)
 
         // An adapter is allowed to throw here; what it must not do is resolve
@@ -221,11 +232,11 @@ describe("every registered adapter", () => {
         const adapter = getAdapter(platform)
         const surfaces: string[] = []
         await adapter
-          .fetchStats(BASE_URL, dirty, pathFor(platform))
+          .fetchStats(BASE_URL, dirty, pathFor(platform), OPTIONS[platform])
           .then((s) => surfaces.push(surfaceOf(s)))
           .catch((e: unknown) => surfaces.push(surfaceOf(e)))
         await adapter
-          .fetchRaw(BASE_URL, dirty, pathFor(platform))
+          .fetchRaw(BASE_URL, dirty, pathFor(platform), OPTIONS[platform])
           .then((c) => surfaces.push(surfaceOf(c)))
           .catch((e: unknown) => surfaces.push(surfaceOf(e)))
 
