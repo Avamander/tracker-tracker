@@ -240,3 +240,36 @@ describe("FunfileAdapter", () => {
     expect(JSON.stringify(calls)).not.toContain(PASSWORD)
   })
 })
+
+const ALERT = (text: string) =>
+  `<div class="menubox"><table style="font-weight: bold; color: red;"><tr><td class="row2"><a href="https://www.funfile.org/messages.php?action=viewmailbox" style="color: blue;">${text}</a></td></tr></table><div class="mb_title">Alerts!</div></div>`
+
+describe("FunFile unread messages", () => {
+  it("reports no unread messages without the alert, and links the inbox", () => {
+    expect(parseFunfilePage(PROFILE, HOST).inbox).toEqual({
+      unreadMessages: 0,
+      unreadStaffMessages: null,
+      unreadNotifications: null,
+      links: { inbox: "https://www.funfile.org/messages.php?action=viewmailbox" },
+    })
+  })
+
+  it.each([
+    ["1 new message", 1],
+    ["3 new messages", 3],
+  ])("reads the alert %j as %i", (text, count) => {
+    const html = PROFILE.replace("</body>", `${ALERT(text)}</body>`)
+    expect(parseFunfilePage(html, HOST).inbox?.unreadMessages).toBe(count)
+  })
+
+  it("sends no message list, so the poll does not mark earlier messages read", () => {
+    const html = PROFILE.replace("</body>", `${ALERT("1 new message")}</body>`)
+    expect(parseFunfilePage(html, HOST).inbox).not.toHaveProperty("messages")
+  })
+
+  it("never requests the inbox page, which marks messages read", async () => {
+    const sent = mockSite()
+    await new FunfileAdapter().fetchStats(BASE_URL, creds("inbox"), "/userdetails.php")
+    expect(sent.some((s) => s.url.includes("messages.php"))).toBe(false)
+  })
+})
