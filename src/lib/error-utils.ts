@@ -75,6 +75,13 @@ export function sanitizeNetworkError(raw: string, fallback = "Connection failed"
     return "TorrentLeech requires 2FA. Add your Alt 2FA Token (Site Profile => Alt 2FA Token) to this tracker's credentials"
   }
   if (/Alt 2FA Token/i.test(raw)) return "Invalid credentials or Alt 2FA Token"
+  // RuTracker shows a captcha after repeated logins. The message is returned
+  // unchanged because the tracker page shows the captcha form when it matches.
+  if (/Enter the RuTracker captcha/i.test(raw)) {
+    return "Enter the RuTracker captcha on the tracker page"
+  }
+  if (/Wrong captcha/i.test(raw)) return "Wrong captcha, try the new one"
+  if (/captcha is pending/i.test(raw)) return "No captcha is pending"
   // FlareSolverr errors. An unreachable FlareSolverr makes the tracker unreachable
   // too. Other FlareSolverr failures are named as such, because the fix is in
   // FlareSolverr and not in the tracker.

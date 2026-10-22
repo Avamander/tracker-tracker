@@ -17,8 +17,12 @@ export const VALID_PLATFORM_TYPES = [
   "retrotoon",
   "tr4ker",
   "c411",
+  "rutracker",
 ] as const
 export type PlatformType = (typeof VALID_PLATFORM_TYPES)[number]
+
+/** Platforms whose login can require a captcha, which the user enters on the tracker page. */
+export const CAPTCHA_PLATFORMS: ReadonlySet<string> = new Set(["rutracker"])
 
 export const MAM_BONUS_CAP = 99999
 
@@ -38,6 +42,7 @@ export const DEFAULT_API_PATHS: Record<string, string> = {
   retrotoon: "/userdetails.php",
   tr4ker: "/api/me",
   c411: "/api/user/profile",
+  rutracker: "/forum/index.php",
 }
 
 /**
