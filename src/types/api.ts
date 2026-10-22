@@ -82,6 +82,13 @@ export interface TrackerSummary {
   prowlarrIndexer?: string | null
   /** The Prowlarr indexers this tracker matched. Null when none did. */
   prowlarr?: TrackerProwlarrState | null
+  /** The account from an overview-only poll, for trackers that report no byte totals */
+  overview?: TrackerAccountOverview | null
+}
+
+export interface TrackerAccountOverview {
+  username: string | null
+  group: string | null
 }
 
 export interface InboxLinks {

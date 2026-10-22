@@ -335,6 +335,8 @@ export const trackerColumns = {
     "has_mousehole_token"
   ),
   remoteUserId: trackers.remoteUserId,
+  remoteUsername: trackers.remoteUsername,
+  remoteGroup: trackers.remoteGroup,
   platformMeta: trackers.platformMeta,
   useProxy: trackers.useProxy,
   countCrossSeedUnsatisfied: trackers.countCrossSeedUnsatisfied,

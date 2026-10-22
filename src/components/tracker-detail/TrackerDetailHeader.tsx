@@ -68,6 +68,7 @@ export function TrackerDetailHeader({
   settingsSaves,
 }: TrackerDetailHeaderProps) {
   const health = getTrackerHealth(tracker)
+  const account = stats ?? tracker.overview ?? null
 
   return (
     <div className="flex flex-col gap-5">
@@ -191,10 +192,10 @@ export function TrackerDetailHeader({
         </div>
       )}
 
-      {stats && (
+      {account && (
         <UserProfileCard
           tracker={tracker}
-          stats={stats}
+          account={account}
           registryEntry={registryEntry}
           accentColor={tc}
         />
