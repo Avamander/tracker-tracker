@@ -1,7 +1,8 @@
 // src/lib/tracker-scheduler.ts
 //
 // Functions: pollTracker, pollAllTrackers, pruneOldSnapshots, pruneOldCheckpoints,
-// startScheduler, stopScheduler, ensureSchedulerRunning, fetchTrackerStats, POLL_FAILURE_THRESHOLD
+// startScheduler, stopScheduler, ensureSchedulerRunning, fetchTrackerStats, isOtherAccount,
+// POLL_FAILURE_THRESHOLD
 // Constants: POLL_TRACKER_COLUMNS
 import type { Agent as HttpAgent } from "node:http"
 
@@ -128,6 +129,20 @@ export const POLL_FAILURE_THRESHOLD = 4
 const BATCH_TOLERANCE_MS = 60_000
 
 /**
+ * True when the poll returned a different remote user id than the stored one,
+ * i.e. the credentials now belong to another account. Its join date then
+ * replaces the stored one, including one entered by hand.
+ */
+function isOtherAccount(
+  tracker: { remoteUserId: number | null },
+  stats: { remoteUserId?: number }
+): boolean {
+  return Boolean(
+    stats.remoteUserId && tracker.remoteUserId && stats.remoteUserId !== tracker.remoteUserId
+  )
+}
+
+/**
  * Fetch fresh stats from a tracker's API without writing a snapshot. Also
  * writes the metadata side effects (remoteUserId, joinedAt, lastAccessAt,
  * platformMeta, avatarRemoteUrl).
@@ -178,7 +193,7 @@ export async function fetchTrackerStats(
   if (stats.remoteUserId && stats.remoteUserId !== tracker.remoteUserId) {
     metaUpdates.remoteUserId = stats.remoteUserId
   }
-  if (stats.joinedDate && !tracker.joinedAt) {
+  if (stats.joinedDate && (!tracker.joinedAt || isOtherAccount(tracker, stats))) {
     const joined = trackerDateStr(stats.joinedDate)
     if (joined) metaUpdates.joinedAt = joined
   }
@@ -298,7 +313,7 @@ export async function pollTracker(
     if (stats.remoteUserId && stats.remoteUserId !== tracker.remoteUserId) {
       metaUpdates.remoteUserId = stats.remoteUserId
     }
-    if (stats.joinedDate && !tracker.joinedAt) {
+    if (stats.joinedDate && (!tracker.joinedAt || isOtherAccount(tracker, stats))) {
       const joined = trackerDateStr(stats.joinedDate)
       if (joined) metaUpdates.joinedAt = joined
     }
