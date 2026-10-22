@@ -8,6 +8,7 @@ import type { SlotContext } from "@/types/slots"
 import type {
   AnimeBytesPlatformMeta,
   DigitalCorePlatformMeta,
+  FunFilePlatformMeta,
   GazellePlatformMeta,
   GGnPlatformMeta,
   NebulancePlatformMeta,
@@ -1324,5 +1325,31 @@ describe("RuTracker context", () => {
     expect(slotIds(rutrackerCtx({ restricted: false }), "badge")).not.toContain(
       "rutracker-restricted"
     )
+  })
+})
+
+describe("FunFile context", () => {
+  function funfileCtx(meta: FunFilePlatformMeta): SlotContext {
+    return {
+      tracker: makeTracker({ platformType: "funfile" }),
+      latestSnapshot: makeSnapshot(),
+      meta,
+      registry: undefined,
+      accentColor: BASE_ACCENT,
+    }
+  }
+
+  it("shows the upload needed for the next class and the freeleech download", () => {
+    const ids = slotIds(
+      funfileCtx({ nextClassUploadBytes: 2 ** 30, freeleechDownloadedBytes: 2 ** 40 }),
+      "stat-card"
+    )
+    expect(ids).toEqual(expect.arrayContaining(["funfile-next-class", "funfile-freeleech"]))
+  })
+
+  it("shows neither card without the figures", () => {
+    const ids = slotIds(funfileCtx({}), "stat-card")
+    expect(ids).not.toContain("funfile-next-class")
+    expect(ids).not.toContain("funfile-freeleech")
   })
 })

@@ -19,6 +19,7 @@
 //   rutracker stat-card: rutracker-uploaded, rutracker-rare-upload, rutracker-seeding,
 //                        rutracker-releases, rutracker-role, rutracker-posts
 //   rutracker badge: rutracker-restricted, rutracker-stats-off
+//   funfile stat-card: funfile-next-class, funfile-freeleech
 
 import type { ComponentType, ReactNode } from "react"
 import { createElement } from "react"
@@ -1241,6 +1242,44 @@ const rutrackerStatsOffBadgeSlot: SlotDefinition<SlotBadgeProps> = {
   },
 }
 
+const funfileNextClassSlot: SlotDefinition<StatCardBasicProps> = {
+  id: "funfile-next-class",
+  category: "stat-card",
+  component: StatCard as ComponentType<StatCardBasicProps>,
+  priority: 10,
+  resolve(ctx) {
+    const bytes = metaFor(ctx, "funfile")?.nextClassUploadBytes
+    if (bytes === undefined) return null
+    const [value, unit] = formatBytesNum(bytes).split(" ")
+    return {
+      label: "Upload to Next Class",
+      value,
+      unit,
+      accentColor: ctx.accentColor,
+      icon: icon16(UploadArrowIcon),
+    }
+  },
+}
+
+const funfileFreeleechSlot: SlotDefinition<StatCardBasicProps> = {
+  id: "funfile-freeleech",
+  category: "stat-card",
+  component: StatCard as ComponentType<StatCardBasicProps>,
+  priority: 11,
+  resolve(ctx) {
+    const bytes = metaFor(ctx, "funfile")?.freeleechDownloadedBytes
+    if (bytes === undefined) return null
+    const [value, unit] = formatBytesNum(bytes).split(" ")
+    return {
+      label: "Freeleech Downloaded",
+      value,
+      unit,
+      accentColor: ctx.accentColor,
+      icon: icon16(DownloadArrowIcon),
+    }
+  },
+}
+
 // ---------------------------------------------------------------------------
 // Exported registry
 // ---------------------------------------------------------------------------
@@ -1318,6 +1357,9 @@ export const SLOT_DEFINITIONS: AnySlotDefinition[] = [
   // RuTracker slots (badge)
   rutrackerRestrictedBadgeSlot,
   rutrackerStatsOffBadgeSlot,
+  // FunFile slots (stat-card)
+  funfileNextClassSlot,
+  funfileFreeleechSlot,
 ]
 
 // Shared component lookup: single source for rendering resolved slots

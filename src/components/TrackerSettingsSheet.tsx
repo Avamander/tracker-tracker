@@ -485,7 +485,8 @@ function TrackerSettingsSheet({ open, tracker, onClose, onUpdated }: TrackerSett
             tracker.platformType === "iptorrents" ||
             tracker.platformType === "torrentleech" ||
             tracker.platformType === "retrotoon" ||
-            tracker.platformType === "rutracker"
+            tracker.platformType === "rutracker" ||
+            tracker.platformType === "funfile"
           ) && (
             <div>
               <label
