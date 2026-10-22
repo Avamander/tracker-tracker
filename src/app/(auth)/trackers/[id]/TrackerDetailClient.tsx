@@ -16,6 +16,7 @@ import type { DebugData } from "@/components/tracker-detail/DebugResponseDialog"
 import { DebugResponseDialog } from "@/components/tracker-detail/DebugResponseDialog"
 import { InboxCard } from "@/components/tracker-detail/InboxCard"
 import { resolveSlots } from "@/components/tracker-detail/resolve-slots"
+import { TrackerCaptchaPrompt } from "@/components/tracker-detail/TrackerCaptchaPrompt"
 import { TrackerDetailHeader } from "@/components/tracker-detail/TrackerDetailHeader"
 import { TrackerInfoTab } from "@/components/tracker-detail/TrackerInfoTab"
 import { TrackerStatusBanner } from "@/components/tracker-detail/TrackerStatusBanner"
@@ -349,6 +350,8 @@ export function TrackerDetailClient({
         onLinked={handleTrackerUpdated}
         onDeleted={() => router.push("/")}
       />
+
+      <TrackerCaptchaPrompt tracker={tracker} onSolved={setTracker} />
 
       <InboxCard tracker={tracker} />
 

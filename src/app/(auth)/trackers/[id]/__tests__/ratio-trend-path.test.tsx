@@ -153,7 +153,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-// The detail page refreshes the shared tracker and inbox queries after a poll.
+// The detail page's captcha prompt reads the shared query cache.
 function renderWithQuery(ui: ReactElement) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>)
@@ -243,7 +243,7 @@ describe("required ratio from the tracker row to the cards and the chart", () =>
       latestStats: { ...tracker.latestStats, ratio: 0.7, requiredRatio: live },
     } as TrackerSummary
 
-    render(
+    renderWithQuery(
       <TrackerDetailClient
         trackerId={7}
         initialTracker={row}
