@@ -4,6 +4,7 @@ import "server-only"
 import type { PlatformType } from "@/data/platform-types"
 import { DEFAULT_TRACKER_COLOR } from "@/lib/constants"
 import type { TrackerRow as FullTrackerRow, TrackerSnapshotRow } from "@/lib/db/schema"
+import { isOverviewPlatform, overviewClass, overviewUsername } from "@/lib/tracker-overview"
 import type { TrackerProwlarrState, TrackerSummary } from "@/types/api"
 import type { PlatformMeta } from "@/types/tracker-stats"
 
@@ -40,6 +41,7 @@ export function serializeTrackerResponse(
   mask: (val: string | null | undefined) => string | null,
   prowlarr: TrackerProwlarrState | null = null
 ): TrackerSummary {
+  const platformMeta = parsePlatformMeta(tracker.platformMeta)
   return {
     id: tracker.id,
     name: tracker.name,
@@ -65,7 +67,7 @@ export function serializeTrackerResponse(
     joinedAt: tracker.joinedAt,
     lastAccessAt: tracker.lastAccessAt ?? null,
     remoteUserId: tracker.remoteUserId ?? null,
-    platformMeta: parsePlatformMeta(tracker.platformMeta),
+    platformMeta,
     createdAt: tracker.createdAt?.toISOString() ?? new Date().toISOString(),
     prowlarrPin:
       tracker.prowlarrInstanceId != null && tracker.prowlarrIndexerId != null
@@ -97,5 +99,12 @@ export function serializeTrackerResponse(
           group: mask(latest.group),
         }
       : null,
+    overview:
+      isOverviewPlatform(tracker.platformType) && platformMeta
+        ? {
+            username: mask(overviewUsername(platformMeta)),
+            group: mask(overviewClass(tracker.platformType, platformMeta)),
+          }
+        : null,
   }
 }

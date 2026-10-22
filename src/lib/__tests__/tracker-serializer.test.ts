@@ -76,6 +76,10 @@ describe("parsePlatformMeta", () => {
 })
 
 describe("serializeTrackerResponse", () => {
+  it("has no overview for a tracker that never reported one", () => {
+    expect(serializeTrackerResponse(mockTracker, null, (v) => v ?? null).overview).toBeNull()
+  })
+
   it("serializes tracker without stats", () => {
     const result = serializeTrackerResponse(mockTracker, null, (v) => v ?? null)
     expect(result.id).toBe(1)
