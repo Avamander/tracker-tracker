@@ -217,7 +217,7 @@ Location varies by platform:
 
 === "RuTracker"
 
-    RuTracker has no API and its pages are behind a Cloudflare challenge, so Tracker Tracker logs in with your **username and password** through [FlareSolverr](../reference/settings.md#flaresolverr), whose browser solves the challenge. RuTracker shows no download figure, so it shows your account (name, role or title, join date), your upload figures and seeding count when you share them, and no ratio, charts or history.
+    RuTracker has no API and its pages are behind a Cloudflare challenge, so Tracker Tracker logs in with your **username and password** through [FlareSolverr](../reference/settings.md#flaresolverr), whose browser solves the challenge. RuTracker shows no download figure, so it shows your account (name, role or title, join date), your upload figures and seeding count when you share them, and no ratio, charts or history. Unread private messages are counted and listed in the inbox, and tracker news from the forum index is shown there too.
 
     1. Set the FlareSolverr URL in **Settings → FlareSolverr**
     2. Add RuTracker with **Use FlareSolverr** switched on (it starts on for RuTracker)
