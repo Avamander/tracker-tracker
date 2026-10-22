@@ -1,14 +1,7 @@
 // src/app/api/trackers/[id]/poll/route.ts
-import { and, eq, isNull, lte, or } from "drizzle-orm"
 import { NextResponse } from "next/server"
 import { authenticate, decodeKey, parseTrackerId, type RouteContext } from "@/lib/api-helpers"
-import { db } from "@/lib/db"
-import { appSettings, trackers } from "@/lib/db/schema"
-import { isDecryptionError } from "@/lib/error-utils"
-import { POLL_MANUAL_COOLDOWN_MS } from "@/lib/limits"
-import { log } from "@/lib/logger"
-import { pollTracker } from "@/lib/tracker-scheduler"
-import { buildProxyAgentFromSettings } from "@/lib/tunnel"
+import { runManualPoll } from "@/lib/manual-poll"
 
 export async function POST(_request: Request, props: RouteContext) {
   const auth = await authenticate()
@@ -17,59 +10,7 @@ export async function POST(_request: Request, props: RouteContext) {
   const trackerId = await parseTrackerId(props.params)
   if (trackerId instanceof NextResponse) return trackerId
 
-  // Atomically claim poll slot. Prevents TOCTOU race with multiple tabs
-  const threshold = new Date(Date.now() - POLL_MANUAL_COOLDOWN_MS)
-  const [claimed] = await db
-    .update(trackers)
-    .set({ lastPolledAt: new Date() })
-    .where(
-      and(
-        eq(trackers.id, trackerId),
-        or(isNull(trackers.lastPolledAt), lte(trackers.lastPolledAt, threshold))
-      )
-    )
-    .returning({ id: trackers.id })
-
-  if (!claimed) {
-    return NextResponse.json(
-      { error: "Poll cooldown: try again in a few seconds" },
-      { status: 429 }
-    )
-  }
-
-  const key = decodeKey(auth)
-
-  const [settings] = await db
-    .select({
-      storeUsernames: appSettings.storeUsernames,
-      proxyEnabled: appSettings.proxyEnabled,
-      proxyType: appSettings.proxyType,
-      proxyHost: appSettings.proxyHost,
-      proxyPort: appSettings.proxyPort,
-      proxyUsername: appSettings.proxyUsername,
-      encryptedProxyPassword: appSettings.encryptedProxyPassword,
-    })
-    .from(appSettings)
-    .limit(1)
-
-  const privacyMode = settings ? !settings.storeUsernames : false
-  const proxyAgent = settings ? buildProxyAgentFromSettings(settings, key) : undefined
-
-  try {
-    await pollTracker(trackerId, key, privacyMode, proxyAgent, undefined, undefined, true)
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    if (isDecryptionError(error)) {
-      log.warn(
-        { route: "POST /api/trackers/[id]/poll", trackerId },
-        "manual poll failed: stale session key"
-      )
-      return NextResponse.json({ error: "Session expired. Please log in again." }, { status: 401 })
-    }
-    log.error(
-      { route: "POST /api/trackers/[id]/poll", trackerId, error: String(error) },
-      "manual poll failed"
-    )
-    return NextResponse.json({ error: "Poll failed" }, { status: 500 })
-  }
+  const result = await runManualPoll(trackerId, decodeKey(auth), "POST /api/trackers/[id]/poll")
+  if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
+  return NextResponse.json({ success: true })
 }
