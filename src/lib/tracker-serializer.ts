@@ -115,5 +115,9 @@ export function serializeTrackerResponse(
             links: tracker.inboxLinks ?? null,
           }
         : null,
+    overview:
+      tracker.remoteUsername || tracker.remoteGroup
+        ? { username: mask(tracker.remoteUsername), group: mask(tracker.remoteGroup) }
+        : null,
   }
 }

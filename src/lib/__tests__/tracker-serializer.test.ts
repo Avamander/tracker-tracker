@@ -29,6 +29,8 @@ const mockTracker = {
   inboxCheckedAt: null,
   inboxLinks: null,
   remoteUserId: null,
+  remoteUsername: null,
+  remoteGroup: null,
   platformMeta: null,
   avatarData: null,
   avatarMimeType: null,
@@ -82,6 +84,23 @@ describe("parsePlatformMeta", () => {
 })
 
 describe("serializeTrackerResponse", () => {
+  it("includes an overview-only tracker's account without stats", () => {
+    const tracker = { ...mockTracker, remoteUsername: "someone", remoteGroup: "User" }
+    const result = serializeTrackerResponse(tracker, null, (v) => v ?? null)
+    expect(result.latestStats).toBeNull()
+    expect(result.overview).toEqual({ username: "someone", group: "User" })
+  })
+
+  it("masks the overview's account like a snapshot's", () => {
+    const tracker = { ...mockTracker, remoteUsername: "someone", remoteGroup: "User" }
+    const result = serializeTrackerResponse(tracker, null, (v) => (v ? "▓" : null))
+    expect(result.overview).toEqual({ username: "▓", group: "▓" })
+  })
+
+  it("has no overview for a tracker that never reported one", () => {
+    expect(serializeTrackerResponse(mockTracker, null, (v) => v ?? null).overview).toBeNull()
+  })
+
   it("serializes tracker without stats", () => {
     const result = serializeTrackerResponse(mockTracker, null, (v) => v ?? null)
     expect(result.id).toBe(1)
@@ -230,6 +249,7 @@ describe("serializeTrackerResponse tracker list fields", () => {
       lastAccessAt: null,
       remoteUserId: null,
       platformMeta: null,
+      overview: null,
       createdAt: "2026-01-01T00:00:00.000Z",
       prowlarrPin: null,
       prowlarrOptOut: false,

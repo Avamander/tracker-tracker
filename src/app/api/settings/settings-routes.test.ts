@@ -142,6 +142,7 @@ vi.mock("@/lib/privacy", () => ({
 
 vi.mock("@/lib/privacy-db", () => ({
   scrubSnapshotUsernames: vi.fn().mockResolvedValue(0),
+  scrubTrackerUsernames: vi.fn().mockResolvedValue(0),
 }))
 
 vi.mock("@/lib/download-clients/qbt/qbitmanage-defaults", () => ({
