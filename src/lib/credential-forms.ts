@@ -123,7 +123,7 @@ export const CREDENTIAL_FORMS = {
   btn: tokenForm(UNIT3D_TOKEN),
   hawke: tokenForm(UNIT3D_TOKEN),
   tr4ker: tokenForm("Your TR4KER API key"),
-  c411: tokenForm("Your C411 API key, with the Profile (reading) scope"),
+  c411: tokenForm("Your C411 API key, with the Profile (reading) scope", true),
 
   avistaz: {
     kind: "cookies-username",

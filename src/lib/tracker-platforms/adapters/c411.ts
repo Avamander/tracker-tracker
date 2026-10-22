@@ -1,6 +1,6 @@
 // src/lib/tracker-platforms/adapters/c411.ts
 //
-// Functions: c411Grade, readProfile, absoluteAvatarUrl, C411Adapter
+// Functions: c411Grade, readProfile, absoluteAvatarUrl, fetchProfile, C411Adapter
 
 import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
 import { validateHeaderToken } from "@/lib/tracker-credentials/header-token"
@@ -11,7 +11,7 @@ import type {
   TrackerAdapter,
   TrackerStats,
 } from "../contract"
-import { adapterFetch } from "../helpers/adapter-fetch"
+import { adapterRequest } from "../helpers/adapter-fetch"
 import { requireBytes } from "../helpers/bytes"
 import { pollError } from "../helpers/poll-error"
 
@@ -81,6 +81,27 @@ function absoluteAvatarUrl(path: unknown, baseUrl: string): string | undefined {
   }
 }
 
+/** On a refusal, the `message` field of the response body is appended to the error message. */
+async function fetchProfile(
+  baseUrl: string,
+  token: string,
+  options?: FetchOptions
+): Promise<C411Profile> {
+  const hostname = new URL(baseUrl).hostname
+  const res = await adapterRequest(new URL(PROFILE_PATH, baseUrl).toString(), hostname, options, {
+    Authorization: `Bearer ${token}`,
+  })
+  if (!res.ok) {
+    let reason = ""
+    try {
+      const body = JSON.parse(await res.text()) as { message?: unknown }
+      if (typeof body.message === "string") reason = `: ${body.message.slice(0, 200)}`
+    } catch {}
+    throw new Error(`Tracker API error: ${res.status} ${res.statusText}${reason}`)
+  }
+  return res.json<C411Profile>()
+}
+
 export class C411Adapter implements TrackerAdapter {
   // _apiPath is ignored: /api/user/profile is intrinsic to the platform, not a
   // property of a user's row, so a stale persisted api_path value self-heals
@@ -93,11 +114,8 @@ export class C411Adapter implements TrackerAdapter {
   ): Promise<TrackerStats> {
     const trimmedToken = validateHeaderToken(apiToken)
     const hostname = new URL(baseUrl).hostname
-    const url = new URL(PROFILE_PATH, baseUrl).toString()
 
-    const data = await adapterFetch<C411Profile>(url, hostname, options, {
-      Authorization: `Bearer ${trimmedToken}`,
-    })
+    const data = await fetchProfile(baseUrl, trimmedToken, options)
 
     const { uploadedBytes, downloadedBytes } = readProfile(data, hostname)
 
@@ -135,12 +153,9 @@ export class C411Adapter implements TrackerAdapter {
   ): Promise<DebugApiCall[]> {
     const trimmedToken = validateHeaderToken(apiToken)
     const hostname = new URL(baseUrl).hostname
-    const url = new URL(PROFILE_PATH, baseUrl).toString()
 
     try {
-      const data = await adapterFetch<C411Profile>(url, hostname, options, {
-        Authorization: `Bearer ${trimmedToken}`,
-      })
+      const data = await fetchProfile(baseUrl, trimmedToken, options)
       // A body fetchStats would fail must not read as healthy here (adapter
       // standard 2.6).
       return [
