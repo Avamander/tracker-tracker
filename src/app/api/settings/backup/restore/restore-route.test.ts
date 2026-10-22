@@ -493,6 +493,8 @@ describe("POST /api/settings/backup/restore — credential re-encryption", () =>
       color: "#ff0000",
       qbtTag: "drift",
       remoteUserId: 42,
+      remoteUsername: "driftling",
+      remoteGroup: "Elite",
       platformMeta: '{"class":"Elite"}',
       mouseholeUrl: "https://mousehole.example.com/u/driftling",
       encryptedMouseholeToken: encrypt("fake-mousehole-token-7f3a", backupKey),

@@ -48,6 +48,8 @@ export async function scrubAndDeleteAll(): Promise<void> {
       encryptedMouseholeToken: null,
       name: randomHex(8),
       baseUrl: randomHex(16),
+      remoteUsername: null,
+      remoteGroup: null,
       lastError: null,
       qbtTag: null,
     })

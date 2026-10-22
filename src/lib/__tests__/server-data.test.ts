@@ -363,6 +363,8 @@ describe("serializeTrackerResponse excludes encryptedApiToken", () => {
       hasMouseholeToken: false,
       hideUnreadBadges: false,
       remoteUserId: null,
+      remoteUsername: null,
+      remoteGroup: null,
       platformMeta: null,
       avatarData: null,
       avatarMimeType: null,
