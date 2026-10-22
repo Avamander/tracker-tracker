@@ -7,6 +7,7 @@ import { sanitizeNetworkError } from "@/lib/error-utils"
 import {
   parseRutrackerCaptcha,
   parseRutrackerCredentials,
+  parseRutrackerInbox,
   parseRutrackerIndex,
   parseRutrackerProfile,
   parseSeedingCount,
@@ -40,6 +41,47 @@ const GUEST_INDEX_HTML = `<!DOCTYPE html><html><head><title>RuTracker.org</title
 </body></html>`
 
 const CHALLENGE_HTML = `<!DOCTYPE html><html lang="en-US"><head><title>Just a moment...</title></head><body></body></html>`
+
+// The header with unread mail, and news rows that cross a new year.
+const UNREAD_INDEX_HTML = INDEX_HTML.replace(
+  '<a href="privmsg.php?folder=inbox" class="">ЛС &#x2709;</a>',
+  '<a href="privmsg.php?folder=inbox" class="new-pm-link">ЛС <span class="pm-envelop animated">&#x2709;</span> (есть новые)</a>'
+)
+  .replace('<div id="page_header">', '<div id="page_header"><div class="topmenu new-pm"></div>')
+  .replace(
+    "</table>\n</body>",
+    `<tr><td><div class="news_date">05-Янв</div></td><td><div id="news-t-222" class="news_title"><a href="viewtopic.php?t=222">Январь</a></div></td></tr>
+<tr><td><div class="news_date">09-Дек</div></td><td><div id="news-t-333" class="news_title"><a href="viewtopic.php?t=333">Декабрь</a></div></td></tr>
+</table>
+<p>Часовой пояс: <span class='tz_time'>GMT + 3</span></p>
+</body>`
+  )
+
+const INBOX_HTML = `<!DOCTYPE html><html><head><title>Входящие</title></head><body>
+<a id="logged-in-username" href="https://rutracker.org/forum/profile.php?mode=viewprofile&amp;u=1234">someone</a>
+<form method="post" action="privmsg.php?folder=inbox" name="privmsg_list" class="tokenized">
+<table class="forumline">
+<tr><th>&nbsp;</th><th class="w50">Тема</th><th class="w20">От</th><th class="w20">Дата</th><th></th></tr>
+<tr id="tr-5001" class="pm-row prow1 pm-unread tCenter hl-tr">
+  <td><img src="https://static.rutracker.cc/templates/v1/images/folder_new.gif" alt=""></td>
+  <td class="tLeft pad_0"><a href="privmsg.php?folder=inbox&amp;mode=read&amp;p=5001" class="med block pad_4"><b>Привет</b></a></td>
+  <td class="pm-nick-td"><div class="pm-nick-wrap">
+    <a href="privmsg.php?folder=inbox&amp;filter_uid=4321" class="pm-filter-uid" title="f"><img src="f.gif" alt="f"></a>
+    <a class="med" href="https://rutracker.org/forum/profile.php?mode=viewprofile&amp;u=4321">sender</a>
+  </div></td>
+  <td class="med">2026-10-22 17:16</td>
+  <td><input type="checkbox" name="mark[]" value="5001" class="pm-mark"></td>
+</tr>
+<tr id="tr-5000" class="pm-row prow2 tCenter hl-tr">
+  <td><img src="https://static.rutracker.cc/templates/v1/images/folder.gif" alt=""></td>
+  <td class="tLeft pad_0"><a href="privmsg.php?folder=inbox&amp;mode=read&amp;p=5000" class="med block pad_4">Old</a></td>
+  <td class="pm-nick-td"><div class="pm-nick-wrap"><a class="med" href="profile.php?mode=viewprofile&amp;u=4321">sender</a></div></td>
+  <td class="med">2026-10-01 09:00</td>
+  <td></td>
+</tr>
+</table>
+</form>
+</body></html>`
 
 function profileHtml(body: string, extraBelow = ""): string {
   return `<!DOCTYPE html><html><head><title>someone</title>
@@ -142,7 +184,12 @@ const SOLVER = { url: "http://flaresolverr.example:8191", maxTimeout: 60000 }
 const OPTIONS = { flaresolverr: SOLVER }
 
 interface SiteSetup {
-  /** The response to the login form: the signed-in page, a captcha, or the form again */
+  /** The index for a logged-in session; its header is also on the landing page */
+  index?: string
+  /** Replaces the index response, to simulate a failed read */
+  indexReply?: { status: number; body: string }
+  inbox?: { status: number; body: string }
+  /** The response to the login form: the landing page, a captcha, or the form again */
   login?: "ok" | "captcha" | "refused"
   /** The login page shows a captcha before anything is posted */
   captchaOnPage?: boolean
@@ -185,6 +232,12 @@ function mockSolver(setup: SiteSetup = {}): SolverRequest[] {
   const sent: SolverRequest[] = []
   const loggedIn = new Set<string>()
   let captchas = 0
+  const landed = new Set<string>()
+  // The inbox folder is where a session lands: the signed-in header without the news.
+  const landing = (setup.index ?? INDEX_HTML).replace(
+    /<table id="latest-news-table">[\s\S]*?<\/table>/,
+    ""
+  )
   vi.spyOn(global, "fetch").mockImplementation((async (_url: string, init: RequestInit) => {
     const body = JSON.parse(String(init.body)) as SolverRequest
     sent.push(body)
@@ -212,13 +265,15 @@ function mockSolver(setup: SiteSetup = {}): SolverRequest[] {
         )
         if (answered && fields.login_password === "right-p@ss&<") {
           loggedIn.add(session)
-          return solved(`${BASE_URL}/forum/privmsg.php?folder=inbox`, INDEX_HTML, 200, [
+          landed.add(session)
+          return solved(`${BASE_URL}/forum/privmsg.php?folder=inbox`, landing, 200, [
             { name: "bb_session", value: "issued", domain: ".rutracker.org" },
           ])
         }
         if (outcome === "ok" && fields.login_password === "right-p@ss&<") {
           loggedIn.add(session)
-          return solved(`${BASE_URL}/forum/privmsg.php?folder=inbox`, INDEX_HTML, 200, [
+          landed.add(session)
+          return solved(`${BASE_URL}/forum/privmsg.php?folder=inbox`, landing, 200, [
             { name: "bb_session", value: "issued", domain: ".rutracker.org" },
           ])
         }
@@ -250,9 +305,18 @@ function mockSolver(setup: SiteSetup = {}): SolverRequest[] {
       captchas += 1
       return solved(url, captchaForm(captchas))
     }
+    if (url.endsWith("/forum/index.php")) {
+      if (setup.indexReply) return solved(url, setup.indexReply.body, setup.indexReply.status)
+      return solved(url, loggedIn.has(session) ? (setup.index ?? INDEX_HTML) : GUEST_INDEX_HTML)
+    }
     if (url.includes("/forum/privmsg.php")) {
       if (!loggedIn.has(session)) return solved(`${BASE_URL}/forum/login.php`, GUEST_INDEX_HTML)
-      return solved(url, INDEX_HTML)
+      if (!landed.has(session)) {
+        landed.add(session)
+        return solved(url, landing)
+      }
+      const reply = setup.inbox ?? { status: 200, body: INBOX_HTML }
+      return solved(url, reply.body, reply.status)
     }
     if (url.includes("/forum/profile.php")) {
       if (!loggedIn.has(session)) return solved(`${BASE_URL}/forum/login.php`, GUEST_INDEX_HTML)
@@ -318,7 +382,7 @@ describe("parseRutrackerCredentials", () => {
 
 describe("parseRutrackerIndex", () => {
   it("reads the account and the form token from the header", () => {
-    expect(parseRutrackerIndex(INDEX_HTML, HOST)).toEqual({
+    expect(parseRutrackerIndex(INDEX_HTML, HOST)).toMatchObject({
       username: "someone",
       userId: 1234,
       formToken: TOKEN,
@@ -501,6 +565,67 @@ describe("parseRutrackerCaptcha", () => {
   })
 })
 
+describe("parseRutrackerIndex inbox fields", () => {
+  const NOW = new Date("2026-10-22T12:00:00Z")
+
+  it("reads no unread mail from the plain header", () => {
+    expect(parseRutrackerIndex(INDEX_HTML, HOST, BASE_URL, NOW).hasUnreadMessages).toBe(false)
+  })
+
+  it("reads the unread-mail flag", () => {
+    expect(parseRutrackerIndex(UNREAD_INDEX_HTML, HOST, BASE_URL, NOW).hasUnreadMessages).toBe(true)
+  })
+
+  it("dates the news, stepping back a year when the month rises down the list", () => {
+    const { news, utcOffsetMinutes } = parseRutrackerIndex(UNREAD_INDEX_HTML, HOST, BASE_URL, NOW)
+    expect(utcOffsetMinutes).toBe(180)
+    expect(news).toEqual([
+      {
+        id: "111",
+        kind: "news",
+        title: "День Рождения",
+        publishedAt: "2026-09-18T00:00:00+03:00",
+        url: "https://rutracker.org/forum/viewtopic.php?t=111",
+      },
+      expect.objectContaining({ id: "222", publishedAt: "2026-01-05T00:00:00+03:00" }),
+      expect.objectContaining({ id: "333", publishedAt: "2025-12-09T00:00:00+03:00" }),
+    ])
+  })
+
+  it("puts a date later in the year than today in the previous year", () => {
+    const early = new Date("2026-03-01T12:00:00Z")
+    expect(parseRutrackerIndex(INDEX_HTML, HOST, BASE_URL, early).news[0].publishedAt).toBe(
+      "2025-09-18T00:00:00+03:00"
+    )
+  })
+})
+
+describe("parseRutrackerInbox", () => {
+  it("lists only the unread rows, with times in the account's zone", () => {
+    expect(parseRutrackerInbox(INBOX_HTML, BASE_URL, 180)).toEqual([
+      {
+        id: "5001",
+        subject: "Привет",
+        sender: "sender",
+        sentAt: "2026-10-22T17:16:00+03:00",
+        url: "https://rutracker.org/forum/privmsg.php?folder=inbox&mode=read&p=5001",
+      },
+    ])
+  })
+
+  it("reads an empty folder as no messages", () => {
+    const empty = INBOX_HTML.replace(
+      /<tr id=[\s\S]*<\/tr>\n<\/table>/,
+      '<tr><td class="row1">В этой папке нет сообщений</td></tr>\n</table>'
+    )
+    expect(parseRutrackerInbox(empty, BASE_URL, 180)).toEqual([])
+  })
+
+  it("throws on a page that is not the folder", () => {
+    expect(() => parseRutrackerInbox(INDEX_HTML, BASE_URL, 180)).toThrow(/no RuTracker inbox/)
+  })
+})
+
 describe("RutrackerAdapter", () => {
   beforeEach(() => {
     vi.restoreAllMocks()
@@ -543,6 +668,7 @@ describe("RutrackerAdapter", () => {
       `GET ${BASE_URL}/forum/login.php`,
       `POST ${BASE_URL}/forum/login.php`,
       `GET ${BASE_URL}/forum/profile.php?mode=viewprofile&u=1234`,
+      `GET ${BASE_URL}/forum/index.php`,
       "sessions.destroy",
     ])
     expect(sent[0].session).toBeUndefined()
@@ -563,6 +689,7 @@ describe("RutrackerAdapter", () => {
       "sessions.create",
       `GET ${BASE_URL}/forum/privmsg.php?folder=inbox +cookie`,
       `GET ${BASE_URL}/forum/profile.php?mode=viewprofile&u=1234`,
+      `GET ${BASE_URL}/forum/index.php`,
       "sessions.destroy",
     ])
     expect(again[2].cookies).toEqual([
@@ -707,11 +834,73 @@ describe("RutrackerAdapter", () => {
       ["Profile", null],
       ["Upload Statistics", null],
       ["Seeding List", null],
+      ["Forum Index", null],
     ])
     expect(JSON.stringify(calls)).not.toContain("right-p@ss")
   })
 
   it("throws on a malformed credential instead of reporting a call", async () => {
     await expect(adapter().fetchRaw(BASE_URL, "{}", "/forum/index.php", OPTIONS)).rejects.toThrow()
+  })
+})
+
+describe("RutrackerAdapter inbox", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    vi.useFakeTimers({ toFake: ["setTimeout"] })
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  const poll = () =>
+    settle(new RutrackerAdapter().fetchStats(BASE_URL, CREDS, "/forum/index.php", OPTIONS))
+
+  it("reports nothing unread without reading the folder when the flag is down", async () => {
+    const sent = mockSolver()
+
+    const result = await poll()
+
+    // Only the landing page, which every session starts on.
+    expect(sent.filter((r) => r.url?.includes("privmsg.php"))).toHaveLength(1)
+    expect(result.inbox).toMatchObject({
+      unreadMessages: 0,
+      messages: [],
+      links: {
+        inbox: "https://rutracker.org/forum/privmsg.php?folder=inbox",
+        news: "https://rutracker.org/forum/index.php",
+      },
+    })
+    expect(result.inbox?.news?.map((n) => n.id)).toEqual(["111"])
+  })
+
+  it("completes the poll without news when the index cannot be read", async () => {
+    mockSolver({ indexReply: { status: 200, body: CHALLENGE_HTML } })
+
+    const result = await poll()
+
+    expect(result).toMatchObject({ kind: "overview", username: "someone", remoteUserId: 1234 })
+    expect(result.inbox).toMatchObject({ unreadMessages: 0, messages: [] })
+    expect(result.inbox).not.toHaveProperty("news")
+  })
+
+  it("lists the unread messages when the flag is up", async () => {
+    const sent = mockSolver({ index: UNREAD_INDEX_HTML })
+
+    const result = await poll()
+
+    expect(described(sent)).toContain(`GET ${BASE_URL}/forum/privmsg.php?folder=inbox`)
+    expect(result.inbox?.unreadMessages).toBe(1)
+    expect(result.inbox?.messages?.map((m) => m.id)).toEqual(["5001"])
+  })
+
+  it("completes the poll with an unknown count when the folder cannot be read", async () => {
+    mockSolver({ index: UNREAD_INDEX_HTML, inbox: { status: 403, body: CHALLENGE_HTML } })
+
+    const result = await poll()
+
+    expect(result.username).toBe("someone")
+    expect(result.inbox?.unreadMessages).toBeNull()
+    expect(result.inbox).not.toHaveProperty("messages")
   })
 })
