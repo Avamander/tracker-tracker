@@ -1,8 +1,9 @@
 // src/lib/tracker-platforms/adapters/funfile.ts
 //
 // Functions: parseFunfileCredentials, siteBytes, detailsRow, firstSize, labelledSize,
-//            parseFunfilePage, absorbCookies, cookieHeader, login, positiveId, uidFromCookies,
-//            ownUserId, fetchHtml, fetchProfile, readProfile, FunfileAdapter
+//            parseUnreadMessages, parseFunfilePage, absorbCookies, cookieHeader, login,
+//            positiveId, uidFromCookies, ownUserId, fetchHtml, fetchProfile, readProfile,
+//            FunfileAdapter
 
 import { type HTMLElement as ParsedElement, parse as parseHtml } from "node-html-parser"
 import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
@@ -12,6 +13,7 @@ import type {
   FetchOptions,
   FunFilePlatformMeta,
   TrackerAdapter,
+  TrackerInbox,
   TrackerStats,
 } from "../contract"
 import { parseCredentialJson } from "../helpers/cookie-credentials"
@@ -84,6 +86,19 @@ function labelledSize(cell: ParsedElement | undefined, label: string): bigint | 
   return undefined
 }
 
+/**
+ * The unread count from the "Alerts!" box on every page: a link to the inbox
+ * reading "N new message(s)", absent when nothing is unread. The inbox page
+ * itself is never requested, because viewing it marks the messages read.
+ */
+function parseUnreadMessages(doc: ParsedElement): number {
+  for (const link of doc.querySelectorAll('a[href*="messages.php?action=viewmailbox"]')) {
+    const count = normalizeWhitespace(link.textContent).match(/^(\d+) new messages?$/i)?.[1]
+    if (count) return Number(count)
+  }
+  return 0
+}
+
 /** The member's own userdetails.php page: the header and the details table. */
 export function parseFunfilePage(html: string, hostname: string): TrackerStats {
   const doc = parseHtml(html)
@@ -152,6 +167,15 @@ export function parseFunfilePage(html: string, hostname: string): TrackerStats {
     freeleechTokens: null,
     platformMeta: meta,
   }
+  // A count only: with no message list, messages stored by earlier polls are
+  // left unchanged.
+  const inbox: TrackerInbox = {
+    unreadMessages: parseUnreadMessages(doc),
+    unreadStaffMessages: null,
+    unreadNotifications: null,
+    links: { inbox: `https://${hostname}/messages.php?action=viewmailbox` },
+  }
+  stats.inbox = inbox
   const joined = datePrefix(normalizeWhitespace(detailsRow(doc, "Join Date")?.textContent ?? ""))
   if (joined) stats.joinedDate = joined
   const lastSeen = datePrefix(normalizeWhitespace(detailsRow(doc, "Last Seen")?.textContent ?? ""))

@@ -268,7 +268,7 @@ Location varies by platform:
 
 === "FunFile"
 
-    FunFile has no API, so Tracker Tracker logs in with your **username and password** and reads your profile page. The password is encrypted at rest with the same key as every other tracker credential, and the login session is kept between polls, so the password is sent again only when the session expires.
+    FunFile has no API, so Tracker Tracker logs in with your **username and password** and reads your profile page. The password is encrypted at rest with the same key as every other tracker credential, and the login session is kept between polls, so the password is sent again only when the session expires. The number of unread private messages is read from the page header; the message list is not shown, because opening the FunFile inbox marks the messages as read.
 
     !!! warning "Six failed logins ban the IP address"
         FunFile bans an IP address after six failed logins in a row, so check the username and password before saving them.
