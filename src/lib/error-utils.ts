@@ -87,6 +87,11 @@ export function sanitizeNetworkError(raw: string, fallback = "Connection failed"
   if (/Luminance login refused: the account uses two-factor login/i.test(raw)) {
     return "Two-factor login is on for this account. Add a session cookie from a browser login to the tracker's credentials"
   }
+  // FunFile's rejected login, which pauses the tracker. Matched before the IP ban
+  // rule, since the message mentions the ban it avoids.
+  if (/FunFile login failed/i.test(raw)) {
+    return "FunFile login failed with the stored username and password. Polling was paused to avoid an IP ban"
+  }
   // RuTracker shows a captcha after repeated logins. The message is returned
   // unchanged because the tracker page shows the captcha form when it matches.
   if (/Enter the RuTracker captcha/i.test(raw)) {
