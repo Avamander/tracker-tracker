@@ -183,6 +183,9 @@ export const ADAPTER_FETCH_TIMEOUT_MS = 15_000
 // Transmission answers RPC from its single event loop, which stalls under heavy load
 export const TRANSMISSION_RPC_TIMEOUT_MS = 120_000
 /** How long FlareSolverr may spend on one page. Solving a challenge takes seconds. */
+/** A captcha's answer as the user types it, and the largest image fetched for one. */
+export const CAPTCHA_ANSWER_MAX = 32
+export const CAPTCHA_IMAGE_MAX_BYTES = 100 * 1024
 export const FLARESOLVERR_TIMEOUT_DEFAULT_MS = 60_000
 export const FLARESOLVERR_TIMEOUT_MIN_MS = 10_000
 export const FLARESOLVERR_TIMEOUT_MAX_MS = 180_000

@@ -87,6 +87,13 @@ export function sanitizeNetworkError(raw: string, fallback = "Connection failed"
   if (/Luminance login refused: the account uses two-factor login/i.test(raw)) {
     return "Two-factor login is on for this account. Add a session cookie from a browser login to the tracker's credentials"
   }
+  // RuTracker shows a captcha after repeated logins. The message is returned
+  // unchanged because the tracker page shows the captcha form when it matches.
+  if (/Enter the RuTracker captcha/i.test(raw)) {
+    return "Enter the RuTracker captcha on the tracker page"
+  }
+  if (/Wrong captcha/i.test(raw)) return "Wrong captcha, try the new one"
+  if (/captcha is pending/i.test(raw)) return "No captcha is pending"
   // FlareSolverr errors. An unreachable FlareSolverr makes the tracker unreachable
   // too. Other FlareSolverr failures are named as such, because the fix is in
   // FlareSolverr and not in the tracker.
