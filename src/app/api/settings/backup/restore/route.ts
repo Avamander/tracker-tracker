@@ -516,6 +516,8 @@ export async function POST(request: Request) {
             color: (fields.color as string | null) ?? null,
             qbtTag: (fields.qbtTag as string | null) ?? null,
             remoteUserId: (fields.remoteUserId as number | null) ?? null,
+            remoteUsername: (fields.remoteUsername as string | null) ?? null,
+            remoteGroup: (fields.remoteGroup as string | null) ?? null,
             platformMeta: (fields.platformMeta as string | null) ?? null,
             mouseholeUrl: (fields.mouseholeUrl as string | null) ?? null,
             encryptedMouseholeToken: mouseholeToken,

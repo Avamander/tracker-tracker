@@ -42,7 +42,7 @@ import {
   validateUsername,
 } from "@/lib/limits"
 import { log } from "@/lib/logger"
-import { scrubSnapshotUsernames } from "@/lib/privacy-db"
+import { scrubSnapshotUsernames, scrubTrackerUsernames } from "@/lib/privacy-db"
 import { fetchSettings, serializeSettingsResponse } from "@/lib/server-data"
 import { PROXY_HOST_PATTERN, VALID_PROXY_TYPES } from "@/lib/tunnel"
 import { isValidPort } from "@/lib/validators"
@@ -292,6 +292,7 @@ export async function PATCH(request: Request) {
     // When disabling username storage, optionally scrub historical data
     if (!body.storeUsernames && body.scrubExisting) {
       await scrubSnapshotUsernames()
+      await scrubTrackerUsernames()
     }
   }
 

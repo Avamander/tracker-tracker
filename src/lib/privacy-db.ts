@@ -1,6 +1,7 @@
 // src/lib/privacy-db.ts
 //
-// Functions: createPrivacyMask, createPrivacyMaskSync, scrubSnapshotUsernames
+// Functions: createPrivacyMask, createPrivacyMaskSync, scrubSnapshotUsernames,
+//            scrubTrackerUsernames
 //
 // DB-aware privacy operations. Pure helpers (maskUsername, isRedacted) live
 // in privacy.ts to keep that module free of I/O dependencies.
@@ -87,4 +88,30 @@ export async function scrubSnapshotUsernames(): Promise<number> {
     ((result as { rowCount?: number }).rowCount ?? 0) +
     ((senders as { rowCount?: number }).rowCount ?? 0)
   )
+}
+
+/**
+ * The same scrub for the username and class that an overview-only poll stores
+ * on the tracker row. Returns the number of rows scrubbed.
+ */
+export async function scrubTrackerUsernames(): Promise<number> {
+  const prefix = REDACTED_PREFIX
+  const result = await db.execute(sql`
+    UPDATE trackers
+    SET
+      remote_username = CASE
+        WHEN remote_username IS NOT NULL AND remote_username NOT LIKE ${`${prefix}%`}
+        THEN CONCAT(${prefix}, CHAR_LENGTH(remote_username))
+        ELSE remote_username
+      END,
+      remote_group = CASE
+        WHEN remote_group IS NOT NULL AND remote_group NOT LIKE ${`${prefix}%`}
+        THEN CONCAT(${prefix}, CHAR_LENGTH(remote_group))
+        ELSE remote_group
+      END
+    WHERE
+      (remote_username IS NOT NULL AND remote_username NOT LIKE ${`${prefix}%`})
+      OR (remote_group IS NOT NULL AND remote_group NOT LIKE ${`${prefix}%`})
+  `)
+  return (result as { rowCount?: number }).rowCount ?? 0
 }

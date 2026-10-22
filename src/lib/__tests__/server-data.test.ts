@@ -375,6 +375,8 @@ describe("serializeTrackerResponse excludes encryptedApiToken", () => {
       inboxCheckedAt: null,
       inboxLinks: null,
       remoteUserId: null,
+      remoteUsername: null,
+      remoteGroup: null,
       platformMeta: null,
       avatarData: null,
       avatarMimeType: null,
