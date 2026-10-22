@@ -1,10 +1,11 @@
 // src/lib/tracker-platforms/adapters/rutracker.ts
 //
-// Functions: parseRutrackerCredentials, assertSignedIn, extractFormToken, parseRutrackerIndex,
-//            siteBytes, detailsRow, parseReleases, parseRutrackerProfile, englishRank, englishTenure,
-//            bytesField, parseTrafStats, parseSeedingCount, parseRutrackerCaptcha, requireSolver,
-//            sessionKey, dropCaptcha, holdCaptcha, liveCaptcha, isLoginPage, login, pause,
-//            RutrackerAdapter
+// Functions: parseRutrackerCredentials, assertSignedIn, extractFormToken, parseUtcOffset,
+//            zoneSuffix, hasUnreadMessages, parseNewsDates, parseRutrackerNews, parseRutrackerIndex,
+//            parseRutrackerInbox, siteBytes, detailsRow, parseReleases, parseRutrackerProfile,
+//            englishRank, englishTenure, bytesField, parseTrafStats, parseSeedingCount,
+//            parseRutrackerCaptcha, requireSolver, sessionKey, dropCaptcha, holdCaptcha, liveCaptcha,
+//            isLoginPage, login, buildInbox, pause, RutrackerAdapter
 
 import { randomBytes, scrypt } from "node:crypto"
 import { type HTMLElement as ParsedElement, parse as parseHtml } from "node-html-parser"
@@ -13,9 +14,12 @@ import type {
   DebugApiCall,
   FetchOptions,
   FlareSolverrConfig,
+  InboxMessage,
+  NewsItem,
   PendingCaptcha,
   RuTrackerPlatformMeta,
   TrackerAdapter,
+  TrackerInbox,
   TrackerOverview,
 } from "../contract"
 import { parseCredentialJson } from "../helpers/cookie-credentials"
@@ -62,11 +66,15 @@ const LOGIN_PATTERN = /login\.php/i
 const REQUEST_GAP_MS = 1500
 /** The profile's seeding list stops at this many rows. */
 const SEEDING_LIST_CAP = 100
+
+/** The site's own zone (GMT+3), used when the footer shows none. */
+const DEFAULT_UTC_OFFSET_MINUTES = 180
+const INBOX_PATH = "/forum/privmsg.php?folder=inbox"
 /**
  * A light page that contains the signed-in header, used for the first request
  * and as the login redirect. The index takes 30 to 45 s through FlareSolverr.
  */
-const LANDING_PATH = "/forum/privmsg.php?folder=inbox"
+const LANDING_PATH = INBOX_PATH
 /** English names for the site's roles and titles; a name missing here is shown as printed. */
 const RANK_NAMES: Record<string, string> = {
   пользователь: "User",
@@ -94,6 +102,21 @@ const TENURE_UNITS: [prefix: string, unit: string][] = [
   ["д", "day"],
   ["час", "hour"],
   ["мин", "minute"],
+]
+
+const RU_MONTHS = [
+  "янв",
+  "фев",
+  "мар",
+  "апр",
+  "май",
+  "июн",
+  "июл",
+  "авг",
+  "сен",
+  "окт",
+  "ноя",
+  "дек",
 ]
 
 export interface RutrackerCredentials {
@@ -127,13 +150,107 @@ function extractFormToken(html: string): string | undefined {
   return html.match(/form_token\s*:\s*'([0-9a-f]{16,64})'/i)?.[1]
 }
 
+/** The account's zone from the footer, "Часовой пояс: GMT + 3", in minutes east of UTC. */
+function parseUtcOffset(html: string): number {
+  const match = html.match(/Часовой пояс:\s*<span[^>]*>\s*GMT\s*([+-])\s*(\d+(?:\.\d+)?)/)
+  if (!match) return DEFAULT_UTC_OFFSET_MINUTES
+  const minutes = Math.round(Number.parseFloat(match[2]) * 60)
+  return match[1] === "-" ? -minutes : minutes
+}
+
+/** An ISO 8601 offset ("+03:00") for minutes east of UTC. */
+function zoneSuffix(offsetMinutes: number): string {
+  const abs = Math.abs(offsetMinutes)
+  const hours = String(Math.floor(abs / 60)).padStart(2, "0")
+  return `${offsetMinutes < 0 ? "-" : "+"}${hours}:${String(abs % 60).padStart(2, "0")}`
+}
+
+/**
+ * The header contains no count, only a flag: the top menu has the `new-pm` class
+ * and the ЛС link text includes "(есть новые)".
+ */
+function hasUnreadMessages(doc: ParsedElement): boolean {
+  return (
+    doc.querySelector(".topmenu.new-pm, a.new-pm-link") !== null ||
+    (
+      doc.querySelector('.top-menus a[href="privmsg.php?folder=inbox"]')?.textContent ?? ""
+    ).includes("есть новые")
+  )
+}
+
+/**
+ * News dates are "18-Сен", day and month with no year, newest first. The year
+ * starts at the current one in the site's zone and steps back whenever a date
+ * is later in the year than the one above it.
+ */
+function parseNewsDates(
+  labels: string[],
+  now: Date,
+  offsetMinutes: number
+): (string | undefined)[] {
+  const local = new Date(now.getTime() + offsetMinutes * 60_000)
+  let year = local.getUTCFullYear()
+  let previous = (local.getUTCMonth() + 1) * 100 + local.getUTCDate()
+  const zone = zoneSuffix(offsetMinutes)
+  return labels.map((label) => {
+    const match = label.match(/^(\d{1,2})-(\p{L}{3})/u)
+    const month = match ? RU_MONTHS.indexOf(match[2].toLowerCase()) + 1 : 0
+    if (!match || month === 0) return undefined
+    const day = Number.parseInt(match[1], 10)
+    const key = month * 100 + day
+    if (key > previous) year -= 1
+    previous = key
+    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T00:00:00${zone}`
+  })
+}
+
+/** "Новости трекера" on the index: `#latest-news-table` rows, newest first. */
+function parseRutrackerNews(
+  doc: ParsedElement,
+  baseUrl: string,
+  now: Date,
+  offsetMinutes: number
+): NewsItem[] {
+  const rows = doc
+    .querySelectorAll("#latest-news-table tr")
+    .map((row) => {
+      const link = row.querySelector(".news_title a")
+      const id = link?.getAttribute("href")?.match(/[?&]t=(\d+)/)?.[1]
+      const title = normalizeWhitespace(link?.textContent ?? "")
+      const date = normalizeWhitespace(row.querySelector(".news_date")?.textContent ?? "")
+      return id && title ? { id, title, date } : null
+    })
+    .filter((row) => row !== null)
+  const dates = parseNewsDates(
+    rows.map((row) => row.date),
+    now,
+    offsetMinutes
+  )
+  return rows.map((row, i) => ({
+    id: row.id,
+    kind: "news" as const,
+    title: row.title,
+    publishedAt: dates[i],
+    url: new URL(`/forum/viewtopic.php?t=${row.id}`, baseUrl).toString(),
+  }))
+}
+
 export interface RutrackerIndex {
   username: string
   userId: number
   formToken?: string
+  hasUnreadMessages: boolean
+  /** Minutes east of UTC that the site prints times in for this account */
+  utcOffsetMinutes: number
+  news: NewsItem[]
 }
 
-export function parseRutrackerIndex(html: string, hostname: string): RutrackerIndex {
+export function parseRutrackerIndex(
+  html: string,
+  hostname: string,
+  baseUrl = `https://${hostname}`,
+  now = new Date()
+): RutrackerIndex {
   const doc = parseHtml(html)
   assertSignedIn(html, doc)
 
@@ -143,7 +260,52 @@ export function parseRutrackerIndex(html: string, hostname: string): RutrackerIn
   if (!username || !Number.isFinite(userId) || userId <= 0) {
     throw new Error(`Unexpected response from ${hostname}: no username in the RuTracker header`)
   }
-  return { username, userId, formToken: extractFormToken(html) }
+  const utcOffsetMinutes = parseUtcOffset(html)
+  return {
+    username,
+    userId,
+    formToken: extractFormToken(html),
+    hasUnreadMessages: hasUnreadMessages(doc),
+    utcOffsetMinutes,
+    news: parseRutrackerNews(doc, baseUrl, now, utcOffsetMinutes),
+  }
+}
+
+/**
+ * The unread rows (`pm-unread`) of the inbox folder. Times are printed
+ * "YYYY-MM-DD HH:MM" in the account's zone. No row shows whether staff sent it.
+ */
+export function parseRutrackerInbox(
+  html: string,
+  baseUrl: string,
+  offsetMinutes: number
+): InboxMessage[] {
+  const doc = parseHtml(html)
+  assertSignedIn(html, doc)
+  if (!doc.querySelector('form[name="privmsg_list"]')) {
+    throw new Error(`Unexpected response from ${new URL(baseUrl).hostname}: no RuTracker inbox`)
+  }
+  const zone = zoneSuffix(offsetMinutes)
+
+  const messages: InboxMessage[] = []
+  for (const row of doc.querySelectorAll('form[name="privmsg_list"] tr.pm-row.pm-unread')) {
+    const link = row.querySelector('a[href*="mode=read"]')
+    const id =
+      link?.getAttribute("href")?.match(/[?&;]p=(\d+)/)?.[1] ?? row.id.match(/^tr-(\d+)$/)?.[1]
+    if (!id) continue
+    const sender = normalizeWhitespace(row.querySelector(".pm-nick-td a.med")?.textContent ?? "")
+    const sent = normalizeWhitespace(row.querySelector("td.med")?.textContent ?? "").match(
+      /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2})$/
+    )
+    messages.push({
+      id,
+      subject: normalizeWhitespace(link?.textContent ?? ""),
+      sender: sender || null,
+      sentAt: sent ? `${sent[1]}T${sent[2]}:00${zone}` : undefined,
+      url: new URL(`/forum/privmsg.php?folder=inbox&mode=read&p=${id}`, baseUrl).toString(),
+    })
+  }
+  return messages
 }
 
 /**
@@ -515,6 +677,30 @@ async function login(
   )
 }
 
+/**
+ * With the flag down nothing is unread, so the empty list marks earlier
+ * messages read. With it up and the folder unreadable, the count is unknown.
+ */
+function buildInbox(
+  baseUrl: string,
+  index: RutrackerIndex,
+  unread: InboxMessage[] | undefined,
+  newsRead: boolean
+): TrackerInbox {
+  const messages = index.hasUnreadMessages ? unread : []
+  return {
+    unreadMessages: messages ? messages.length : null,
+    unreadStaffMessages: null,
+    unreadNotifications: null,
+    ...(messages ? { messages } : {}),
+    ...(newsRead ? { news: index.news } : {}),
+    links: {
+      inbox: new URL(INBOX_PATH, baseUrl).toString(),
+      news: new URL("/forum/index.php", baseUrl).toString(),
+    },
+  }
+}
+
 function pause(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, REQUEST_GAP_MS))
 }
@@ -524,17 +710,21 @@ interface PollPages {
   profile?: RutrackerProfile
   trafStats?: Partial<RuTrackerPlatformMeta>
   seedingCount?: number
+  /** Unset when the inbox was not read, or its read failed */
+  unread?: InboxMessage[]
+  /** Whether the index, the only page with the news, was read */
+  newsRead?: boolean
 }
 
-type Step = "session" | "header" | "login" | "profile" | "trafStats" | "seeding"
+type Step = "session" | "header" | "login" | "profile" | "trafStats" | "seeding" | "index" | "inbox"
 
 type OnStep = (step: Step, endpoint: string, data: unknown, error: unknown) => void
 
 export class RutrackerAdapter implements TrackerAdapter {
   /**
-   * The signed-in header and the profile are required. The statistics and the seeding
-   * list are best-effort: a failure there is reported to `onStep` and the poll
-   * continues without them.
+   * The signed-in header and the profile are required. The statistics, the
+   * seeding list, the news and the inbox are best-effort: a failure there is
+   * reported to `onStep` and the poll continues without them.
    */
   private async readPages(
     baseUrl: string,
@@ -629,8 +819,9 @@ export class RutrackerAdapter implements TrackerAdapter {
         }
       }
 
+      // Every page contains the header; only the index contains the news.
       try {
-        pages.index = parseRutrackerIndex(landingHtml, hostname)
+        pages.index = parseRutrackerIndex(landingHtml, hostname, baseUrl)
         onStep("header", LANDING_PATH, pages.index, null)
       } catch (err) {
         onStep("header", LANDING_PATH, null, err)
@@ -652,31 +843,58 @@ export class RutrackerAdapter implements TrackerAdapter {
       const formToken = profile.formToken ?? pages.index.formToken
       // The AJAX call returns zeros when statistics are off, so it is made only
       // when the profile shows statistics as on.
-      if (profile.meta.statsEnabled !== true || !formToken) return pages
+      if (profile.meta.statsEnabled === true && formToken) {
+        await pause()
+        const ajaxEndpoint = "/forum/ajax.php"
+        try {
+          const body = await post(ajaxEndpoint, {
+            action: "get_traf_stats",
+            user_id: String(userId),
+            form_token: formToken,
+          })
+          pages.trafStats = parseTrafStats(unwrapSolverJson(body), hostname)
+          onStep("trafStats", ajaxEndpoint, pages.trafStats, null)
+        } catch (err) {
+          onStep("trafStats", ajaxEndpoint, null, err)
+        }
 
-      await pause()
-      const ajaxEndpoint = "/forum/ajax.php"
-      try {
-        const body = await post(ajaxEndpoint, {
-          action: "get_traf_stats",
-          user_id: String(userId),
-          form_token: formToken,
-        })
-        pages.trafStats = parseTrafStats(unwrapSolverJson(body), hostname)
-        onStep("trafStats", ajaxEndpoint, pages.trafStats, null)
-      } catch (err) {
-        onStep("trafStats", ajaxEndpoint, null, err)
+        if (profile.hasSeedingList) {
+          await pause()
+          try {
+            const html = await post(profileEndpoint, { form_token: formToken, show_seeding: "1" })
+            pages.seedingCount = parseSeedingCount(html)
+            onStep("seeding", profileEndpoint, { seedingCount: pages.seedingCount ?? null }, null)
+          } catch (err) {
+            onStep("seeding", profileEndpoint, null, err)
+          }
+        }
       }
 
-      if (!profile.hasSeedingList) return pages
-
       await pause()
+      const indexEndpoint = "/forum/index.php"
       try {
-        const html = await post(profileEndpoint, { form_token: formToken, show_seeding: "1" })
-        pages.seedingCount = parseSeedingCount(html)
-        onStep("seeding", profileEndpoint, { seedingCount: pages.seedingCount ?? null }, null)
+        const index = parseRutrackerIndex(await get(indexEndpoint), hostname, baseUrl)
+        pages.index = { ...pages.index, utcOffsetMinutes: index.utcOffsetMinutes, news: index.news }
+        pages.newsRead = true
+        onStep("index", indexEndpoint, { news: index.news.length }, null)
       } catch (err) {
-        onStep("seeding", profileEndpoint, null, err)
+        onStep("index", indexEndpoint, null, err)
+      }
+
+      // The header shows only whether there is unread mail, so the folder is
+      // requested only when there is.
+      if (pages.index.hasUnreadMessages) {
+        await pause()
+        try {
+          pages.unread = parseRutrackerInbox(
+            await get(INBOX_PATH),
+            baseUrl,
+            pages.index.utcOffsetMinutes
+          )
+          onStep("inbox", INBOX_PATH, { unread: pages.unread.length }, null)
+        } catch (err) {
+          onStep("inbox", INBOX_PATH, null, err)
+        }
       }
 
       return pages
@@ -710,10 +928,16 @@ export class RutrackerAdapter implements TrackerAdapter {
     const creds = parseRutrackerCredentials(apiToken)
     const solver = requireSolver(options)
     const pages = await this.readPagesWithRetry(baseUrl, creds, solver, (step, _e, _d, err) => {
-      if (err && (step === "trafStats" || step === "seeding")) {
+      const optional = {
+        trafStats: "upload statistics",
+        seeding: "seeding list",
+        index: "news",
+        inbox: "inbox",
+      }
+      if (err && step in optional) {
         log.warn(
           { error: err instanceof Error ? err.message : String(err) },
-          `rutracker: ${step === "trafStats" ? "upload statistics" : "seeding list"} unavailable, overview kept`
+          `rutracker: ${optional[step as keyof typeof optional]} unavailable, overview kept`
         )
       }
     })
@@ -737,6 +961,7 @@ export class RutrackerAdapter implements TrackerAdapter {
     }
     if (profile.joinedDate) overview.joinedDate = profile.joinedDate
     if (profile.avatarUrl) overview.avatarUrl = profile.avatarUrl
+    overview.inbox = buildInbox(baseUrl, index, pages.unread, pages.newsRead === true)
     return overview
   }
 
@@ -786,10 +1011,12 @@ export class RutrackerAdapter implements TrackerAdapter {
     const labels: Record<Step, string> = {
       session: "FlareSolverr Session",
       header: "Account Header",
+      index: "Forum Index",
       login: "Login",
       profile: "Profile",
       trafStats: "Upload Statistics",
       seeding: "Seeding List",
+      inbox: "Inbox",
     }
     const calls: DebugApiCall[] = []
     try {
