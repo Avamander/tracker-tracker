@@ -135,6 +135,10 @@ export const trackers = pgTable("trackers", {
   color: varchar("color", { length: 20 }).default("#00d4ff"),
   qbtTag: varchar("qbt_tag", { length: 100 }),
   remoteUserId: integer("remote_user_id"),
+  // The account returned by an overview-only poll. For trackers with byte totals
+  // it is stored on each snapshot instead. Masked like a snapshot's in privacy mode.
+  remoteUsername: varchar("remote_username", { length: 255 }),
+  remoteGroup: varchar("remote_group", { length: 255 }),
   platformMeta: text("platform_meta"),
   mouseholeUrl: text("mousehole_url"),
   // Mousehole's MOUSEHOLE_AUTH_TOKEN, sealed under the master key. Same

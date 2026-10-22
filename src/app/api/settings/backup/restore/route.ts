@@ -574,6 +574,8 @@ export async function POST(request: Request) {
             color: (fields.color as string | null) ?? null,
             qbtTag: (fields.qbtTag as string | null) ?? null,
             remoteUserId: (fields.remoteUserId as number | null) ?? null,
+            remoteUsername: (fields.remoteUsername as string | null) ?? null,
+            remoteGroup: (fields.remoteGroup as string | null) ?? null,
             platformMeta: (fields.platformMeta as string | null) ?? null,
             // A plain file can be edited, and no registry vouches for a Mousehole
             // address, so only an authenticated file may pair it with the token.

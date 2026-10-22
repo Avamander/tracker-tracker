@@ -14,7 +14,7 @@ vi.mock("@/lib/db/schema", () => ({
 }))
 
 import { REDACTED_PREFIX } from "../privacy"
-import { createPrivacyMask, scrubSnapshotUsernames } from "../privacy-db"
+import { createPrivacyMask, scrubSnapshotUsernames, scrubTrackerUsernames } from "../privacy-db"
 
 const { db } = await import("@/lib/db")
 
@@ -103,5 +103,20 @@ describe("scrubSnapshotUsernames", () => {
     const count = await scrubSnapshotUsernames()
 
     expect(count).toBe(0)
+  })
+})
+
+describe("scrubTrackerUsernames", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it("scrubs the account kept on tracker rows in one UPDATE", async () => {
+    vi.mocked(db.execute).mockResolvedValue({ rowCount: 2 } as never)
+
+    const count = await scrubTrackerUsernames()
+
+    expect(db.execute).toHaveBeenCalledTimes(1)
+    expect(count).toBe(2)
   })
 })
