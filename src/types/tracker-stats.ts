@@ -243,6 +243,23 @@ export interface C411PlatformMeta {
   canDownload?: boolean
 }
 
+/**
+ * FunFile figures that fit no TrackerStats field. Byte counts are plain
+ * numbers: platformMeta is JSON-serialized, and JSON cannot represent bigint.
+ */
+export interface FunFilePlatformMeta {
+  /** Downloaded on freeleech torrents, which the ratio does not count */
+  freeleechDownloadedBytes?: number
+  /** Counted plus freeleech download */
+  totalDownloadedBytes?: number
+  invites?: number
+  downloadSlots?: number
+  /** Upload still needed for the next class, from the page header */
+  nextClassUploadBytes?: number
+  posts?: number
+  comments?: number
+}
+
 /** Union of all platform-specific metadata types */
 export type PlatformMeta =
   | GGnPlatformMeta
@@ -256,6 +273,7 @@ export type PlatformMeta =
   | Unit3dPlatformMeta
   | RetrotoonPlatformMeta
   | C411PlatformMeta
+  | FunFilePlatformMeta
 
 /** Maps platformType string → the corresponding PlatformMeta variant */
 export interface PlatformMetaMap {
@@ -270,6 +288,7 @@ export interface PlatformMetaMap {
   unit3d: Unit3dPlatformMeta
   retrotoon: RetrotoonPlatformMeta
   c411: C411PlatformMeta
+  funfile: FunFilePlatformMeta
 }
 
 /**

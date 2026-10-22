@@ -443,7 +443,8 @@ function TrackerSettingsSheet({ open, tracker, onClose, onUpdated }: TrackerSett
             tracker.platformType === "filelist" ||
             tracker.platformType === "iptorrents" ||
             tracker.platformType === "torrentleech" ||
-            tracker.platformType === "retrotoon"
+            tracker.platformType === "retrotoon" ||
+            tracker.platformType === "funfile"
           ) && (
             <div>
               <label

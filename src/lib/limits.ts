@@ -61,6 +61,7 @@ const LARGE_TOKEN_PLATFORMS: ReadonlySet<string> = new Set([
   "avistaz",
   "digitalcore",
   "filelist",
+  "funfile",
   "iptorrents",
   "retrotoon",
   "torrentleech",
