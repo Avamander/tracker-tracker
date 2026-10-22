@@ -31,6 +31,7 @@ const mockTracker = {
   avatarCachedAt: null,
   avatarRemoteUrl: null,
   useProxy: false,
+  useFlaresolverr: false,
   countCrossSeedUnsatisfied: false,
   isFavorite: false,
   sortOrder: null,
