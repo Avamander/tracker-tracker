@@ -294,6 +294,8 @@ function AddTrackerDialog({ open, onClose, onAdded, existingSlugs = [] }: AddTra
     } else {
       setColor(CHART_THEME.accent)
     }
+    // RuTracker is read only through FlareSolverr, so it starts switched on.
+    setUseFlaresolverr(entry?.platform === "rutracker")
     // Everything typed belongs to the tracker it was typed for. Keeping a token
     // across a switch would send it to the next tracker's host on submit.
     setCredentials(EMPTY_CREDENTIAL_VALUES)
