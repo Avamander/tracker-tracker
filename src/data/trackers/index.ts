@@ -27,6 +27,7 @@ export * from "./empornium"
 export * from "./exoticaz"
 export * from "./fearnopeer"
 export * from "./filelist"
+export * from "./funfile"
 export * from "./gazellegames"
 export * from "./greatposterwall"
 export * from "./hawkeuno"
@@ -91,6 +92,7 @@ import { empornium } from "./empornium"
 import { exoticaz } from "./exoticaz"
 import { fearnopeer } from "./fearnopeer"
 import { filelist } from "./filelist"
+import { funfile } from "./funfile"
 import { gazellegames } from "./gazellegames"
 import { greatposterwall } from "./greatposterwall"
 import { hawkeuno } from "./hawkeuno"
@@ -156,6 +158,7 @@ export const ALL_TRACKERS: TrackerRegistryEntry[] = [
   exoticaz,
   fearnopeer,
   filelist,
+  funfile,
   gazellegames,
   greatposterwall,
   hawkeuno,
