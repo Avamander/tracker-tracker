@@ -37,6 +37,8 @@ interface AnalyticsTabProps {
   onDaysChange: (d: DayRange) => void
   delta: DeltaDisplay
   minimumRatio?: number
+  /** The ratio's movement over the last 24 hours, from all snapshots */
+  ratioTrend?: "up" | "flat" | "down"
   bonusName?: string
   statCardSlots: ResolvedSlot[]
   progressSlots: ResolvedSlot[]
@@ -53,6 +55,7 @@ export function AnalyticsTab({
   onDaysChange,
   delta,
   minimumRatio,
+  ratioTrend,
   bonusName,
   statCardSlots,
   progressSlots,
@@ -63,8 +66,9 @@ export function AnalyticsTab({
 
   // Build core stat descriptors (data, not elements)
   const coreDescriptors = useMemo(
-    () => (overviewOnly ? [] : buildCoreStatDescriptors(stats, latestSnapshot, minimumRatio)),
-    [overviewOnly, stats, latestSnapshot, minimumRatio]
+    () =>
+      overviewOnly ? [] : buildCoreStatDescriptors(stats, latestSnapshot, minimumRatio, ratioTrend),
+    [overviewOnly, stats, latestSnapshot, minimumRatio, ratioTrend]
   )
   const coreCount = coreDescriptors.length
 

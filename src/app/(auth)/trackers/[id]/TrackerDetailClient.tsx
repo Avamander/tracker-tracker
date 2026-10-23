@@ -12,6 +12,7 @@ import { TrackerCredentialsSheet } from "@/components/TrackerCredentialsSheet"
 import { TrackerDefunctBanner } from "@/components/TrackerDefunctBanner"
 import { TrackerSettingsSheet } from "@/components/TrackerSettingsSheet"
 import { AnalyticsTab } from "@/components/tracker-detail/AnalyticsTab"
+import { ratioTrend24h } from "@/components/tracker-detail/CoreStatCards"
 import type { DebugData } from "@/components/tracker-detail/DebugResponseDialog"
 import { DebugResponseDialog } from "@/components/tracker-detail/DebugResponseDialog"
 import { InboxCard } from "@/components/tracker-detail/InboxCard"
@@ -245,6 +246,7 @@ export function TrackerDetailClient({
   }, [])
 
   const latestSnapshot = snapshots.length > 0 ? snapshots[snapshots.length - 1] : null
+  const ratioTrend = useMemo(() => ratioTrend24h(allTimeSnapshots), [allTimeSnapshots])
   const stats = tracker?.latestStats ?? null
   const delta = useMemo(() => computeDelta(snapshots), [snapshots])
 
@@ -376,6 +378,7 @@ export function TrackerDetailClient({
           onDaysChange={setDays}
           delta={delta}
           minimumRatio={registryEntry?.rules?.minimumRatio}
+          ratioTrend={ratioTrend}
           bonusName={registryBonusName(registryEntry)}
           statCardSlots={statCardSlots}
           progressSlots={progressSlots}
