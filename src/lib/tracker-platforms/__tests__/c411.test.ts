@@ -40,6 +40,20 @@ describe("C411Adapter", () => {
     vi.restoreAllMocks()
   })
 
+  it("reports C411's own reason when it refuses the key", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ statusCode: 401, message: "Site is currently restricted." }), {
+        status: 401,
+        statusText: "Unauthorized",
+        headers: { "content-type": "application/json" },
+      })
+    )
+
+    await expect(
+      adapter.fetchStats("https://c411.org", "fake-key", "/api/user/profile")
+    ).rejects.toThrow(/^Tracker API error: 401 Unauthorized: Site is currently restricted\.$/)
+  })
+
   it("maps the /api/user/profile response into TrackerStats", async () => {
     vi.spyOn(global, "fetch").mockResolvedValueOnce(okResponse(LIVE_RESPONSE))
 
