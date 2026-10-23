@@ -209,8 +209,9 @@ export async function computeTodayAtAGlance(
   // ── Per-tracker deltas ─────────────────────────────────────────────────────
 
   // Today runs from the first snapshot to the latest. A past day runs from the
-  // day before's checkpoint to its own, the same basis as its comparison.
-  const spans = new Map<number, [Reading, Reading]>()
+  // day before's checkpoint to its own, the same basis as its comparison. Each
+  // span keeps every reading in order, which the bonus change needs.
+  const spans = new Map<number, Reading[]>()
   if (nextDayStr) {
     const startByTracker = new Map(yesterdayCheckpoints.map((cp) => [cp.trackerId, cp]))
     for (const end of checkpointRows) {
@@ -227,7 +228,7 @@ export async function computeTodayAtAGlance(
     }
     for (const [trackerId, snaps] of snapshotsByTracker) {
       if (snaps.length < 2) continue
-      spans.set(trackerId, [snapshotReading(snaps[0]), snapshotReading(snaps[snaps.length - 1])])
+      spans.set(trackerId, snaps.map(snapshotReading))
     }
   }
 
@@ -241,7 +242,8 @@ export async function computeTodayAtAGlance(
       continue
     }
 
-    const [earliest, latest] = span
+    const earliest = span[0]
+    const latest = span[span.length - 1]
 
     try {
       const uploadDelta = BigInt(latest.uploaded) - BigInt(earliest.uploaded)
@@ -254,7 +256,7 @@ export async function computeTodayAtAGlance(
       const ratioChange = (latest.ratio ?? 0) - (earliest.ratio ?? 0)
       // Only readings that carry a bonus count, so a tracker that starts
       // reporting one partway through the day does not book its whole balance.
-      const bonuses = snaps.map((s) => s.seedbonus).filter((v): v is number => v != null)
+      const bonuses = span.map((r) => r.seedbonus).filter((v): v is number => v != null)
       const seedbonusChange = bonuses.length >= 2 ? bonuses[bonuses.length - 1] - bonuses[0] : 0
 
       trackerDeltas.push({
