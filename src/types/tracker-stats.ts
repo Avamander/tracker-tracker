@@ -117,6 +117,7 @@ export interface MamPlatformMeta {
   unsatisfiedLimit?: number
   inactiveSatisfiedCount?: number
   seedingHnrCount?: number
+  seedingUnsatisfiedCount?: number
   inactiveUnsatisfiedCount?: number
   trackerErrorCount?: number
   recentlyDeleted?: number
