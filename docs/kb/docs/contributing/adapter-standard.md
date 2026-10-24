@@ -353,6 +353,8 @@ dashes.
 - [ ] A test omits the source key entirely for any coalescing path I kept.
 - [ ] A timeout rejection is asserted to produce a message naming my tracker's host.
 - [ ] My fixture states where it came from and on what date.
+- [ ] My fixture is redacted as [Sharing a Response Sample](tracker-responses.md#sharing-a-response-sample)
+      describes.
 - [ ] No em dash, no `.only`, no `.skip`.
 - [ ] `pnpm tsc` and `pnpm test:run` pass. Both block CI.
 - [ ] `biome check .` reports nothing new. The tree currently carries 0 errors and 12 warnings;
