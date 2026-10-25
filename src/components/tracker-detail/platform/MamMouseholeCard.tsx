@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button"
 import { ChevronToggle } from "@/components/ui/ChevronToggle"
 import { InfoTip } from "@/components/ui/InfoTip"
 import { Notice } from "@/components/ui/Notice"
+import { StatusDot, type StatusDotTone } from "@/components/ui/StatusDot"
 import { useLocalStorage } from "@/hooks/useLocalStorage"
 import { type MouseholeStatusResponse, mouseholeStatus, stripUrlCredentials } from "@/lib/mousehole"
 
@@ -198,13 +199,13 @@ export function MamMouseholeCard({ trackerId, mouseholeUrl }: MamMouseholeCardPr
   const notice = fetchError ?? data.stateError
   // After a failed poll or Check Now the status is out of date, so it is greyed.
   const pollFailed = fetchError !== null
-  const dotClass = pollFailed
-    ? "bg-muted"
+  const dotTone: StatusDotTone = pollFailed
+    ? "muted"
     : isOk
-      ? "bg-success animate-pulse-glow"
+      ? "success"
       : isStale
-        ? "bg-warn"
-        : "bg-danger"
+        ? "warn"
+        : "danger"
   const labelClass = pollFailed
     ? "text-muted"
     : isOk
@@ -243,7 +244,7 @@ export function MamMouseholeCard({ trackerId, mouseholeUrl }: MamMouseholeCardPr
             className="flex items-center gap-2 cursor-pointer min-w-0"
           >
             <ChevronToggle expanded={expanded} className="text-muted" />
-            <span className={clsx("inline-block w-2 h-2 rounded-full shrink-0", dotClass)} />
+            <StatusDot tone={dotTone} />
             <span
               className={clsx(
                 "text-sm font-mono font-semibold tracking-wider uppercase",
