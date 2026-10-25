@@ -362,13 +362,15 @@ export const CREDENTIAL_FORMS = {
 
 /**
  * Enrichment is switched on per tracker rather than per platform, so whether a
- * Gazelle row hides the Join Date cannot be read from the table alone.
+ * Gazelle row hides the Join Date cannot be read from the table alone. The
+ * settings sheet passes a stored row's platform, so the lookup keeps the
+ * unknown-platform fallback.
  */
 export function credentialFormFor(entry: {
   platform: PlatformType
   gazelleEnrich?: boolean
 }): CredentialForm {
-  const form: CredentialForm = CREDENTIAL_FORMS[entry.platform]
+  const form = credentialFormForPlatform(entry.platform)
   return entry.gazelleEnrich ? { ...form, hidesJoinDate: true } : form
 }
 
