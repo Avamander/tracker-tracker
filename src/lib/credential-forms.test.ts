@@ -44,6 +44,10 @@ describe("CREDENTIAL_FORMS coverage", () => {
       extraCookieNames: ["love"],
       example: "cf_clearance=abc123; session=xyz",
     })
+    expect(CREDENTIAL_FORMS.v3x).toMatchObject({
+      extraCookieNames: ["v3x_session", "__Host-v3x_session", "session"],
+      example: "v3x_session=...",
+    })
   })
 })
 
