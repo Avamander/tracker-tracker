@@ -9,6 +9,7 @@ import clsx from "clsx"
 import Image from "next/image"
 import { useEffect, useState } from "react"
 import { ChevronToggle } from "@/components/ui/ChevronToggle"
+import { StatusDot } from "@/components/ui/StatusDot"
 import { useLocalStorage } from "@/hooks/useLocalStorage"
 import { formatTimeAgo } from "@/lib/formatters"
 
@@ -138,12 +139,7 @@ function TrackerHubStatus({
           className="flex items-center gap-2 cursor-pointer"
         >
           <ChevronToggle expanded={expanded} className="text-muted" />
-          <span
-            className={clsx(
-              "inline-block w-2 h-2 rounded-full shrink-0",
-              isUp ? "bg-success animate-pulse-glow text-success" : "bg-danger text-danger"
-            )}
-          />
+          <StatusDot tone={isUp ? "success" : "danger"} />
           <span
             className={clsx(
               "text-xs font-mono font-semibold tracking-wider uppercase",
