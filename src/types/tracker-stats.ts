@@ -243,17 +243,33 @@ export interface C411PlatformMeta {
   canDownload?: boolean
 }
 
+/**
+ * Figures from `/api/stats/personal` that fit no TrackerStats field. The units
+ * follow the invented test fixture until a live response confirms them. Plain
+ * numbers: platformMeta is JSON-serialized, and bigint does not survive JSON.
+ */
 export interface AnimeBytesPlatformMeta {
+  /** `hnrs.potential`. The active count is `hitAndRuns`. */
   potentialHnrs?: number
+  /** `yen.per_hour`: yen earned per hour. */
   yenPerHour?: number
+  /** `yen.per_day`: yen earned per day. */
   yenPerDay?: number
+  /** `upload.raw`, in bytes. `uploadedBytes` is `upload.account`. */
   rawUploadedBytes?: number
+  /** `download.raw`, in bytes. `downloadedBytes` is `download.account`. */
   rawDownloadedBytes?: number
+  /** `tracker.snatched`: torrents snatched. */
   snatched?: number
+  /** `tracker.seed_size`: total size seeding, in bytes. */
   seedSizeBytes?: number
+  /** `tracker.avg_seed_time`: average seed time, unit unverified. */
   avgSeedTime?: number
+  /** `torrents.uploaded`: torrents uploaded. */
   torrentsUploaded?: number
+  /** `torrents.pruned`: torrents pruned. */
   torrentsPruned?: number
+  /** `freeleech`: when personal freeleech ends, in unix seconds as sent (unverified). */
   freeleechUntil?: number
 }
 

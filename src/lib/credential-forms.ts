@@ -12,6 +12,7 @@
 import type { PlatformType } from "@/data/platform-types"
 import { validateCookieHeader } from "@/lib/tracker-credentials/cookie-header"
 import { validateHeaderToken } from "@/lib/tracker-credentials/header-token"
+import { validateTrackerUsername } from "@/lib/tracker-credentials/tracker-username"
 
 export type CredentialKind =
   "token" | "token-username" | "cookies" | "cookies-username" | "uid-pass" | "login"
@@ -137,7 +138,10 @@ export const CREDENTIAL_FORMS = {
       },
       secret: { label: "API Token", placeholder: "Your AnimeBytes API key" },
     },
-    sheet: { username: { label: "Username" }, ...SHEET_TOKEN },
+    sheet: {
+      username: { label: "Username" },
+      secret: { label: "API Token", placeholder: "Paste API token" },
+    },
   },
 
   avistaz: {
@@ -388,6 +392,12 @@ export function validateCredentialValues(
       return checkToken(values.token)
     case "token-username":
       if (!values.username.trim()) return "Username is required"
+      // The adapter's own check, so the pre-save message matches a poll's.
+      try {
+        validateTrackerUsername(values.username)
+      } catch (error) {
+        return error instanceof Error ? error.message : "Username doesn't look right"
+      }
       return checkToken(values.token)
     case "cookies":
       return checkCookies(form, values.cookies)

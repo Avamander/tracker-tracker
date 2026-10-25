@@ -2,7 +2,7 @@
 //
 // Exports: SLOT_DEFINITIONS, renderSlotElement, AnySlotDefinition
 // Slot IDs defined:
-//   stat-card: login-deadline, api-key-expiry, gold, snatched-nebulance, seedbonus, ggn-share-score-card,
+//   stat-card: login-deadline, api-key-expiry, gold, yen, snatched-nebulance, seedbonus, ggn-share-score-card,
 //              gazelle-tokens, perfect-flacs, snatched-gazelle, torrents-uploaded,
 //              requests-filled, groups-contributed, invited, gazelle-bounty, gazelle-comments,
 //              mam-wedges, mam-completed, mam-tracker-errors
@@ -132,10 +132,10 @@ const yenSlot: SlotDefinition<StatCardStackedProps> = {
     const abMeta = metaFor(ctx, "animebytes")
     if (!abMeta) return null
     if (ctx.latestSnapshot?.seedbonus == null) return null
-    const rate = (n: number | undefined) => (n ? `+¥${formatCount(Math.floor(n))}` : "—")
+    const rate = (n: number | undefined) => (n != null ? `+¥${formatCount(Math.floor(n))}` : "—")
     return {
       type: "stacked" as const,
-      title: "Yen",
+      title: registryBonusName(ctx.registry) ?? "Yen",
       rows: [
         { label: "Balance", value: `¥${formatCount(Math.floor(ctx.latestSnapshot.seedbonus))}` },
         {

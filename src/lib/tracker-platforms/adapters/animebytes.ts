@@ -1,10 +1,11 @@
 // src/lib/tracker-platforms/adapters/animebytes.ts
 //
-// Functions: parseAnimeBytesCredentials, unwrapPersonalStats, readPersonalStats,
+// Functions: parseAnimeBytesCredentials, readPersonalStats, fetchPersonalStats,
 //            AnimeBytesAdapter
 
 import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
 import { validateHeaderToken } from "@/lib/tracker-credentials/header-token"
+import { validateTrackerUsername } from "@/lib/tracker-credentials/tracker-username"
 import type {
   AnimeBytesPlatformMeta,
   DebugApiCall,
@@ -20,7 +21,7 @@ import { pollError } from "../helpers/poll-error"
 
 interface AnimeBytesPersonalStats {
   success: boolean
-  error?: string
+  error?: unknown
   freeleech?: number
   yen?: { per_day?: number; per_hour?: number; current?: number }
   hnrs?: { potential?: number; active?: number }
@@ -46,59 +47,69 @@ export function parseAnimeBytesCredentials(apiToken: string): { token: string; u
     "token",
     "username",
   ] as const)
-  return { token: validateHeaderToken(token), username: username.trim() }
+  return { token: validateHeaderToken(token), username: validateTrackerUsername(username) }
 }
 
-export function unwrapPersonalStats(
-  body: AnimeBytesPersonalStats,
-  hostname: string
-): AnimeBytesPersonalStats {
-  if (!body?.success) {
-    throw new Error(body?.error?.trim() || `AnimeBytes API request failed on ${hostname}`)
-  }
-  return body
-}
-
+/** The byte totals, or the error fetchStats fails the poll with. */
 function readPersonalStats(
-  body: AnimeBytesPersonalStats,
+  data: AnimeBytesPersonalStats,
   hostname: string
-): { data: AnimeBytesPersonalStats; uploadedBytes: bigint; downloadedBytes: bigint } {
-  const data = unwrapPersonalStats(body, hostname)
+): { uploadedBytes: bigint; downloadedBytes: bigint } {
+  if (!data?.success) {
+    const reason = typeof data?.error === "string" ? data.error.trim().slice(0, 200) : ""
+    throw new Error(`Unexpected response from ${hostname}: ${reason || "success was false"}`)
+  }
   return {
-    data,
     uploadedBytes: requireBytes(data.upload?.account, "upload.account", hostname),
     downloadedBytes: requireBytes(data.download?.account, "download.account", hostname),
   }
 }
 
+const PERSONAL_STATS_PATH = "/api/stats/personal"
+
+async function fetchPersonalStats(
+  baseUrl: string,
+  trimmedToken: string,
+  options?: FetchOptions
+): Promise<AnimeBytesPersonalStats> {
+  const hostname = new URL(baseUrl).hostname
+  return adapterFetch<AnimeBytesPersonalStats>(
+    new URL(PERSONAL_STATS_PATH, baseUrl).toString(),
+    hostname,
+    options,
+    { Authorization: `Bearer ${trimmedToken}` }
+  )
+}
+
 export class AnimeBytesAdapter implements TrackerAdapter {
+  // _apiPath is ignored: /api/stats/personal is intrinsic to the platform, not
+  // a property of a user's row, so a stale persisted api_path value self-heals
+  // instead of breaking the adapter (the btn.ts precedent).
   async fetchStats(
     baseUrl: string,
     apiToken: string,
-    apiPath: string,
+    _apiPath: string,
     options?: FetchOptions
   ): Promise<TrackerStats> {
-    const { token, username } = parseAnimeBytesCredentials(apiToken)
+    const { token: trimmedToken, username } = parseAnimeBytesCredentials(apiToken)
     const hostname = new URL(baseUrl).hostname
-    const url = new URL(apiPath, baseUrl).toString()
 
-    const body = await adapterFetch<AnimeBytesPersonalStats>(url, hostname, options, {
-      Authorization: `Bearer ${token}`,
-    })
-    const { data, uploadedBytes, downloadedBytes } = readPersonalStats(body, hostname)
+    const data = await fetchPersonalStats(baseUrl, trimmedToken, options)
+    const { uploadedBytes, downloadedBytes } = readPersonalStats(data, hostname)
 
     const platformMeta: AnimeBytesPlatformMeta = {
-      potentialHnrs: data.hnrs?.potential,
-      yenPerHour: data.yen?.per_hour,
-      yenPerDay: data.yen?.per_day,
-      rawUploadedBytes: data.upload?.raw,
-      rawDownloadedBytes: data.download?.raw,
-      snatched: data.tracker?.snatched,
-      seedSizeBytes: data.tracker?.seed_size,
-      avgSeedTime: data.tracker?.avg_seed_time,
-      torrentsUploaded: data.torrents?.uploaded,
-      torrentsPruned: data.torrents?.pruned,
+      potentialHnrs: data.hnrs?.potential ?? undefined,
+      yenPerHour: data.yen?.per_hour ?? undefined,
+      yenPerDay: data.yen?.per_day ?? undefined,
+      rawUploadedBytes: data.upload?.raw ?? undefined,
+      rawDownloadedBytes: data.download?.raw ?? undefined,
+      snatched: data.tracker?.snatched ?? undefined,
+      seedSizeBytes: data.tracker?.seed_size ?? undefined,
+      avgSeedTime: data.tracker?.avg_seed_time ?? undefined,
+      torrentsUploaded: data.torrents?.uploaded ?? undefined,
+      torrentsPruned: data.torrents?.pruned ?? undefined,
     }
+    // A reported 0 is stored as no personal freeleech.
     if (typeof data.freeleech === "number" && data.freeleech > 0) {
       platformMeta.freeleechUntil = data.freeleech
     }
@@ -124,21 +135,18 @@ export class AnimeBytesAdapter implements TrackerAdapter {
   async fetchRaw(
     baseUrl: string,
     apiToken: string,
-    apiPath: string,
+    _apiPath: string,
     options?: FetchOptions
   ): Promise<DebugApiCall[]> {
-    const { token } = parseAnimeBytesCredentials(apiToken)
+    const { token: trimmedToken } = parseAnimeBytesCredentials(apiToken)
     const hostname = new URL(baseUrl).hostname
-    const url = new URL(apiPath, baseUrl).toString()
 
     try {
-      const data = await adapterFetch<AnimeBytesPersonalStats>(url, hostname, options, {
-        Authorization: `Bearer ${token}`,
-      })
+      const data = await fetchPersonalStats(baseUrl, trimmedToken, options)
       return [
         {
-          label: "Personal stats",
-          endpoint: apiPath,
+          label: "Personal Stats",
+          endpoint: PERSONAL_STATS_PATH,
           data,
           error: pollError(() => readPersonalStats(data, hostname)),
         },
@@ -146,8 +154,8 @@ export class AnimeBytesAdapter implements TrackerAdapter {
     } catch (err) {
       return [
         {
-          label: "Personal stats",
-          endpoint: apiPath,
+          label: "Personal Stats",
+          endpoint: PERSONAL_STATS_PATH,
           data: null,
           error: err instanceof Error ? err.message : "Request failed",
         },

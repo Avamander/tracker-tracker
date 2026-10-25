@@ -277,3 +277,21 @@ describe("validateCredentialValues token hygiene", () => {
     ).toBeNull()
   })
 })
+
+describe("validateCredentialValues username hygiene", () => {
+  // The form shows the AnimeBytes adapter's own check, before the token's.
+  it("rejects an animebytes username over 100 characters", () => {
+    expect(
+      validateCredentialValues(CREDENTIAL_FORMS.animebytes, values({ username: "a".repeat(101) }))
+    ).toBe("Invalid username: it is longer than 100 characters.")
+  })
+
+  it("rejects an animebytes username carrying a control character", () => {
+    expect(
+      validateCredentialValues(
+        CREDENTIAL_FORMS.animebytes,
+        values({ username: "some\u0000one", token: "abc123" })
+      )
+    ).toBe("Invalid username: it contains a control character (U+0000) at position 4.")
+  })
+})

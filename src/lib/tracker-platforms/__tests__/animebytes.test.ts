@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { AnimeBytesAdapter, parseAnimeBytesCredentials } from "../adapters/animebytes"
 import type { AnimeBytesPlatformMeta } from "../contract"
 
+// Invented fixture in the shape of GET /api/stats/personal. No live response
+// has been captured, so the shape is unverified.
 const RESPONSE = {
   success: true,
   api: { version: "1", git: "0.0.0" },
@@ -114,6 +116,19 @@ describe("AnimeBytesAdapter", () => {
     expect(stats.leechingCount).toBeNull()
     expect(stats.hitAndRuns).toBeNull()
   })
+
+  it("requests /api/stats/personal whatever api_path the row stored", async () => {
+    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue(okResponse(RESPONSE))
+
+    await adapter.fetchStats(BASE, creds("fake-token"), "/ajax.php")
+    const calls = await adapter.fetchRaw(BASE, creds("fake-token"), "/ajax.php")
+
+    expect(fetchSpy.mock.calls.map(([url]) => String(url))).toEqual([
+      "https://animebytes.tv/api/stats/personal",
+      "https://animebytes.tv/api/stats/personal",
+    ])
+    expect(calls[0].endpoint).toBe("/api/stats/personal")
+  })
 })
 
 describe("parseAnimeBytesCredentials", () => {
@@ -130,6 +145,15 @@ describe("parseAnimeBytesCredentials", () => {
       "AnimeBytes credentials"
     )
   })
+
+  it("rejects a username over 100 characters or carrying a control character", () => {
+    expect(() => parseAnimeBytesCredentials(creds("tok", "a".repeat(101)))).toThrow(
+      new Error("Invalid username: it is longer than 100 characters.")
+    )
+    expect(() => parseAnimeBytesCredentials(creds("tok", "some\tone"))).toThrow(
+      new Error("Invalid username: it contains a control character (U+0009) at position 4.")
+    )
+  })
 })
 
 describe("AnimeBytesAdapter - failures", () => {
@@ -139,22 +163,40 @@ describe("AnimeBytesAdapter - failures", () => {
     vi.restoreAllMocks()
   })
 
-  it("surfaces the error when success is false", async () => {
+  it("surfaces the error when success is false, behind the unexpected-response prefix", async () => {
+    // Unprefixed, the sanitizer shows "Poll failed", or "Invalid credentials"
+    // for any text containing "invalid" (standard 2.4).
     vi.spyOn(global, "fetch").mockResolvedValueOnce(
       okResponse({ success: false, error: "The request requires valid user authentication." })
     )
 
     await expect(adapter.fetchStats(BASE, creds("bad-token"), PATH)).rejects.toThrow(
-      "The request requires valid user authentication."
+      new Error(
+        "Unexpected response from animebytes.tv: The request requires valid user authentication."
+      )
     )
   })
 
-  it("throws a hostname-scoped error when success is false with no error", async () => {
-    vi.spyOn(global, "fetch").mockResolvedValueOnce(okResponse({ success: false }))
+  it("gives a fixed reason, not a TypeError, when error is missing or not a string", async () => {
+    for (const body of [{ success: false }, { success: false, error: { code: 401 } }]) {
+      vi.spyOn(global, "fetch").mockResolvedValueOnce(okResponse(body))
 
-    await expect(adapter.fetchStats(BASE, creds("bad-token"), PATH)).rejects.toThrow(
-      "animebytes.tv"
-    )
+      await expect(adapter.fetchStats(BASE, creds("bad-token"), PATH)).rejects.toThrow(
+        new Error("Unexpected response from animebytes.tv: success was false")
+      )
+    }
+  })
+
+  it("rejects a missing account total instead of reading it as zero", async () => {
+    for (const field of ["upload", "download"] as const) {
+      vi.spyOn(global, "fetch").mockResolvedValueOnce(
+        okResponse({ ...RESPONSE, [field]: { raw: RESPONSE[field].raw } })
+      )
+
+      await expect(adapter.fetchStats(BASE, creds("fake-token"), PATH)).rejects.toThrow(
+        new Error(`Unexpected response from animebytes.tv: missing ${field}.account`)
+      )
+    }
   })
 
   it("throws on a 401", async () => {
@@ -191,6 +233,14 @@ describe("AnimeBytesAdapter - auth", () => {
     expect(capturedUrl).toBe("https://animebytes.tv/api/stats/personal")
     expect(capturedUrl).not.toContain("secret-token")
   })
+})
+
+describe("AnimeBytesAdapter - fetchRaw", () => {
+  const adapter = new AnimeBytesAdapter()
+
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
 
   it("returns the raw response for the debug view", async () => {
     vi.spyOn(global, "fetch").mockResolvedValueOnce(okResponse(RESPONSE))
@@ -213,5 +263,18 @@ describe("AnimeBytesAdapter - auth", () => {
 
     expect(calls[0].data).toBeNull()
     expect(calls[0].error).toContain("401")
+  })
+
+  it("flags a 200 that fetchStats would fail, with the poll's message (standard 2.6)", async () => {
+    const body = { success: false, error: "The request requires valid user authentication." }
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(okResponse(body))
+
+    const calls = await adapter.fetchRaw(BASE, creds("token"), PATH)
+
+    expect(calls[0].error).toBe(
+      "Unexpected response from animebytes.tv: The request requires valid user authentication."
+    )
+    // The offending body stays in data for the debug view.
+    expect(calls[0].data).toEqual(body)
   })
 })

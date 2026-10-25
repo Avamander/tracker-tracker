@@ -23,11 +23,11 @@ export const animebytes: TrackerRegistryEntry = {
   // ── Visual ──────────────────────────────────────────────────────────
   color: "#ff7043",
   logo: "/tracker-logos/animebytes_logo.png",
+  bonusName: "Yen",
 
   // ── External Links ──────────────────────────────────────────────────
   trackerHubSlug: "anime-bytes",
   statusPageUrl: "https://status.animebytes.tv/",
-  bonusName: "Yen",
 
   // ── Community ───────────────────────────────────────────────────────
   userClasses: [
@@ -95,6 +95,7 @@ export const animebytes: TrackerRegistryEntry = {
       perks: [{ type: "custom", label: "Undisclosed perks and responsibilities" }],
       outsideLadder: "above",
     },
+    { name: "Sensei", requirements: "Retired AnimeBytes staff", outsideLadder: "above" },
     {
       name: "Editor",
       requirements:
