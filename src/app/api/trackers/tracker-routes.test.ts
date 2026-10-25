@@ -48,6 +48,11 @@ vi.mock("@/lib/tracker-scheduler", () => ({
   pollTracker: vi.fn(),
 }))
 
+// No Prowlarr configured. Its own query chain is covered in prowlarr-sync.test.ts.
+vi.mock("@/lib/prowlarr/sync", () => ({
+  loadTrackerProwlarrStates: vi.fn().mockResolvedValue(new Map()),
+}))
+
 vi.mock("@/lib/privacy", () => ({
   isRedacted: vi.fn().mockReturnValue(false),
   maskUsername: vi.fn((v: string) => `▓${v.length}`),
@@ -638,6 +643,63 @@ describe("PATCH /api/trackers/[id]", () => {
     expect(response.status).toBe(200)
     expect(mockSet).toHaveBeenCalledTimes(1)
     expect(mockSet.mock.calls[0][0]).not.toHaveProperty("baseUrl")
+  })
+
+  function mockPinInstance(rows: { id: number }[]) {
+    ;(db.select as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue(rows) }),
+      }),
+    })
+  }
+
+  async function patchWith(body: Record<string, unknown>) {
+    ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue(body)
+    const mockSet = vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue([]) })
+    ;(db.update as ReturnType<typeof vi.fn>).mockReturnValue({ set: mockSet })
+    const request = makeRequest("http://localhost/api/trackers/1", {}, "PATCH")
+    const response = await PATCH(request, { params: Promise.resolve({ id: "1" }) })
+    return { response, mockSet }
+  }
+
+  it("pins a Prowlarr indexer of an existing instance", async () => {
+    mockPinInstance([{ id: 2 }])
+    const { response, mockSet } = await patchWith({ prowlarrPin: { instanceId: 2, indexerId: 15 } })
+
+    expect(response.status).toBe(200)
+    expect(mockSet.mock.calls[0][0]).toMatchObject({ prowlarrInstanceId: 2, prowlarrIndexerId: 15 })
+  })
+
+  it("clears the pin and stores the opt-out", async () => {
+    const { response, mockSet } = await patchWith({ prowlarrPin: null, prowlarrOptOut: true })
+
+    expect(response.status).toBe(200)
+    expect(mockSet.mock.calls[0][0]).toMatchObject({
+      prowlarrInstanceId: null,
+      prowlarrIndexerId: null,
+      prowlarrOptOut: true,
+    })
+  })
+
+  it("refuses a pin to an instance that does not exist", async () => {
+    mockPinInstance([])
+    const { response } = await patchWith({ prowlarrPin: { instanceId: 9, indexerId: 15 } })
+
+    expect(response.status).toBe(400)
+    expect(db.update).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    "2:15",
+    { instanceId: 2 },
+    { instanceId: 0, indexerId: 1 },
+    { instanceId: 1.5, indexerId: 1 },
+    { instanceId: 2 ** 31, indexerId: 1 },
+  ])("rejects the Prowlarr pin %j", async (value) => {
+    const { response } = await patchWith({ prowlarrPin: value })
+
+    expect(response.status).toBe(400)
+    expect(db.update).not.toHaveBeenCalled()
   })
 
   it("returns 400 when color exceeds 20 characters", async () => {

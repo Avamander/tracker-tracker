@@ -12,7 +12,7 @@ export type {
 } from "@/types/tracker-stats"
 
 import type { PlatformType } from "@/data/platform-types"
-import type { DownloadClientRow, NotificationTargetRow } from "@/lib/db/schema"
+import type { DownloadClientRow, NotificationTargetRow, ProwlarrInstanceRow } from "@/lib/db/schema"
 import type { SystemEvent } from "@/lib/events"
 import type { NotificationThresholds } from "@/lib/notifications/types"
 import type { PlatformMeta } from "@/types/tracker-stats"
@@ -78,6 +78,12 @@ export interface TrackerSummary {
   latestStats: TrackerLatestStats | null
   /** Null until the tracker's adapter has reported an inbox */
   inbox: TrackerInboxSummary | null
+  /** A pinned Prowlarr indexer, or null for hostname matching. */
+  prowlarrPin?: { instanceId: number; indexerId: number } | null
+  /** True when the tracker is kept out of Prowlarr matching. */
+  prowlarrOptOut?: boolean
+  /** The Prowlarr indexers this tracker matched. Null when none did. */
+  prowlarr?: TrackerProwlarrState | null
 }
 
 export interface InboxLinks {
@@ -120,6 +126,37 @@ export interface InboxTracker extends TrackerInboxSummary {
   hideUnreadBadges: boolean
   messages: InboxMessageView[]
   news: InboxNewsView[]
+}
+
+export interface TrackerProwlarrIndexer {
+  instanceId: number
+  instanceName: string
+  instanceUrl: string
+  /** The instance's last poll error. While set, the fields below are stale. */
+  instanceError: string | null
+  /** True when the last reading is too old to show (the poller has stopped). */
+  stale: boolean
+  indexerId: number
+  name: string
+  enabled: boolean
+  disabledTill: string | null
+  mostRecentFailure: string | null
+  initialFailure: string | null
+  checkedAt: string
+}
+
+export interface TrackerProwlarrState {
+  matchedBy: "auto" | "manual"
+  indexers: TrackerProwlarrIndexer[]
+}
+
+/** An indexer offered as a manual match in the tracker settings sheet. */
+export interface ProwlarrIndexerOption {
+  instanceId: number
+  instanceName: string
+  indexerId: number
+  name: string
+  hosts: string[]
 }
 
 export interface Snapshot extends TrackerStatFields {
@@ -289,6 +326,20 @@ export type SafeNotificationTarget = Omit<
   hasConfig: boolean
   thresholds: NotificationThresholds | null
   lastDeliveryAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+/** API response shape for Prowlarr instances (API key stripped, dates serialized) */
+export type SafeProwlarrInstance = Omit<
+  ProwlarrInstanceRow,
+  "encryptedApiKey" | "lastPolledAt" | "indexersReadAt" | "errorSince" | "createdAt" | "updatedAt"
+> & {
+  hasApiKey: boolean
+  indexerCount: number
+  lastPolledAt: string | null
+  indexersReadAt: string | null
+  errorSince: string | null
   createdAt: string
   updatedAt: string
 }

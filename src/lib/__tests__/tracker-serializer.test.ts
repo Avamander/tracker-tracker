@@ -40,6 +40,9 @@ const mockTracker = {
   joinedAt: null,
   lastAccessAt: null,
   profileUrl: null,
+  prowlarrInstanceId: null,
+  prowlarrIndexerId: null,
+  prowlarrOptOut: false,
   createdAt: new Date("2026-01-01"),
   updatedAt: new Date("2026-01-01"),
 }

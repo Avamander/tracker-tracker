@@ -4,7 +4,7 @@
 // tagGroups, tagGroupMembers, clientSnapshots, backupHistory, dismissedAlerts,
 // draftQuicklinks (column on appSettings), notificationTargets, notificationDeliveryState,
 // trackerDailyCheckpoints, torrentDailyCheckpoints, dbSizeHistory, appLiveness,
-// appCoverageGaps
+// appCoverageGaps, trackerOutages, prowlarrInstances, prowlarrIndexers
 
 import {
   bigint,
@@ -158,6 +158,13 @@ export const trackers = pgTable("trackers", {
   joinedAt: date("joined_at"),
   lastAccessAt: date("last_access_at"),
   profileUrl: text("profile_url"),
+  // A pinned Prowlarr indexer. With either id NULL the tracker matches by
+  // hostname, unless prowlarrOptOut is set. See prowlarr/matching.ts.
+  prowlarrInstanceId: integer("prowlarr_instance_id").references(() => prowlarrInstances.id, {
+    onDelete: "set null",
+  }),
+  prowlarrIndexerId: integer("prowlarr_indexer_id"),
+  prowlarrOptOut: boolean("prowlarr_opt_out").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 })
@@ -596,6 +603,60 @@ export const trackerNews = pgTable(
   ]
 )
 
+/**
+ * prowlarrInstances
+ *
+ * Prowlarr servers whose indexer status is shown on matching trackers. Only
+ * read requests are made, and never to the trackers themselves.
+ */
+export const prowlarrInstances = pgTable("prowlarr_instances", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 100 }).notNull(),
+  url: text("url").notNull(),
+  // Prowlarr's API key, sealed under the master key. Same NULL-or-ciphertext
+  // invariant and the same five lifecycle sites as trackers.encryptedCredentials.
+  encryptedApiKey: text("encrypted_api_key"),
+  enabled: boolean("enabled").default(true).notNull(),
+  // Runtime state below, excluded from backups.
+  lastPolledAt: timestamp("last_polled_at"),
+  // When the indexer list was last read. It is read far less often than the status.
+  indexersReadAt: timestamp("indexers_read_at"),
+  lastError: text("last_error"),
+  errorSince: timestamp("error_since"),
+  version: varchar("version", { length: 50 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+})
+
+/**
+ * prowlarrIndexers
+ *
+ * The indexers of a Prowlarr instance and their latest status. A cache rather
+ * than history, so it is not backed up.
+ */
+export const prowlarrIndexers = pgTable(
+  "prowlarr_indexers",
+  {
+    id: serial("id").primaryKey(),
+    instanceId: integer("instance_id")
+      .references(() => prowlarrInstances.id, { onDelete: "cascade" })
+      .notNull(),
+    // Prowlarr's own indexer id, stable for the life of the indexer.
+    indexerId: integer("indexer_id").notNull(),
+    name: varchar("name", { length: 255 }).notNull(),
+    enabled: boolean("enabled").default(true).notNull(),
+    // Lowercased hostnames without "www.", from baseUrl, indexerUrls and legacyUrls.
+    hosts: text("hosts").array().default([]).notNull(),
+    // Set only while Prowlarr reports the indexer as backed off after failures.
+    disabledTill: timestamp("disabled_till"),
+    mostRecentFailure: timestamp("most_recent_failure"),
+    initialFailure: timestamp("initial_failure"),
+    // The last status read that covered this indexer.
+    checkedAt: timestamp("checked_at").notNull(),
+  },
+  (table) => [uniqueIndex("uq_prowlarr_indexer").on(table.instanceId, table.indexerId)]
+)
+
 // ── type exports ──────────────────────────────────────────────
 export type AppSettingsRow = typeof appSettings.$inferSelect
 export type TrackerRow = typeof trackers.$inferSelect
@@ -618,3 +679,5 @@ export type DbSizeHistoryRow = typeof dbSizeHistory.$inferSelect
 export type AppLivenessRow = typeof appLiveness.$inferSelect
 export type AppCoverageGapRow = typeof appCoverageGaps.$inferSelect
 export type TrackerOutageRow = typeof trackerOutages.$inferSelect
+export type ProwlarrInstanceRow = typeof prowlarrInstances.$inferSelect
+export type ProwlarrIndexerRow = typeof prowlarrIndexers.$inferSelect

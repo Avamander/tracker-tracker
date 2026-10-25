@@ -2,7 +2,7 @@
 //
 // Functions: formatBytesFromString, bytesToGiB, formatBytesNum,
 // formatRatio, formatAccountAge, formatJoinedDate, formatStatValue,
-// formatDuration, formatTimeAgo, splitValueUnit,
+// formatDuration, formatSpanInWords, formatTimeAgo, splitValueUnit,
 // localDateStr, formatSpeed,
 // formatRatioDisplay, formatCount, formatPercent, formatDateTime
 
@@ -156,6 +156,22 @@ export function formatDuration(seconds: number): string {
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m`
   if (seconds < 86400) return `${(seconds / 3600).toFixed(1)}h`
   return `${(seconds / 86400).toFixed(1)}d`
+}
+
+/**
+ * Formats a span of time in words, to the hour: "45 minutes", "3 hours",
+ * "2 days, 5 hours". Days are left out under one day, minutes from one hour on.
+ */
+export function formatSpanInWords(ms: number): string {
+  if (!Number.isFinite(ms)) return "—"
+  const unit = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`
+  const minutes = Math.floor(Math.abs(ms) / 60_000)
+  if (minutes < 1) return "less than a minute"
+  if (minutes < 60) return unit(minutes, "minute")
+  const days = Math.floor(minutes / 1440)
+  const hours = Math.floor((minutes % 1440) / 60)
+  if (days === 0) return unit(hours, "hour")
+  return hours === 0 ? unit(days, "day") : `${unit(days, "day")}, ${unit(hours, "hour")}`
 }
 
 /**
