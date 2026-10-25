@@ -44,6 +44,11 @@ describe("CREDENTIAL_FORMS coverage", () => {
       extraCookieNames: ["love"],
       example: "cf_clearance=abc123; session=xyz",
     })
+    expect(CREDENTIAL_FORMS.luminance.sessionCookie).toEqual({
+      example: "sid=abc123",
+      extraCookieNames: ["sid"],
+      requiredCookieNames: ["sid"],
+    })
   })
 })
 
@@ -56,10 +61,19 @@ describe("credentialFormFor", () => {
     expect(credentialFormFor({ platform: "gazelle" }).hidesJoinDate).toBe(false)
   })
 
-  it("hides the Join Date field for exactly avistaz, c411, digitalcore, filelist, ggn, iptorrents, and retrotoon", () => {
+  it("hides the Join Date field for exactly avistaz, c411, digitalcore, filelist, ggn, iptorrents, luminance, and retrotoon", () => {
     const hidden = VALID_PLATFORM_TYPES.filter((p) => CREDENTIAL_FORMS[p].hidesJoinDate)
     expect([...hidden].sort()).toEqual(
-      ["avistaz", "c411", "digitalcore", "filelist", "ggn", "iptorrents", "retrotoon"].sort()
+      [
+        "avistaz",
+        "c411",
+        "digitalcore",
+        "filelist",
+        "ggn",
+        "iptorrents",
+        "luminance",
+        "retrotoon",
+      ].sort()
     )
   })
 })
@@ -140,6 +154,21 @@ describe("buildCredentialBlob", () => {
       "  hunter2  "
     )
   })
+
+  // The adapter takes the cookie path when the blob has cookies, and that
+  // session is fingerprinted against the browser it was issued to.
+  it("stores a luminance session cookie with the browser's User-Agent and no password", () => {
+    expect(
+      blob("luminance", { username: " bob ", password: "hunter2", cookies: "Cookie: sid=abc" })
+    ).toEqual({ username: "bob", cookies: "sid=abc", userAgent: UA })
+  })
+
+  it("stores a luminance password login with no cookie keys", () => {
+    expect(blob("luminance", { username: "bob", password: "hunter2" })).toEqual({
+      username: "bob",
+      password: "hunter2",
+    })
+  })
 })
 
 describe("validateCredentialValues empty fields", () => {
@@ -195,6 +224,23 @@ describe("validateCredentialValues empty fields", () => {
     expect(
       validateCredentialValues(CREDENTIAL_FORMS.torrentleech, values({ username: "bob" }))
     ).toBe("Password is required")
+  })
+
+  it("takes a luminance password or a session cookie, checking the cookie as the adapter does", () => {
+    const luminance = CREDENTIAL_FORMS.luminance
+    expect(validateCredentialValues(luminance, values())).toBe("Username is required")
+    expect(validateCredentialValues(luminance, values({ username: "bob" }))).toBe(
+      "Password or session cookie is required"
+    )
+    expect(
+      validateCredentialValues(luminance, values({ username: "bob", password: "pw" }))
+    ).toBeNull()
+    expect(
+      validateCredentialValues(luminance, values({ username: "bob", cookies: "sid=abc; cid=1" }))
+    ).toBeNull()
+    expect(
+      validateCredentialValues(luminance, values({ username: "bob", cookies: "cid=1" }))
+    ).toContain("no sid cookie")
   })
 
   it("accepts a complete set", () => {
