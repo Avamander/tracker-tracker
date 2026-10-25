@@ -215,6 +215,7 @@ export const prowlarrInstanceColumns = {
   url: prowlarrInstances.url,
   hasApiKey: sql<boolean>`(${prowlarrInstances.encryptedApiKey} IS NOT NULL)`.as("has_api_key"),
   enabled: prowlarrInstances.enabled,
+  affectsHealth: prowlarrInstances.affectsHealth,
   lastPolledAt: prowlarrInstances.lastPolledAt,
   lastError: prowlarrInstances.lastError,
   errorSince: prowlarrInstances.errorSince,
