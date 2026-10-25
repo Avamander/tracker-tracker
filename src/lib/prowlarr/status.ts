@@ -1,13 +1,13 @@
 // src/lib/prowlarr/status.ts
 //
 // Functions: getIndexerStatus, isIndexerFailing, getProwlarrFailures, describeIndexerStatus,
-//            prowlarrIndexersUrl
+//            prowlarrIndexersUrl, statsTotals
 //
 // Client-safe reading of the Prowlarr state included in TrackerSummary. It is
 // shown next to the tracker's health and never changes it.
 
 import { formatDateTime } from "@/lib/formatters"
-import type { TrackerProwlarrIndexer, TrackerSummary } from "@/types/api"
+import type { ProwlarrIndexerStats, TrackerProwlarrIndexer, TrackerSummary } from "@/types/api"
 
 type IndexerStatus = "ok" | "failing" | "disabled" | "prowlarr-error" | "stale"
 
@@ -72,6 +72,23 @@ export function describeIndexerStatus(indexer: TrackerProwlarrIndexer): string {
 /** Prowlarr's own Indexers page, where a backed-off indexer can be tested or edited. */
 export function prowlarrIndexersUrl(indexer: Pick<TrackerProwlarrIndexer, "instanceUrl">): string {
   return `${indexer.instanceUrl.replace(/\/+$/, "")}/indexers`
+}
+
+/**
+ * Queries are searches, RSS and auth requests. Prowlarr counts each history
+ * event under one type, so grabs are separate, but the failed share is over
+ * every request including grabs.
+ */
+export function statsTotals(stats: ProwlarrIndexerStats): {
+  queries: number
+  failed: number
+  failureRate: number | null
+} {
+  const queries = stats.queries + stats.rssQueries + stats.authQueries
+  const requests = queries + stats.grabs
+  const failed =
+    stats.failedQueries + stats.failedRssQueries + stats.failedGrabs + stats.failedAuthQueries
+  return { queries, failed, failureRate: requests > 0 ? failed / requests : null }
 }
 
 export type { IndexerStatus }

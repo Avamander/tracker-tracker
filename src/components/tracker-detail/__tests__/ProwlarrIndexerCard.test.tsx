@@ -19,6 +19,9 @@ function indexer(overrides: Partial<TrackerProwlarrIndexer> = {}): TrackerProwla
     mostRecentFailure: null,
     initialFailure: null,
     checkedAt: "2026-08-14T12:00:00.000Z",
+    stats24h: null,
+    stats7d: null,
+    statsStaleSince: null,
     ...overrides,
   }
 }
@@ -102,5 +105,46 @@ describe("ProwlarrIndexerCard", () => {
   it("renders nothing without indexers", () => {
     const { container } = render(<ProwlarrIndexerCard indexers={[]} />)
     expect(container).toBeEmptyDOMElement()
+  })
+
+  it("shows the 24 hour and 7 day stats without being expanded", () => {
+    const stats = {
+      averageResponseTime: 512,
+      queries: 20,
+      grabs: 3,
+      rssQueries: 76,
+      authQueries: 1,
+      failedQueries: 5,
+      failedGrabs: 0,
+      failedRssQueries: 20,
+      failedAuthQueries: 0,
+    }
+    render(
+      <ProwlarrIndexerCard
+        indexers={[indexer({ stats24h: stats, stats7d: { ...stats, averageResponseTime: 1500 } })]}
+      />
+    )
+
+    for (const text of ["Queries", "Grabs", "Failed", "Avg response", "24h", "7d"]) {
+      expect(screen.getByText(text)).toBeInTheDocument()
+    }
+    expect(screen.getAllByText("97")).toHaveLength(2)
+    expect(screen.getAllByText("25.0%")).toHaveLength(2)
+    expect(screen.getByText("512 ms")).toBeInTheDocument()
+    expect(screen.getByText("1.5 s")).toBeInTheDocument()
+  })
+
+  it("says when stats left out for their age were last read", () => {
+    render(
+      <ProwlarrIndexerCard indexers={[indexer({ statsStaleSince: "2026-08-14T08:00:00.000Z" })]} />
+    )
+
+    expect(screen.getByText(/Stats not updated since/)).toBeInTheDocument()
+    expect(screen.queryByText("Queries")).not.toBeInTheDocument()
+  })
+
+  it("leaves the stats out until Prowlarr has reported them", () => {
+    render(<ProwlarrIndexerCard indexers={[indexer()]} />)
+    expect(screen.queryByText("Queries")).not.toBeInTheDocument()
   })
 })

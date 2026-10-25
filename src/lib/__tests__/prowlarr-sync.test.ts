@@ -11,7 +11,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { encrypt } from "@/lib/crypto"
 import { db } from "@/lib/db"
 import { log } from "@/lib/logger"
-import { fetchIndexerStatuses, fetchIndexers, fetchSystemStatus } from "@/lib/prowlarr/client"
+import {
+  fetchIndexerStats,
+  fetchIndexerStatuses,
+  fetchIndexers,
+  fetchSystemStatus,
+} from "@/lib/prowlarr/client"
 import { loadTrackerProwlarrStates, pollProwlarrInstance } from "@/lib/prowlarr/sync"
 
 vi.mock("@/lib/db", () => ({
@@ -25,6 +30,7 @@ vi.mock("@/lib/prowlarr/client", async (importOriginal) => {
     fetchSystemStatus: vi.fn(),
     fetchIndexers: vi.fn(),
     fetchIndexerStatuses: vi.fn(),
+    fetchIndexerStats: vi.fn(),
   }
 })
 
@@ -36,6 +42,18 @@ const KEY = Buffer.alloc(32, 7)
 const OTHER_KEY = Buffer.alloc(32, 9)
 const API_KEY = "fedcba9876543210fedcba9876543210"
 const HOUR_MS = 3_600_000
+
+const STATS = {
+  averageResponseTime: 250,
+  queries: 10,
+  grabs: 2,
+  rssQueries: 48,
+  authQueries: 0,
+  failedQueries: 1,
+  failedGrabs: 0,
+  failedRssQueries: 2,
+  failedAuthQueries: 0,
+}
 
 function chain(result: unknown) {
   const builder = Object.assign(Promise.resolve(result), {} as Record<string, unknown>)
@@ -105,6 +123,8 @@ function instanceRow(overrides: Record<string, unknown> = {}) {
     enabled: true,
     lastError: null,
     indexersReadAt: null,
+    statsReadAt: null,
+    stats7dReadAt: null,
     ...overrides,
   }
 }
@@ -125,6 +145,7 @@ beforeEach(() => {
       initialFailure: new Date("2026-04-30T10:00:00Z"),
     },
   ])
+  vi.mocked(fetchIndexerStats).mockResolvedValue(new Map([[12, STATS]]))
 })
 
 describe("pollProwlarrInstance", () => {
@@ -147,7 +168,15 @@ describe("pollProwlarrInstance", () => {
       hosts: ["example.org"],
       disabledTill: new Date("2026-05-02T10:00:00Z"),
       initialFailure: new Date("2026-04-30T10:00:00Z"),
+      stats24h: STATS,
+      stats7d: STATS,
     })
+    expect(writes.inserts[1]).toMatchObject({ indexerId: 14, stats24h: null })
+    // A 24 hour and a 7 day window.
+    const windows = vi
+      .mocked(fetchIndexerStats)
+      .mock.calls.map(([, start, end]) => (end.getTime() - start.getTime()) / HOUR_MS)
+    expect(windows.sort((a, b) => a - b)).toEqual([24, 168])
     // The upsert also clears the old failure of an indexer that has recovered.
     expect(writes.conflictSets[1]).toMatchObject({ disabledTill: null, initialFailure: null })
     expect(writes.updates[0]).toMatchObject({
@@ -155,18 +184,28 @@ describe("pollProwlarrInstance", () => {
       errorSince: null,
       version: "1.2.3.4567",
       indexersReadAt: expect.any(Date),
+      statsReadAt: expect.any(Date),
+      stats7dReadAt: expect.any(Date),
     })
   })
 
-  it("reads only the status while the indexer list is recent", async () => {
-    mockSelects([instanceRow({ indexersReadAt: new Date(Date.now() - HOUR_MS) })])
+  it("reads only the status while the indexer list and the stats are recent", async () => {
+    mockSelects([
+      instanceRow({
+        indexersReadAt: new Date(Date.now() - HOUR_MS),
+        statsReadAt: new Date(Date.now() - HOUR_MS / 2),
+        stats7dReadAt: new Date(Date.now() - HOUR_MS),
+      }),
+    ])
     const writes = mockTx()
 
     await pollProwlarrInstance(1, KEY)
 
     expect(fetchIndexers).not.toHaveBeenCalled()
     expect(fetchSystemStatus).not.toHaveBeenCalled()
+    expect(fetchIndexerStats).not.toHaveBeenCalled()
     expect(writes.inserts).toHaveLength(0)
+    expect(writes.updates[0]).not.toHaveProperty("stats24h")
     // Every row is cleared, then the failing one is set again.
     expect(writes.updates[0]).toMatchObject({ disabledTill: null, initialFailure: null })
     expect(writes.updates[1]).toMatchObject({
@@ -189,6 +228,90 @@ describe("pollProwlarrInstance", () => {
     await pollProwlarrInstance(1, KEY, { readIndexers: true })
 
     expect(fetchIndexers).toHaveBeenCalledTimes(2)
+  })
+
+  it("reads only the 24 hour stats hourly between list reads", async () => {
+    mockSelects([
+      instanceRow({
+        indexersReadAt: new Date(Date.now() - HOUR_MS),
+        statsReadAt: new Date(Date.now() - 2 * HOUR_MS),
+        stats7dReadAt: new Date(Date.now() - HOUR_MS),
+      }),
+    ])
+    const writes = mockTx()
+
+    await pollProwlarrInstance(1, KEY)
+
+    expect(fetchIndexers).not.toHaveBeenCalled()
+    expect(fetchIndexerStats).toHaveBeenCalledTimes(1)
+    const [, start, end] = vi.mocked(fetchIndexerStats).mock.calls[0]
+    expect((end.getTime() - start.getTime()) / HOUR_MS).toBe(24)
+    // Every row is cleared, then the indexer with a status or stats is set again.
+    expect(writes.updates[0]).toMatchObject({ stats24h: null })
+    expect(writes.updates[0]).not.toHaveProperty("stats7d")
+    expect(writes.updates[1]).toMatchObject({ stats24h: STATS, disabledTill: expect.any(Date) })
+    expect(writes.updates[2]).toMatchObject({ statsReadAt: expect.any(Date) })
+    expect(writes.updates[2]).not.toHaveProperty("stats7dReadAt")
+  })
+
+  it("reads the 7 day stats again once a failed read is a list interval old", async () => {
+    mockSelects([
+      instanceRow({
+        indexersReadAt: new Date(Date.now() - HOUR_MS),
+        statsReadAt: new Date(Date.now() - HOUR_MS / 2),
+        stats7dReadAt: new Date(Date.now() - 7 * HOUR_MS),
+      }),
+    ])
+    const writes = mockTx()
+
+    await pollProwlarrInstance(1, KEY)
+
+    expect(fetchIndexers).not.toHaveBeenCalled()
+    expect(fetchIndexerStats).toHaveBeenCalledTimes(1)
+    const [, start, end] = vi.mocked(fetchIndexerStats).mock.calls[0]
+    expect((end.getTime() - start.getTime()) / HOUR_MS).toBe(168)
+    expect(writes.updates[2]).toMatchObject({ stats7dReadAt: expect.any(Date) })
+    expect(writes.updates[2]).not.toHaveProperty("statsReadAt")
+  })
+
+  it("keeps the stored stats and the status read when a stats request fails", async () => {
+    mockSelects([instanceRow()])
+    const writes = mockTx()
+    vi.mocked(fetchIndexerStats).mockRejectedValue(new Error("Prowlarr API error: 500"))
+
+    await pollProwlarrInstance(1, KEY)
+
+    expect(writes.inserts).toHaveLength(2)
+    expect(writes.inserts[0]).not.toHaveProperty("stats24h")
+    expect(writes.updates[0]).toMatchObject({ lastError: null })
+    expect(writes.updates[0]).not.toHaveProperty("statsReadAt")
+    expect(writes.updates[0]).not.toHaveProperty("stats7dReadAt")
+  })
+
+  it("logs a failed stats read once per window and cause, and its recovery", async () => {
+    mockTx()
+    vi.mocked(fetchIndexerStats).mockRejectedValue(new Error("Prowlarr API error: 500"))
+    mockSelects([instanceRow({ id: 5 })], [instanceRow({ id: 5 })])
+    await pollProwlarrInstance(5, KEY)
+    await pollProwlarrInstance(5, KEY)
+
+    expect(vi.mocked(log.warn).mock.calls.map(([, msg]) => msg)).toEqual([
+      expect.stringMatching(/^Prowlarr 24h stats read failed/),
+      expect.stringMatching(/^Prowlarr 7d stats read failed/),
+    ])
+
+    vi.mocked(fetchIndexerStats).mockRejectedValue(new Error("Prowlarr API error: 401"))
+    mockSelects([instanceRow({ id: 5 })])
+    await pollProwlarrInstance(5, KEY)
+    expect(log.warn).toHaveBeenCalledTimes(4)
+
+    vi.mocked(fetchIndexerStats).mockResolvedValue(new Map())
+    mockSelects([instanceRow({ id: 5 })])
+    await pollProwlarrInstance(5, KEY)
+    expect(vi.mocked(log.info).mock.calls.map(([, msg]) => msg)).toEqual([
+      "Prowlarr stats read recovered",
+      "Prowlarr stats read recovered",
+    ])
   })
 
   it("keeps the status read when the version request fails", async () => {
@@ -266,6 +389,8 @@ describe("loadTrackerProwlarrStates", () => {
     name: "Home Prowlarr",
     url: "http://prowlarr.test:9696",
     lastError: null,
+    statsReadAt: fresh,
+    stats7dReadAt: fresh,
   }
 
   function storedRow(overrides: Record<string, unknown> = {}) {
@@ -278,6 +403,8 @@ describe("loadTrackerProwlarrStates", () => {
       disabledTill: new Date(fresh.getTime() + HOUR_MS),
       mostRecentFailure: fresh,
       initialFailure: fresh,
+      stats24h: STATS,
+      stats7d: null,
       checkedAt: fresh,
       ...overrides,
     }
@@ -318,9 +445,49 @@ describe("loadTrackerProwlarrStates", () => {
           mostRecentFailure: fresh.toISOString(),
           initialFailure: fresh.toISOString(),
           checkedAt: fresh.toISOString(),
+          stats24h: STATS,
+          stats7d: null,
+          statsStaleSince: null,
         },
       ],
     })
+  })
+
+  it("leaves out stats not read for two refresh intervals, with their age", async () => {
+    const dayOld = new Date(Date.now() - 2.5 * HOUR_MS)
+    mockSelects(
+      [{ ...INSTANCE, statsReadAt: dayOld, stats7dReadAt: new Date(Date.now() - 11 * HOUR_MS) }],
+      [storedRow({ stats7d: STATS })]
+    )
+
+    const [indexer] = (await loadTrackerProwlarrStates(trackers)).get(1)?.indexers ?? []
+
+    expect(indexer.stats24h).toBeNull()
+    expect(indexer.stats7d).toEqual(STATS)
+    expect(indexer.statsStaleSince).toBe(dayOld.toISOString())
+  })
+
+  it("reports the oldest of two stale windows", async () => {
+    const weekOld = new Date(Date.now() - 13 * HOUR_MS)
+    mockSelects(
+      [{ ...INSTANCE, statsReadAt: new Date(Date.now() - 3 * HOUR_MS), stats7dReadAt: weekOld }],
+      [storedRow({ stats7d: STATS })]
+    )
+
+    const [indexer] = (await loadTrackerProwlarrStates(trackers)).get(1)?.indexers ?? []
+
+    expect(indexer.stats24h).toBeNull()
+    expect(indexer.stats7d).toBeNull()
+    expect(indexer.statsStaleSince).toBe(weekOld.toISOString())
+  })
+
+  it("reports no age for a window that never had stats", async () => {
+    mockSelects([{ ...INSTANCE, stats7dReadAt: null }], [storedRow()])
+
+    const [indexer] = (await loadTrackerProwlarrStates(trackers)).get(1)?.indexers ?? []
+
+    expect(indexer.stats24h).toEqual(STATS)
+    expect(indexer.statsStaleSince).toBeNull()
   })
 
   it("marks a reading from a stopped poller as stale", async () => {
