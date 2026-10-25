@@ -123,6 +123,7 @@ export const BACKUP_PROWLARR_COLUMNS = {
   url: prowlarrInstances.url,
   encryptedApiKey: prowlarrInstances.encryptedApiKey,
   enabled: prowlarrInstances.enabled,
+  affectsHealth: prowlarrInstances.affectsHealth,
   createdAt: prowlarrInstances.createdAt,
   updatedAt: prowlarrInstances.updatedAt,
 } as const
@@ -464,6 +465,9 @@ export function validateBackupJson(payload: unknown): asserts payload is BackupP
       assertNumber(pi.id, `${prefix}.id`)
       assertString(pi.name, `${prefix}.name`)
       assertString(pi.url, `${prefix}.url`)
+      if (pi.affectsHealth !== undefined && typeof pi.affectsHealth !== "boolean") {
+        throw new Error(`Backup validation: ${prefix}.affectsHealth must be a boolean`)
+      }
       // The same check as the API routes, so a restore cannot store a URL they reject.
       const urlError = prowlarrUrlError(pi.url)
       if (urlError) throw new Error(`Backup validation: ${prefix}.url: ${urlError}`)
