@@ -78,6 +78,13 @@ export function sanitizeNetworkError(raw: string, fallback = "Connection failed"
   if (/Alt 2FA Token/i.test(raw)) return "Invalid credentials or Alt 2FA Token"
   const luminance = raw.match(/Luminance (login failed: .*|2FA is not supported.*)/)
   if (luminance) return `Luminance ${luminance[1]}`
+  // FlareSolverr errors. An unreachable FlareSolverr makes the tracker unreachable
+  // too. Other FlareSolverr failures are named as such, because the fix is in
+  // FlareSolverr and not in the tracker.
+  if (/FlareSolverr unreachable/i.test(raw)) return "FlareSolverr unreachable"
+  if (/no FlareSolverr URL is set/i.test(raw)) return "FlareSolverr is not set up in Settings"
+  if (/^FlareSolverr: .*time ?out/i.test(raw)) return "FlareSolverr timed out"
+  if (/^FlareSolverr: /i.test(raw)) return "FlareSolverr could not load the page"
   // A tracker answer the adapter could not use, such as a 2xx body it could
   // not read or a scraper's redirect with no readable Location. "Unexpected
   // response from <host>: ..." is the wording the adapters and the shared fetch
@@ -137,6 +144,7 @@ const UNREACHABLE_MESSAGES: ReadonlySet<string> = new Set([
   "Connection reset",
   "Proxy connection failed",
   "Connection failed",
+  "FlareSolverr unreachable",
 ])
 
 /**
