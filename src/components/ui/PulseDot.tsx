@@ -7,7 +7,15 @@ import clsx from "clsx"
 // distinguishes states by their accessible label, not by giving every member
 // its own color.
 type PulseDotStatus =
-  "healthy" | "warning" | "no-seeds" | "critical" | "error" | "paused" | "paused-user" | "offline"
+  | "healthy"
+  | "indexer-failing"
+  | "warning"
+  | "no-seeds"
+  | "critical"
+  | "error"
+  | "paused"
+  | "paused-user"
+  | "offline"
 type PulseDotSize = "sm" | "md"
 
 interface PulseDotProps {
@@ -20,6 +28,7 @@ interface PulseDotProps {
 
 const statusLabels: Record<PulseDotStatus, string> = {
   healthy: "Healthy",
+  "indexer-failing": "Indexer failing in Prowlarr",
   warning: "Ratio between 1 and 2",
   "no-seeds": "No seeds",
   critical: "Critical",
@@ -31,6 +40,7 @@ const statusLabels: Record<PulseDotStatus, string> = {
 
 const shouldPulse: Record<PulseDotStatus, boolean> = {
   healthy: true,
+  "indexer-failing": true,
   warning: true,
   "no-seeds": true,
   critical: true,
@@ -44,6 +54,7 @@ const pulseDot = cva("inline-block rounded-full shrink-0", {
   variants: {
     status: {
       healthy: "text-accent bg-accent",
+      "indexer-failing": "text-warn bg-warn",
       warning: "text-warn bg-warn",
       "no-seeds": "text-danger bg-danger",
       critical: "text-danger bg-danger",

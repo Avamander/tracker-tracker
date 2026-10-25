@@ -333,6 +333,7 @@ describe("loadTrackerProwlarrStates", () => {
     id: 1,
     name: "Home Prowlarr",
     url: "http://prowlarr.test:9696",
+    affectsHealth: true,
     lastError: null,
   }
 
@@ -379,6 +380,7 @@ describe("loadTrackerProwlarrStates", () => {
           instanceId: 1,
           instanceName: "Home Prowlarr",
           instanceUrl: "http://prowlarr.test:9696",
+          affectsHealth: true,
           instanceError: null,
           stale: false,
           indexerId: 12,

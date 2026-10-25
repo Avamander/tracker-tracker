@@ -425,6 +425,7 @@ export async function POST(request: Request) {
             url: fields.url as string,
             encryptedApiKey: apiKey,
             enabled: keyCleared ? false : ((fields.enabled as boolean) ?? true),
+            affectsHealth: fields.affectsHealth === true,
             lastError: keyCleared ? "API key cleared during restore. Re-enter and re-enable" : null,
             createdAt: new Date(fields.createdAt as string),
             updatedAt: new Date(fields.updatedAt as string),
