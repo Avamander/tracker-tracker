@@ -1,7 +1,8 @@
 // src/lib/credential-forms.ts
 //
 // Functions: resolveFieldLabel, tokenForm, credentialFormFor, credentialFormForPlatform,
-//            cleanCookies, checkCookies, validateCredentialValues, buildCredentialBlob
+//            cleanCookies, checkToken, checkCookies, validateCredentialValues,
+//            buildCredentialBlob
 
 // ---------------------------------------------------------------------------
 // One row per platform: what the credential UI asks for, what a valid answer
@@ -11,8 +12,10 @@
 import type { PlatformType } from "@/data/platform-types"
 import { validateCookieHeader } from "@/lib/tracker-credentials/cookie-header"
 import { validateHeaderToken } from "@/lib/tracker-credentials/header-token"
+import { validateTrackerUsername } from "@/lib/tracker-credentials/tracker-username"
 
-export type CredentialKind = "token" | "cookies" | "cookies-username" | "uid-pass" | "login"
+export type CredentialKind =
+  "token" | "token-username" | "cookies" | "cookies-username" | "uid-pass" | "login"
 
 /**
  * A label may depend on the tracker's display name. The AvistaZ network is one
@@ -124,6 +127,22 @@ export const CREDENTIAL_FORMS = {
   hawke: tokenForm(UNIT3D_TOKEN),
   tr4ker: tokenForm("Your TR4KER API key"),
   c411: tokenForm("Your C411 API key, with the Profile (reading) scope", true),
+  animebytes: {
+    kind: "token-username",
+    hidesJoinDate: false,
+    dialog: {
+      username: {
+        label: "AnimeBytes Username",
+        tooltip: "The AnimeBytes API does not report your username, so it is asked for here.",
+        placeholder: "Your AnimeBytes username",
+      },
+      secret: { label: "API Token", placeholder: "Your AnimeBytes API key" },
+    },
+    sheet: {
+      username: { label: "Username" },
+      secret: { label: "API Token", placeholder: "Paste API token" },
+    },
+  },
 
   avistaz: {
     kind: "cookies-username",
@@ -334,6 +353,19 @@ function cleanCookies(cookies: string): string {
   return cookies.trim().replace(/^Cookie:\s*/i, "")
 }
 
+function checkToken(value: string): string | null {
+  const token = value.trim()
+  if (!token) return "API token is required"
+  // The check the token adapters run before sending the token, so the
+  // pre-save message matches a poll's.
+  try {
+    validateHeaderToken(token)
+    return null
+  } catch (error) {
+    return error instanceof Error ? error.message : "API token doesn't look right"
+  }
+}
+
 function checkCookies(
   form: Extract<CredentialForm, { kind: CookieKind }>,
   cookies: string
@@ -356,18 +388,17 @@ export function validateCredentialValues(
   values: CredentialValues
 ): string | null {
   switch (form.kind) {
-    case "token": {
-      const token = values.token.trim()
-      if (!token) return "API token is required"
-      // The check unit3d, gazelle, hawke, tr4ker and c411 run before sending the token,
-      // so for them the pre-save message matches a poll's.
+    case "token":
+      return checkToken(values.token)
+    case "token-username":
+      if (!values.username.trim()) return "Username is required"
+      // The adapter's own check, so the pre-save message matches a poll's.
       try {
-        validateHeaderToken(token)
-        return null
+        validateTrackerUsername(values.username)
       } catch (error) {
-        return error instanceof Error ? error.message : "API token doesn't look right"
+        return error instanceof Error ? error.message : "Username doesn't look right"
       }
-    }
+      return checkToken(values.token)
     case "cookies":
       return checkCookies(form, values.cookies)
     case "cookies-username":
@@ -414,6 +445,8 @@ export function buildCredentialBlob(
   switch (form.kind) {
     case "token":
       return values.token.trim()
+    case "token-username":
+      return JSON.stringify({ token: values.token.trim(), username: values.username.trim() })
     case "cookies":
       return JSON.stringify({ cookies: cleanCookies(values.cookies), userAgent })
     case "cookies-username":

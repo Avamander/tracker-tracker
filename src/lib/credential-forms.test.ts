@@ -107,6 +107,13 @@ describe("buildCredentialBlob", () => {
     })
   })
 
+  it("pairs the token with the username for animebytes", () => {
+    expect(blob("animebytes", { token: "  abc123  ", username: "  bob  " })).toEqual({
+      token: "abc123",
+      username: "bob",
+    })
+  })
+
   it("splits uid and pass out of the digitalcore cookie string", () => {
     expect(blob("digitalcore", { cookies: "uid=56954; pass=abc123def456" })).toEqual({
       uid: "56954",
@@ -154,6 +161,15 @@ describe("validateCredentialValues empty fields", () => {
     )
     expect(validateCredentialValues(CREDENTIAL_FORMS.avistaz, values({ username: "bob" }))).toBe(
       "Browser cookies are required"
+    )
+  })
+
+  it("asks for the animebytes username before the token", () => {
+    expect(validateCredentialValues(CREDENTIAL_FORMS.animebytes, values())).toBe(
+      "Username is required"
+    )
+    expect(validateCredentialValues(CREDENTIAL_FORMS.animebytes, values({ username: "bob" }))).toBe(
+      "API token is required"
     )
   })
 
@@ -259,5 +275,23 @@ describe("validateCredentialValues token hygiene", () => {
     expect(
       validateCredentialValues(CREDENTIAL_FORMS.unit3d, values({ token: "  abc123\n" }))
     ).toBeNull()
+  })
+})
+
+describe("validateCredentialValues username hygiene", () => {
+  // The form shows the AnimeBytes adapter's own check, before the token's.
+  it("rejects an animebytes username over 100 characters", () => {
+    expect(
+      validateCredentialValues(CREDENTIAL_FORMS.animebytes, values({ username: "a".repeat(101) }))
+    ).toBe("Invalid username: it is longer than 100 characters.")
+  })
+
+  it("rejects an animebytes username carrying a control character", () => {
+    expect(
+      validateCredentialValues(
+        CREDENTIAL_FORMS.animebytes,
+        values({ username: "some\u0000one", token: "abc123" })
+      )
+    ).toBe("Invalid username: it contains a control character (U+0000) at position 4.")
   })
 })

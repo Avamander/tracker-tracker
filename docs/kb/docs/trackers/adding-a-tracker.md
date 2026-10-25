@@ -46,7 +46,6 @@ Click the **+** button next to "Trackers" in the sidebar, or go to `/trackers/ne
     | Name              | Abbreviation |
     | ----------------- | ------------ |
     | AlphaRatio        | AR           |
-    | AnimeBytes        | AB           |
     | BroadcasTheNet    | BTN          |
     | Empornium         | EMP          |
     | Great Poster Wall | GPW          |
@@ -103,6 +102,12 @@ Click the **+** button next to "Trackers" in the sidebar, or go to `/trackers/ne
     | ---- | ------------ |
     | C411 | C411         |
 
+=== "AnimeBytes"
+
+    | Name       | Abbreviation |
+    | ---------- | ------------ |
+    | AnimeBytes | AB           |
+
 === "FileList"
 
     | Name     | Abbreviation |
@@ -156,7 +161,7 @@ Location varies by platform:
 === "Gazelle"
 
     - **RED / OPS**: **Settings → Access Settings → API Keys**. Create a new key (read-only is fine).
-    - **BTN / PTP / AB / others**: check **Settings → Security**, **Settings → API**, or your profile.
+    - **BTN / PTP / others**: check **Settings → Security**, **Settings → API**, or your profile.
 
     Gazelle shows keys only once when created, so copy it right away.
 
@@ -271,6 +276,15 @@ Location varies by platform:
 
     !!! warning "A key without the Profile scope reads as an authentication failure"
         C411 refuses such a key with a 403, which shows as "Authentication failed". Create a new key with the scope ticked and replace the old one.
+
+=== "AnimeBytes"
+
+    Create an API key in your AnimeBytes account and paste it into the Add Tracker dialog, along with your AnimeBytes **username**.
+
+    The AnimeBytes API does not report the username, so type it as it appears on the site. Tracker Tracker shows it as entered and cannot check it.
+
+    !!! warning "Unverified"
+        AnimeBytes support hasn't been tested against a live account. If a poll fails or a stat looks wrong, open an issue naming the tracker.
 
 !!! warning "Keep your token private"
     Your API token works like a password. Tracker Tracker encrypts it before storing it.

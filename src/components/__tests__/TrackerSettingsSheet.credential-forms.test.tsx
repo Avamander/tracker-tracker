@@ -143,3 +143,34 @@ describe("TrackerSettingsSheet credential re-test", () => {
     expect(body).not.toHaveProperty("slug")
   })
 })
+
+describe("TrackerSettingsSheet AnimeBytes credentials", () => {
+  const ANIMEBYTES: TrackerSummary = {
+    ...RETROTOON,
+    name: "AnimeBytes",
+    baseUrl: "https://animebytes.tv",
+    registrySlug: "animebytes",
+    platformType: "animebytes",
+  }
+
+  it("asks for the username and the API token, and saves both as one blob", async () => {
+    // The adapter reads the username from the blob, since the API never reports it.
+    const user = userEvent.setup()
+    renderSheet(ANIMEBYTES)
+
+    await user.click(screen.getByRole("button", { name: "Change" }))
+    await user.type(screen.getByLabelText("Username"), "someone")
+    await user.type(screen.getByLabelText("API Token"), "tok123")
+    await user.click(screen.getByRole("button", { name: "Save Changes" }))
+
+    await waitFor(() =>
+      expect(credentialRequests().some(([, init]) => init?.method === "PATCH")).toBe(true)
+    )
+    const blob = { token: "tok123", username: "someone" }
+    const test = testConnectionBody() as Record<string, unknown>
+    expect(test.slug).toBe("animebytes")
+    expect(JSON.parse(String(test.apiToken))).toEqual(blob)
+    const patch = credentialRequests().find(([, init]) => init?.method === "PATCH")
+    expect(JSON.parse(JSON.parse(String(patch?.[1]?.body)).apiToken)).toEqual(blob)
+  })
+})
