@@ -2,7 +2,9 @@
 
 import { render, screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
+import { CHART_THEME } from "@/components/charts/lib/theme"
 import { FleetHeadline } from "@/components/dashboard/FleetHeadline"
+import { hexToRgba } from "@/lib/color-utils"
 
 function fleet(ratioChange: number | null, overrides: Record<string, unknown> = {}) {
   return {
@@ -10,7 +12,7 @@ function fleet(ratioChange: number | null, overrides: Record<string, unknown> = 
     downloadDelta: "0",
     bufferDelta: "0",
     ratioChange,
-    seedbonusChange: null,
+    seedbonusChange: 0,
     uploadDeltaYesterday: null,
     downloadDeltaYesterday: null,
     bufferDeltaYesterday: null,
@@ -18,65 +20,55 @@ function fleet(ratioChange: number | null, overrides: Record<string, unknown> = 
   }
 }
 
-function card(label: string): HTMLElement {
-  const node = screen.getByText(label)
-  const found = node.closest("[class*='rounded']") ?? node.parentElement?.parentElement
-  if (!found) throw new Error(`${label} card not found`)
-  return found as HTMLElement
-}
+const card = (label: string) => screen.getByTestId(`stat-card-${label}`)
 
-function ratioCard(): HTMLElement {
-  const label = screen.getByText("Ratio change")
-  const card = label.closest("[class*='rounded']") ?? label.parentElement?.parentElement
-  if (!card) throw new Error("ratio card not found")
-  return card as HTMLElement
-}
+/** The card's glow, which StatCard draws in its accent colour */
+const glowOf = (color: string) => hexToRgba(color, 0.09)
 
 describe("FleetHeadline ratio change", () => {
   it("shows no change, without a sign, when the ratio did not move", () => {
     render(<FleetHeadline fleet={fleet(0)} />)
 
-    expect(ratioCard()).toHaveTextContent("0.0000")
-    expect(ratioCard()).not.toHaveTextContent("+0.0000")
-    expect(ratioCard()).toHaveTextContent("No change")
+    expect(card("Ratio change")).toHaveTextContent("0.0000")
+    expect(card("Ratio change")).not.toHaveTextContent("+0.0000")
+    expect(card("Ratio change")).toHaveTextContent("No change")
+    expect(card("Ratio change").style.filter).toContain(glowOf(CHART_THEME.neutral))
   })
 
-  it("keeps the sign and arrow of a change too small for four decimals", () => {
-    render(<FleetHeadline fleet={fleet(0.00001)} />)
-
-    expect(ratioCard()).toHaveTextContent("+0.0000")
-    expect(ratioCard()).toHaveTextContent("Trending up")
-  })
-
-  it("shows a gain as trending up", () => {
-    render(<FleetHeadline fleet={fleet(0.0123)} />)
-
-    expect(ratioCard()).toHaveTextContent("+0.0123")
-    expect(ratioCard()).toHaveTextContent("Trending up")
-  })
-
-  it("shows a loss as trending down", () => {
-    render(<FleetHeadline fleet={fleet(-0.0123)} />)
-
-    expect(ratioCard()).toHaveTextContent("-0.0123")
-    expect(ratioCard()).toHaveTextContent("Trending down")
-  })
-
-  it("treats a change of Number.EPSILON as no change", () => {
-    const { unmount } = render(<FleetHeadline fleet={fleet(Number.EPSILON)} />)
-    expect(ratioCard()).toHaveTextContent("No change")
+  it("shows a change too small for four decimals as no change", () => {
+    const { unmount } = render(<FleetHeadline fleet={fleet(0.00001)} />)
+    expect(card("Ratio change")).toHaveTextContent("No change")
+    expect(card("Ratio change")).not.toHaveTextContent("+0.0000")
     unmount()
 
-    render(<FleetHeadline fleet={fleet(-Number.EPSILON)} />)
-    expect(ratioCard()).toHaveTextContent("No change")
-    expect(ratioCard()).not.toHaveTextContent("-0.0000")
+    render(<FleetHeadline fleet={fleet(-0.00001)} />)
+    expect(card("Ratio change")).toHaveTextContent("No change")
+    expect(card("Ratio change")).not.toHaveTextContent("-0.0000")
   })
 
-  it("shows no trend without upload activity", () => {
+  it("shows a gain as trending up in the success colour", () => {
+    render(<FleetHeadline fleet={fleet(0.0123)} />)
+
+    expect(card("Ratio change")).toHaveTextContent("+0.0123")
+    expect(card("Ratio change")).toHaveTextContent("Trending up")
+    expect(card("Ratio change").style.filter).toContain(glowOf(CHART_THEME.success))
+  })
+
+  it("shows a loss as trending down in the danger colour", () => {
+    render(<FleetHeadline fleet={fleet(-0.0123)} />)
+
+    expect(card("Ratio change")).toHaveTextContent("-0.0123")
+    expect(card("Ratio change")).toHaveTextContent("Trending down")
+    expect(card("Ratio change").style.filter).toContain(glowOf(CHART_THEME.danger))
+  })
+
+  it("shows a dash without a trend when there is nothing to measure", () => {
     render(<FleetHeadline fleet={fleet(null)} />)
 
-    expect(ratioCard()).toHaveTextContent("0.0000")
-    expect(ratioCard()).not.toHaveTextContent(/Trending|No change/)
+    expect(card("Ratio change")).toHaveTextContent("—")
+    expect(card("Ratio change")).not.toHaveTextContent(/\d/)
+    expect(card("Ratio change")).not.toHaveTextContent(/Trending|No change/)
+    expect(card("Ratio change").style.filter).toContain(glowOf(CHART_THEME.neutral))
   })
 })
 
@@ -90,33 +82,53 @@ describe("FleetHeadline other changes", () => {
     expect(card("Upload gained")).not.toHaveTextContent("+0.0%")
   })
 
-  it("keeps the sign of a day-on-day percentage", () => {
+  it("shows a percentage that rounds to zero without a sign", () => {
     render(
+      <FleetHeadline fleet={fleet(null, { uploadDelta: "10004", uploadDeltaYesterday: "10000" })} />
+    )
+
+    expect(card("Upload gained")).toHaveTextContent("0.0% vs yesterday")
+    expect(card("Upload gained")).not.toHaveTextContent(/[+-]0\.0%/)
+  })
+
+  it("keeps the sign of a rise and a fall", () => {
+    const { unmount } = render(
       <FleetHeadline fleet={fleet(null, { uploadDelta: "1500", uploadDeltaYesterday: "1000" })} />
     )
-
     expect(card("Upload gained")).toHaveTextContent("+50.0% vs yesterday")
-  })
-
-  it("shows a small day-on-day percentage to one decimal with its sign", () => {
-    render(
-      <FleetHeadline fleet={fleet(null, { uploadDelta: "1003", uploadDeltaYesterday: "1000" })} />
-    )
-    expect(card("Upload gained")).toHaveTextContent("+0.3% vs yesterday")
-  })
-
-  it("shows an unchanged or unknown bonus without a sign", () => {
-    const { unmount } = render(<FleetHeadline fleet={fleet(null, { seedbonusChange: 0 })} />)
-    expect(card("Bonus gained")).not.toHaveTextContent("+0")
     unmount()
 
-    render(<FleetHeadline fleet={fleet(null)} />)
-    expect(card("Bonus gained")).not.toHaveTextContent("+0")
+    render(
+      <FleetHeadline fleet={fleet(null, { uploadDelta: "997", uploadDeltaYesterday: "1000" })} />
+    )
+    expect(card("Upload gained")).toHaveTextContent("-0.3% vs yesterday")
   })
 
-  it("keeps the sign of a bonus change smaller than one point", () => {
-    render(<FleetHeadline fleet={fleet(null, { seedbonusChange: 0.4 })} />)
+  it("compares yesterday with the day before", () => {
+    render(
+      <FleetHeadline
+        day="yesterday"
+        fleet={fleet(null, { uploadDelta: "1003", uploadDeltaYesterday: "1000" })}
+      />
+    )
+    expect(card("Upload gained")).toHaveTextContent("+0.3% vs the day before")
+  })
 
-    expect(card("Bonus gained")).toHaveTextContent("+0")
+  it("shows an unchanged bonus, or one under a point, without a sign", () => {
+    const { unmount } = render(<FleetHeadline fleet={fleet(null, { seedbonusChange: 0 })} />)
+    expect(card("Bonus gained")).toHaveTextContent(/^Bonus gained0pts$/)
+    unmount()
+
+    render(<FleetHeadline fleet={fleet(null, { seedbonusChange: 0.4 })} />)
+    expect(card("Bonus gained")).toHaveTextContent(/^Bonus gained0pts$/)
+  })
+
+  it("keeps the sign of a bonus change", () => {
+    const { unmount } = render(<FleetHeadline fleet={fleet(null, { seedbonusChange: 12.7 })} />)
+    expect(card("Bonus gained")).toHaveTextContent("+12")
+    unmount()
+
+    render(<FleetHeadline fleet={fleet(null, { seedbonusChange: -1234.5 })} />)
+    expect(card("Bonus gained")).toHaveTextContent("-1,234")
   })
 })

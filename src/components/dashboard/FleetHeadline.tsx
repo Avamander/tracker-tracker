@@ -11,7 +11,13 @@ import {
 } from "@/components/ui/Icons"
 import { StatCard } from "@/components/ui/StatCard"
 import { computePctChange } from "@/lib/data-transforms"
-import { formatBytesFromString, formatCount, splitValueUnit } from "@/lib/formatters"
+import {
+  formatBytesFromString,
+  formatCount,
+  formatPercent,
+  formatSignedChange,
+  splitValueUnit,
+} from "@/lib/formatters"
 import type { GlanceDay, TodayAtAGlance } from "@/types/api"
 
 interface FleetHeadlineProps {
@@ -19,15 +25,9 @@ interface FleetHeadlineProps {
   day?: GlanceDay
 }
 
-/** "+" or "-" from the exact value; none for zero within floating-point error. */
-function signOf(value: number): string {
-  return value > Number.EPSILON ? "+" : value < -Number.EPSILON ? "-" : ""
-}
-
 function pctLabel(pct: number | null, versus: string): string | undefined {
   if (pct === null) return undefined
-  const magnitude = signOf(pct) === "" ? 0 : Math.abs(pct)
-  return `${signOf(pct)}${magnitude.toFixed(1)}% vs ${versus}`
+  return `${formatSignedChange(pct, 1, (v) => formatPercent(v, 1)).text} vs ${versus}`
 }
 
 export function FleetHeadline({ fleet, day = "today" }: FleetHeadlineProps) {
@@ -36,31 +36,17 @@ export function FleetHeadline({ fleet, day = "today" }: FleetHeadlineProps) {
   const downloadParts = splitValueUnit(formatBytesFromString(fleet.downloadDelta))
   const bufferParts = splitValueUnit(formatBytesFromString(fleet.bufferDelta))
 
-  // Zero within floating-point error has no sign; anything else keeps the sign
-  // of the exact value, so a tiny gain reads "+0.0000" beside an up arrow.
-  const ratioChange =
-    fleet.ratioChange === null || Math.abs(fleet.ratioChange) <= Number.EPSILON
-      ? 0
-      : fleet.ratioChange
-  const ratioDisplay = ratioChange > 0 ? `+${ratioChange.toFixed(4)}` : ratioChange.toFixed(4)
+  // No upload yet today leaves nothing to measure the ratio change against
+  const ratio = fleet.ratioChange === null ? null : formatSignedChange(fleet.ratioChange, 4)
 
   const seedbonusDisplay =
     fleet.seedbonusChange === null
       ? "0"
-      : signOf(fleet.seedbonusChange) + formatCount(Math.floor(Math.abs(fleet.seedbonusChange)))
+      : formatSignedChange(Math.trunc(fleet.seedbonusChange), 0, formatCount).text
 
   const uploadPct = computePctChange(fleet.uploadDelta, fleet.uploadDeltaYesterday)
   const downloadPct = computePctChange(fleet.downloadDelta, fleet.downloadDeltaYesterday)
   const bufferPct = computePctChange(fleet.bufferDelta, fleet.bufferDeltaYesterday)
-
-  const ratioTrend =
-    fleet.ratioChange === null
-      ? undefined
-      : ratioChange > 0
-        ? ("up" as const)
-        : ratioChange < 0
-          ? ("down" as const)
-          : ("flat" as const)
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -93,12 +79,12 @@ export function FleetHeadline({ fleet, day = "today" }: FleetHeadlineProps) {
 
       <StatCard
         label="Ratio change"
-        value={ratioDisplay}
-        trend={ratioTrend}
+        value={ratio?.text ?? "—"}
+        trend={ratio?.direction}
         accentColor={
-          ratioChange < 0
+          ratio?.direction === "down"
             ? CHART_THEME.danger
-            : ratioChange > 0
+            : ratio?.direction === "up"
               ? CHART_THEME.success
               : CHART_THEME.neutral
         }
