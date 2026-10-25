@@ -13,7 +13,12 @@ import type { DebugApiCall, FetchOptions, TrackerAdapter, TrackerStats } from ".
 import { parseCredentialJson } from "../helpers/cookie-credentials"
 import { SessionExpiredError } from "../helpers/errors"
 import { fetchTrackerHtml } from "../helpers/html-fetch"
-import { datePrefix, normalizeWhitespace, tryParseCount } from "../helpers/html-parse"
+import {
+  datePrefix,
+  isCloudflareChallenge,
+  normalizeWhitespace,
+  tryParseCount,
+} from "../helpers/html-parse"
 
 // ---------------------------------------------------------------------------
 // Credential handling
@@ -122,11 +127,7 @@ export function parseIptProfile(html: string, hostname: string, profileId?: numb
     throw new SessionExpiredError("Session expired. Browser cookies need to be refreshed")
   }
 
-  if (
-    html.includes("<title>Just a moment...</title>") ||
-    html.includes("cf_chl_opt") ||
-    html.includes("challenges.cloudflare.com/turnstile")
-  ) {
+  if (isCloudflareChallenge(html)) {
     throw new Error("Cloudflare challenge detected. Cookies need refreshing")
   }
 

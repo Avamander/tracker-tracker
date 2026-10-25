@@ -232,7 +232,7 @@ Covers installation, tracker setup (UNIT3D, Gazelle, GGn, MAM, AvistaZ), feature
 
 PRs welcome. Areas where help matters most:
 
-- **New trackers & missing data**: copy [`src/data/trackers/_template.ts`](src/data/trackers/_template.ts), fill in what you know, and submit a PR. Partial entries are fine. Set `draft: true` and CI will accept it. Filling in user classes, rules, release groups, and banned groups on existing trackers is just as valuable.
+- **New trackers & missing data**: copy [`src/data/trackers/_template.ts`](src/data/trackers/_template.ts), fill in what you know, and submit a PR. Partial entries are fine. Set `draft: true` and CI will accept it. Filling in user classes, rules, release groups, and banned groups on existing trackers is just as valuable. [Adding a Tracker](https://jordanlambrecht.github.io/tracker-tracker/contributing/adding-a-tracker/) has the full guide, including when to include a redacted API response.
 - **Download client adapters**: only qBittorrent is supported. Deluge, Transmission, and rTorrent all need adapters. See `src/lib/download-clients/adapters/qbt.ts` for the pattern.
 - **Tracker verification**: if you belong to a tracker marked 🟡 above, testing and confirming it works helps greatly.
 - **Security auditing**: check out SECURITY.md for threat surfice info.

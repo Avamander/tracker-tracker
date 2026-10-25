@@ -10,6 +10,8 @@ If your tracker runs on a new platform, read [Tracker API Responses](tracker-res
 
 Branch from `development` and open your pull request against `development`, not `main`. `main` is updated from `development` when a release ships, so a pull request against it is built on code that is weeks behind and has to be rebased before it can merge.
 
+If the tracker's response differs from the example for its platform, include a redacted sample as [Sharing a Response Sample](tracker-responses.md#sharing-a-response-sample) describes.
+
 ---
 
 ## Standardization Philosophy
@@ -778,6 +780,10 @@ pair, a JSON blob), the "API Token" textbox is the wrong input, and
 API boundary before the adapter ever runs. Add the platform to
 `LARGE_TOKEN_PLATFORMS` and it gets the 5000-character cap in all three
 routes at once.
+
+The pull request also needs a redacted sample of the tracker's response, which becomes your
+test fixture and the example on the platform's page. [Sharing a Response Sample](tracker-responses.md#sharing-a-response-sample)
+covers what to scrub and how to capture it.
 
 ### Use the shared fetch helper
 

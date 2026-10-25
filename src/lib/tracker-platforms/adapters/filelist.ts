@@ -19,6 +19,7 @@ import { SessionExpiredError } from "../helpers/errors"
 import { fetchTrackerHtml } from "../helpers/html-fetch"
 import {
   datePrefix,
+  isCloudflareChallenge,
   normalizeWhitespace,
   tryParseCount,
   tryParseSiteBytes,
@@ -72,11 +73,7 @@ export function parseFilelistCredentials(apiToken: string): FilelistCredentials 
 function assertAuthenticated(html: string): void {
   // Cloudflare first: a challenge body also lacks the logout link, and the
   // specific challenge message must win over the generic session-expired one.
-  if (
-    html.includes("<title>Just a moment...</title>") ||
-    html.includes("cf_chl_opt") ||
-    html.includes("challenges.cloudflare.com/turnstile")
-  ) {
+  if (isCloudflareChallenge(html)) {
     throw new Error("Cloudflare challenge detected. Cookies need refreshing")
   }
 
