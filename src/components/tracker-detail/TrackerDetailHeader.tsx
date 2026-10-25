@@ -74,6 +74,11 @@ export function TrackerDetailHeader({
   const health = getTrackerHealth(tracker)
   const prowlarrIndexers = tracker.prowlarr?.indexers ?? []
   const account = stats ?? tracker.overview ?? null
+  const hasStatusCards = Boolean(
+    registryEntry?.trackerHubSlug ||
+    (tracker.platformType === "mam" && tracker.mouseholeUrl) ||
+    prowlarrIndexers.length > 0
+  )
 
   return (
     <div className="flex flex-col gap-5">
@@ -177,37 +182,40 @@ export function TrackerDetailHeader({
         </div>
       </div>
 
-      {(registryEntry?.trackerHubSlug ||
-        (tracker.platformType === "mam" && tracker.mouseholeUrl) ||
-        prowlarrIndexers.length > 0) && (
-        <div className="flex flex-col gap-3 my-4">
-          {registryEntry?.trackerHubSlug && (
-            <TrackerHubStatus
-              trackerHubSlug={registryEntry.trackerHubSlug}
-              statusPageUrl={registryEntry.statusPageUrl}
+      {/* The status cards sit beside the user card when there is room, below it otherwise */}
+      {(account || hasStatusCards) && (
+        <div className="flex flex-wrap items-start gap-4">
+          {account && (
+            <UserProfileCard
+              tracker={tracker}
+              account={account}
+              registryEntry={registryEntry}
+              accentColor={tc}
             />
           )}
-          {/* Remounted on each settings save so a new URL or token is fetched at once */}
-          {tracker.platformType === "mam" && tracker.mouseholeUrl && (
-            <MamMouseholeCard
-              key={settingsSaves}
-              trackerId={tracker.id}
-              mouseholeUrl={tracker.mouseholeUrl}
-            />
-          )}
-          {prowlarrIndexers.length > 0 && (
-            <ProwlarrIndexerCard indexers={prowlarrIndexers} onResume={onResumeIndexer} />
+
+          {hasStatusCards && (
+            <div className="flex flex-col gap-3 flex-1 min-w-80 max-w-xl">
+              {registryEntry?.trackerHubSlug && (
+                <TrackerHubStatus
+                  trackerHubSlug={registryEntry.trackerHubSlug}
+                  statusPageUrl={registryEntry.statusPageUrl}
+                />
+              )}
+              {/* Remounted on each settings save so a new URL or token is fetched at once */}
+              {tracker.platformType === "mam" && tracker.mouseholeUrl && (
+                <MamMouseholeCard
+                  key={settingsSaves}
+                  trackerId={tracker.id}
+                  mouseholeUrl={tracker.mouseholeUrl}
+                />
+              )}
+              {prowlarrIndexers.length > 0 && (
+                <ProwlarrIndexerCard indexers={prowlarrIndexers} onResume={onResumeIndexer} />
+              )}
+            </div>
           )}
         </div>
-      )}
-
-      {account && (
-        <UserProfileCard
-          tracker={tracker}
-          account={account}
-          registryEntry={registryEntry}
-          accentColor={tc}
-        />
       )}
     </div>
   )
