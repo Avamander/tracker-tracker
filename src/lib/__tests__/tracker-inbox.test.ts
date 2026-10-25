@@ -137,6 +137,28 @@ describe("recordTrackerInbox", () => {
     expect(find("update", trackerMessages, "set")).toHaveLength(0)
   })
 
+  // Gazelle fetches the message list only when its count is above zero.
+  it("marks the kinds counted at zero read when no list comes with them", async () => {
+    await recordTrackerInbox(
+      7,
+      { unreadMessages: 0, unreadStaffMessages: null, unreadNotifications: 0 },
+      { storeUsernames: true, now: NOW }
+    )
+
+    expect(find("update", trackerMessages, "set")).toHaveLength(1)
+    expect(find("update", trackerMessages, "set")[0].args[0]).toEqual({ readAt: NOW })
+  })
+
+  it("leaves messages alone when neither count is known", async () => {
+    await recordTrackerInbox(
+      7,
+      { unreadMessages: null, unreadStaffMessages: null, unreadNotifications: 0 },
+      { storeUsernames: true, now: NOW }
+    )
+
+    expect(find("update", trackerMessages, "set")).toHaveLength(0)
+  })
+
   it("inserts news once per tracker, kind and item, dismissing kinds the site has read", async () => {
     await recordTrackerInbox(
       7,
