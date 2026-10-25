@@ -133,6 +133,11 @@ export const PROWLARR_CYCLE_DEADLINE_MS = 2 * 60 * 1000
 export const PROWLARR_INDEXER_REFRESH_MS = 6 * 60 * 60 * 1000
 /** How often the per-indexer stats are read. Their windows are a day and a week long. */
 export const PROWLARR_STATS_REFRESH_MS = 60 * 60 * 1000
+export const PROWLARR_MESSAGE_MAX = 1000
+/** An indexer test runs a search against the site, so it can take far longer than a read. */
+export const PROWLARR_TEST_TIMEOUT_MS = 90_000
+/** The shortest gap between two tests of one indexer started from this app. */
+export const PROWLARR_TEST_COOLDOWN_MS = 60_000
 /**
  * An indexer reading older than this does not warn. It means the poller has
  * stopped (no session key since a restart), and a failure from then may long
