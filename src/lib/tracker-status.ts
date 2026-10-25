@@ -5,18 +5,28 @@
 // Single source of truth for tracker health status. Includes type, derivation
 // logic, and all visual mappings (PulseDot status, Badge variant, labels,
 // descriptions). Ratio bands are requirement-aware: each tracker is judged
-// against its own required ratio, not a global cutoff.
+// against its own required ratio, not a global cutoff. A failing Prowlarr
+// indexer changes a healthy status only where its instance opts in.
 
 import type { BadgeVariant } from "@/components/ui/Badge"
 import type { PulseDotStatus } from "@/components/ui/PulseDot"
 import { registryEntryFor } from "@/data/tracker-registry"
+import { describeIndexerStatus, getProwlarrFailures } from "@/lib/prowlarr/status"
 import type { TrackerSummary } from "@/types/api"
 
 // Ordered loosely by severity, ascending. "warning" and "no-seeds" are
 // separate: a thin ratio and zero active seeds are unrelated and need different
 // fixes.
 type TrackerHealth =
-  "healthy" | "warning" | "no-seeds" | "critical" | "error" | "paused" | "paused-user" | "offline"
+  | "healthy"
+  | "indexer-failing"
+  | "warning"
+  | "no-seeds"
+  | "critical"
+  | "error"
+  | "paused"
+  | "paused-user"
+  | "offline"
 
 interface HealthMeta {
   label: string
@@ -31,6 +41,14 @@ const HEALTH_META: Record<TrackerHealth, HealthMeta> = {
     description: "Ratio at least double the required ratio",
     pulseDot: "healthy",
     badge: "accent",
+  },
+  // Its own dot status rather than "warning", whose accessible label names a
+  // ratio band.
+  "indexer-failing": {
+    label: "Indexer Failing",
+    description: "Ratio healthy, but the tracker's indexer is failing in Prowlarr",
+    pulseDot: "indexer-failing",
+    badge: "warn",
   },
   warning: {
     // Named for what the model actually measures, which is ratio against the
@@ -169,7 +187,14 @@ function getTrackerHealth(tracker: TrackerSummary): TrackerHealth {
   // the strict === 0 check leaves those trackers on their ratio status.
   if (seedingCount === 0 && (status === "healthy" || status === "warning")) status = "no-seeds"
 
+  if (status === "healthy" && warningProwlarrFailure(tracker)) status = "indexer-failing"
+
   return status
+}
+
+// The longest-failing indexer whose instance opted in to changing tracker health.
+function warningProwlarrFailure(tracker: TrackerSummary) {
+  return getProwlarrFailures(tracker).find((i) => i.affectsHealth) ?? null
 }
 
 function getHealthBadgeVariant(status: TrackerHealth): BadgeVariant {
@@ -192,6 +217,12 @@ function formatRequirement(value: number): string {
 // applies. The warned check comes first: a warned account is "critical"
 // whatever its ratio, and a band description would explain the wrong thing.
 function getHealthDescription(status: TrackerHealth, tracker?: TrackerSummary): string {
+  if (status === "indexer-failing") {
+    const failure = tracker ? warningProwlarrFailure(tracker) : null
+    return failure
+      ? `${failure.name}: ${describeIndexerStatus(failure)}`
+      : HEALTH_META[status].description
+  }
   if (!tracker || (status !== "healthy" && status !== "warning" && status !== "critical")) {
     return HEALTH_META[status].description
   }
