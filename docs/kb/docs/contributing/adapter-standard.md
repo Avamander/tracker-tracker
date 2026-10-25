@@ -219,6 +219,7 @@ it. Import it rather than writing it again.
 | `datePrefix` | `helpers/html-parse.ts` | Slicing `YYYY-MM-DD` off a site-printed datetime | Your own date regex |
 | `tryParseCount` | `helpers/html-parse.ts` | Any site-printed count. The first number in the text, commas stripped, decimals and sign kept, `undefined` when there is none. | `parseInt(text, 10)` with your own `NaN` test |
 | `tryParseSiteBytes` | `helpers/html-parse.ts` | Site-printed byte totals. Strips grouping commas and canonicalises the unit, so both `1,024 kB` and `1 GiB` parse. Returns `undefined` rather than throwing. | A private `parseBytes` wrapper with its own tolerances |
+| `isCloudflareChallenge`, `isCloudflareInterstitial` | `helpers/html-parse.ts` | Telling a Cloudflare challenge apart from the page you asked for. `isCloudflareChallenge` (the interstitial or a Turnstile widget) on an authenticated page; `isCloudflareInterstitial` on a login page, which can embed Turnstile of its own. `fetchTrackerHtml` already runs the full check on a 403 or 503. | Your own `html.includes("cf_chl_opt")` test |
 | `requireBytes` | `helpers/bytes.ts` | A byte total a JSON API is contracted to send. Throws naming the host and the field when it is absent or not a number, because both byte totals are non-nullable `bigint` and cannot hold unknown. | `floatBytesToBigInt` straight off the wire, which answers `0n` for an absent field |
 | `presentClass` | `helpers/class-name.ts` | The class a JSON API sends as text for `group`. Returns it, or `null` when it is absent, blank or not a string. | `class ?? "Unknown"`, or `class \|\| null`, which keeps a whitespace-only class |
 | `computeRatio`, `computeBufferBytes` | `@/lib/data-transforms` | `ratio` and `bufferBytes` | Reading the tracker's ratio with no `computeRatio` fallback |
@@ -251,12 +252,6 @@ break them:
 
 All four return `null` because each value goes straight into a `TrackerStats` field (2.1). Reach
 for `tryParseCount` unless you are in one of those four shapes.
-
-**One helper that does not exist yet.** If you need it, promote it into `helpers/html-parse.ts`
-rather than adding another private copy:
-
-- The **Cloudflare challenge predicate**. The same three-condition test is copied in all five
-  scrapers, and three of them already throw the identical message.
 
 ---
 
