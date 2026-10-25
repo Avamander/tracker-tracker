@@ -67,9 +67,7 @@ Eight `TrackerStats` fields are nullable for exactly this reason (`src/types/tra
 **An absent or blank class is `null` in `group`, never a placeholder** such as `"Unknown"` or
 `"User"`, so rank history and the rank-change alert read it as not reported. A JSON adapter that
 receives the class as text reads it through `presentClass`, and one that receives an id maps it
-through its own table, as DigitalCore and TR4KER do. IPTorrents is the one exception. Its page
-shows a VIP badge and no class, so an account without the badge is stored as `"User"`, which keeps
-VIP gained and VIP lost alerting.
+through its own table, as DigitalCore and TR4KER do.
 
 **A JSON `null` on the wire is data, not an absent key.** If the API declares
 `invites: number | null` and sends `null`, the tracker is stating the figure is unknown. Map it to
