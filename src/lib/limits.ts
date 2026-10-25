@@ -121,6 +121,23 @@ export const CROSS_SEED_TAG_MAX = 100
 /** Upper bound on a URL path prefix that may carry a proxy API key. */
 export const URL_PATH_MAX = 500
 
+// ─── Prowlarr ─────────────────────────────────────────────────────────────────
+/** A few hundred indexers with their capability lists come to a few megabytes. */
+export const PROWLARR_RESPONSE_MAX_BYTES = 32 * 1024 * 1024
+/** A poll makes up to three requests, each bounded by ADAPTER_FETCH_TIMEOUT_MS. */
+export const PROWLARR_CYCLE_DEADLINE_MS = 2 * 60 * 1000
+/**
+ * How often the indexer list is read outside of saving an instance. The list
+ * includes each indexer's site credentials, so it is not read on every poll.
+ */
+export const PROWLARR_INDEXER_REFRESH_MS = 6 * 60 * 60 * 1000
+/**
+ * An indexer reading older than this does not warn. It means the poller has
+ * stopped (no session key since a restart), and a failure from then may long
+ * since have cleared.
+ */
+export const PROWLARR_STALE_MS = 30 * 60 * 1000
+
 // ─── File Sizes ───────────────────────────────────────────────────────────────
 export const UPLOAD_IMAGE_MAX_BYTES = 32 * 1024 * 1024
 export const BACKUP_RESTORE_MAX_BYTES = 50 * 1024 * 1024
