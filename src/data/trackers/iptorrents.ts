@@ -51,15 +51,6 @@ export const iptorrents: TrackerRegistryEntry = {
       ],
     },
     {
-      name: "Star",
-      requirements: "Any donation other than a FreeLeech donation",
-      perks: [
-        { type: "hnr-immune", label: "Immune to automatic demotion and H&R warnings" },
-        { type: "custom", label: "H&R warnings cleared on donation. Seeding still required" },
-      ],
-      outsideLadder: "above",
-    },
-    {
       name: "VIP",
       requirements: "Assigned to the best of the best, or given on donation. Begging disqualifies",
       perks: [
@@ -70,7 +61,7 @@ export const iptorrents: TrackerRegistryEntry = {
     },
     {
       name: "Uploader",
-      requirements: "Appointed by staff (see the Uploading section)",
+      requirements: "Appointed by staff",
       perks: [
         { type: "upload", label: "Upload rights" },
         { type: "custom", label: "Immune to automatic demotion" },
@@ -109,10 +100,13 @@ export const iptorrents: TrackerRegistryEntry = {
   notableMembers: [],
 
   // ── Rules ───────────────────────────────────────────────────────────
+  // faq #26: accounts are pruned after 1 month without a visit (User) or 3
+  // months (Power User); /rules says every 89 days for all members. The User
+  // figure is used, since warning early is the safe direction.
   rules: {
     minimumRatio: 1.0,
     seedTimeHours: 336,
-    loginIntervalDays: 90,
+    loginIntervalDays: 30,
   },
 
   // ── Status ──────────────────────────────────────────────────────────
