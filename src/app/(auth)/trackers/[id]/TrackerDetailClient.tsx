@@ -1,6 +1,7 @@
 // src/app/(auth)/trackers/[id]/TrackerDetailClient.tsx
 "use client"
 
+import { useQueryClient } from "@tanstack/react-query"
 import clsx from "clsx"
 import { useRouter } from "next/navigation"
 import { type CSSProperties, useCallback, useEffect, useMemo, useState } from "react"
@@ -27,6 +28,7 @@ import type {
   QbitmanageTagConfig,
   Snapshot,
   TagGroup,
+  TrackerProwlarrIndexer,
   TrackerSummary,
 } from "@/types/api"
 import type { SlotContext } from "@/types/slots"
@@ -62,6 +64,7 @@ export function TrackerDetailClient({
   initialTab: initialTabProp,
 }: TrackerDetailClientProps) {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const id = String(trackerId)
 
   const initialTab = VALID_TABS.includes(initialTabProp as Tab)
@@ -160,6 +163,28 @@ export function TrackerDetailClient({
     } finally {
       setPauseLoading(false)
     }
+  }
+
+  async function handleResumeIndexer(indexer: TrackerProwlarrIndexer): Promise<string | null> {
+    let error: string | null = null
+    try {
+      const res = await fetch(
+        `/api/prowlarr/${indexer.instanceId}/indexers/${indexer.indexerId}/test`,
+        { method: "POST" }
+      )
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        error = (body as { error?: string }).error ?? "Prowlarr could not test the indexer"
+      }
+    } catch {
+      return "Network error while testing the indexer"
+    }
+    // The route re-reads the instance after the test, so the page, the sidebar
+    // and the dashboard all show the indexer's new state.
+    const trackerRes = await fetch(`/api/trackers/${id}`).catch(() => null)
+    if (trackerRes?.ok) setTracker(await trackerRes.json())
+    queryClient.invalidateQueries({ queryKey: ["trackers"] })
+    return error
   }
 
   async function handlePollNow() {
@@ -278,6 +303,7 @@ export function TrackerDetailClient({
         onTogglePause={handleTogglePause}
         pauseLoading={pauseLoading}
         settingsSaves={settingsSaves}
+        onResumeIndexer={handleResumeIndexer}
       />
 
       {/* Rank Progression */}
