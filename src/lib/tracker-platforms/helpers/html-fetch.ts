@@ -6,6 +6,7 @@
 import { classifyFetchError, classifyProxyFetchError } from "@/lib/error-utils"
 import { ADAPTER_FETCH_TIMEOUT_MS } from "@/lib/limits"
 import { isRedirect } from "@/lib/network"
+import { withDefaultUserAgent } from "@/lib/user-agent"
 import type { FetchOptions } from "../contract"
 import { SessionExpiredError } from "./errors"
 import { isCloudflareChallenge } from "./html-parse"
@@ -39,7 +40,11 @@ export interface TrackerHtmlRequest {
   label: string
   /** Thrown when an authenticated request is bounced to a login page. */
   sessionExpiredMessage: string
-  /** Copied browser User-Agent. When set, navigation headers are sent too. */
+  /**
+   * The browser User-Agent a copied session was issued to, sent with the
+   * navigation headers. Omitted for a session the app logged in for itself,
+   * which sends the app User-Agent and no navigation headers.
+   */
   userAgent?: string
   proxyAgent?: FetchOptions["proxyAgent"]
   /**
@@ -50,12 +55,10 @@ export interface TrackerHtmlRequest {
 }
 
 function buildHtmlHeaders(cookies: string, userAgent?: string): Record<string, string> {
-  return {
-    Cookie: cookies,
-    Accept: ACCEPT_HTML,
-    "Accept-Language": "en-US,en;q=0.9",
-    ...(userAgent ? { "User-Agent": userAgent, ...NAVIGATION_HEADERS } : {}),
-  }
+  const headers = { Cookie: cookies, Accept: ACCEPT_HTML, "Accept-Language": "en-US,en;q=0.9" }
+  return userAgent
+    ? { ...headers, "User-Agent": userAgent, ...NAVIGATION_HEADERS }
+    : withDefaultUserAgent(headers)
 }
 
 /**

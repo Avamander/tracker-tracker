@@ -177,9 +177,9 @@ export function proxyFetch(
         method,
         agent,
         // No default User-Agent here on purpose. This is transport; which UA
-        // to send is the caller's policy. adapterRequest sets one for the JSON
-        // APIs, the scraping adapters send the exact UA their session cookie
-        // was issued to, and TorrentLeech deliberately sends none.
+        // to send is the caller's policy. The adapter helpers send the app's
+        // when the caller passes none, and the scraping adapters send the
+        // exact UA their session cookie was issued to.
         headers: {
           Accept: "application/json",
           ...(body === undefined

@@ -60,14 +60,14 @@ export const cathoderaytube: TrackerRegistryEntry = {
 
   // ── Rules ───────────────────────────────────────────────────────────
   rules: {
-    minimumRatio: 1.0,
+    minimumRatio: 0,
     seedTimeHours: 0,
-    loginIntervalDays: 120,
+    loginIntervalDays: 0,
   },
 
   // ── Status ──────────────────────────────────────────────────────────
-  warning: false,
-  warningNote: "",
+  warning: true,
+  warningNote: "Unverified! Not tested against a live account.",
 
   // ── Flags ───────────────────────────────────────────────────────────
   draft: false,

@@ -46,6 +46,8 @@ export interface CredentialSurfaceCopy {
   username?: CredentialFieldCopy
   password?: CredentialFieldCopy
   alt2FA?: CredentialFieldCopy
+  /** A `login` row's session cookie textarea, bound to `cookies`. */
+  sessionCookie?: CredentialFieldCopy
 }
 
 interface CredentialFormBase {
@@ -58,13 +60,23 @@ interface CredentialFormBase {
 /** The kinds whose answer is a pasted Cookie header. */
 type CookieKind = Extract<CredentialKind, "cookies" | "cookies-username">
 
+/** The adapter's validateCookieHeader options for a pasted Cookie header. */
+interface CookieRule {
+  example: string
+  extraCookieNames?: readonly string[]
+  requiredCookieNames?: readonly string[]
+}
+
 /**
  * The cookie kinds carry an `example` because `validateCookieHeader` quotes it
  * back to the user. Splitting the union is what makes tsc require one on
- * exactly those rows.
+ * exactly those rows. A `login` row with `sessionCookie` also takes a pasted
+ * browser session in place of the password, for an account the app cannot log
+ * in to.
  */
 export type CredentialForm =
-  | (CredentialFormBase & { kind: Exclude<CredentialKind, CookieKind> })
+  | (CredentialFormBase & { kind: Exclude<CredentialKind, CookieKind | "login"> })
+  | (CredentialFormBase & { kind: "login"; sessionCookie?: CookieRule })
   | (CredentialFormBase & {
       kind: CookieKind
       example: string
@@ -314,6 +326,7 @@ export const CREDENTIAL_FORMS = {
   luminance: {
     kind: "login",
     hidesJoinDate: true,
+    sessionCookie: { example: "sid=abc123", extraCookieNames: ["sid"], requiredCookieNames: ["sid"] },
     dialog: {
       username: {
         label: (trackerName: string) => `${trackerName} Username`,
@@ -326,10 +339,23 @@ export const CREDENTIAL_FORMS = {
         docs: true,
         placeholder: "Your password on this tracker",
       },
+      sessionCookie: {
+        label: "Session Cookie (2FA accounts)",
+        tooltip:
+          'Only for an account with 2FA, which this app cannot log in to. Leave the password empty. Log in on the site with "Lock this session to my IP address" unticked, since polls come from this server, then open DevTools (F12) → Network → any request to the site → copy the full Cookie header value.',
+        docs: true,
+        placeholder: "Only if 2FA is enabled on your account",
+        rows: 2,
+      },
     },
     sheet: {
       username: { label: "Username" },
       password: { label: "Password" },
+      sessionCookie: {
+        label: "Session Cookie (2FA accounts)",
+        placeholder: "Only if 2FA is enabled on your account",
+        rows: 2,
+      },
     },
   },
 } satisfies Record<PlatformType, CredentialForm>
@@ -387,15 +413,13 @@ function checkToken(value: string): string | null {
   }
 }
 
-function checkCookies(
-  form: Extract<CredentialForm, { kind: CookieKind }>,
-  cookies: string
-): string | null {
+function checkCookies(rule: CookieRule, cookies: string): string | null {
   if (!cookies.trim()) return "Browser cookies are required"
   try {
     validateCookieHeader(cookies, {
-      extraCookieNames: form.extraCookieNames,
-      example: form.example,
+      extraCookieNames: rule.extraCookieNames,
+      requiredCookieNames: rule.requiredCookieNames,
+      example: rule.example,
     })
     return null
   } catch (error) {
@@ -447,7 +471,14 @@ export function validateCredentialValues(
     }
     case "login":
       if (!values.username.trim()) return "Username is required"
-      if (!values.password) return "Password is required"
+      if (form.sessionCookie && values.cookies.trim()) {
+        return checkCookies(form.sessionCookie, values.cookies)
+      }
+      if (!values.password) {
+        return form.sessionCookie
+          ? "Password or session cookie is required"
+          : "Password is required"
+      }
       return null
   }
 }
@@ -488,6 +519,12 @@ export function buildCredentialBlob(
       })
     }
     case "login": {
+      // A pasted session replaces the password, so the blob carries no
+      // password key at all.
+      const cookies = form.sessionCookie ? cleanCookies(values.cookies) : ""
+      if (cookies) {
+        return JSON.stringify({ username: values.username.trim(), cookies, userAgent })
+      }
       const alt2FAToken = values.alt2FAToken.trim()
       return JSON.stringify({
         username: values.username.trim(),

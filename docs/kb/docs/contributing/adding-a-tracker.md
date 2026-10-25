@@ -68,7 +68,7 @@ Full template:
 //
 // Validator checks:
 //   - slug: lowercase letters and hyphens only
-//   - platform: "unit3d" | "gazelle" | "ggn" | "nebulance" | "mam" | "avistaz" | "digitalcore" | "filelist" | "btn" | "iptorrents" | "torrentleech" | "hawke" | "retrotoon" | "tr4ker" | "c411" | "animebytes" | "custom"
+//   - platform: "unit3d" | "gazelle" | "ggn" | "nebulance" | "mam" | "avistaz" | "digitalcore" | "filelist" | "btn" | "iptorrents" | "torrentleech" | "hawke" | "retrotoon" | "tr4ker" | "c411" | "animebytes" | "luminance" | "custom"
 //   - apiPath must match platform default:
 //       unit3d     → "/api/user"
 //       gazelle    → "/ajax.php"
@@ -91,7 +91,7 @@ export const mytracker: TrackerRegistryEntry = {
   description: "TODO", // 1-2 sentence overview
 
   // ── Platform & API ──────────────────────────────────────────────────
-  platform: "unit3d", // "unit3d" | "gazelle" | "ggn" | "nebulance" | "mam" | "avistaz" | "digitalcore" | "filelist" | "btn" | "iptorrents" | "torrentleech" | "hawke" | "retrotoon" | "tr4ker" | "c411" | "animebytes" | "custom"
+  platform: "unit3d", // "unit3d" | "gazelle" | "ggn" | "nebulance" | "mam" | "avistaz" | "digitalcore" | "filelist" | "btn" | "iptorrents" | "torrentleech" | "hawke" | "retrotoon" | "tr4ker" | "c411" | "animebytes" | "luminance" | "custom"
   // Platform-specific fields (uncomment for your platform):
   //   gazelleAuthStyle: "token",   // gazelle only, "token" | "raw"
   //   gazelleEnrich: true,         // gazelle only, enables enrichment call
@@ -224,7 +224,7 @@ description: "The largest general music tracker (also has some software). Has an
 
 #### `platform`
 
-Type: `"unit3d" | "gazelle" | "ggn" | "nebulance" | "mam" | "avistaz" | "digitalcore" | "filelist" | "btn" | "iptorrents" | "torrentleech" | "hawke" | "retrotoon" | "tr4ker" | "c411" | "animebytes" | "custom"`
+Type: `"unit3d" | "gazelle" | "ggn" | "nebulance" | "mam" | "avistaz" | "digitalcore" | "filelist" | "btn" | "iptorrents" | "torrentleech" | "hawke" | "retrotoon" | "tr4ker" | "c411" | "animebytes" | "luminance" | "custom"`
 
 Which adapter handles API requests. This tells the scheduler how to fetch stats. Pick the one that matches the tracker's software.
 
@@ -246,6 +246,7 @@ Which adapter handles API requests. This tells the scheduler how to fetch stats.
 | `"tr4ker"`       | TR4KER, API key against `/api/me`                           |
 | `"c411"`         | C411, Bearer API key against `/api/user/profile`            |
 | `"animebytes"`   | AnimeBytes, key and username against `/api/stats/personal`  |
+| `"luminance"`    | Luminance, username/password login + profile scraping       |
 | `"custom"`       | Placeholder, not implemented yet                            |
 
 #### `gazelleAuthStyle`
@@ -802,12 +803,19 @@ parts that vary per tracker as options:
 
 - `label` is the tracker name used in error messages
 - `sessionExpiredMessage` is thrown when the server bounces you to login
-- `userAgent` carries the user's copied browser UA; omit it if the session came
-  from your own login request rather than a browser
+- `userAgent` carries the user's copied browser UA, sent with browser navigation
+  headers; omit it if the session came from your own login request rather than a
+  browser, and the app's User-Agent goes out instead
 - `followRedirects` should be set when a redirect can be routine rather than a
   session expiry, and give it the pattern that identifies the login page
 
-Only write your own fetch if neither helper fits. If you do, you must still
+A tracker with no API key at all needs a login. Send its form requests through
+`loginRequest` (`src/lib/tracker-platforms/helpers/login-session.ts`), which
+reads Set-Cookie and Location without following the redirect, on either
+transport, and wrap the work in `withLoginSession`, which caches the session per
+credential set and logs in again once when the work throws `SessionExpiredError`.
+
+Only write your own fetch if none of these fits. If you do, you must still
 honour `options.proxyAgent` yourself, or fail loudly when one is set. Silently
 ignoring it sends a user's tracker traffic straight out of their real IP when
 they configured a tunnel to prevent exactly that.
