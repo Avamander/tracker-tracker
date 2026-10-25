@@ -29,7 +29,7 @@ export function InboxCard({ tracker }: { tracker: TrackerSummary }) {
   if (empty) return null
 
   return (
-    <Card title="Inbox & news" trackerColor={tracker.color}>
+    <Card title="Inbox & news" trackerColor={tracker.color} className="flex flex-col gap-4">
       <InboxTrackerSection inbox={data} />
     </Card>
   )
