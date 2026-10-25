@@ -31,7 +31,7 @@ export const seedpool: TrackerRegistryEntry = {
 
   // ── Visual ──────────────────────────────────────────────────────────
   color: "#22c55e",
-  logo: "",
+  logo: "/tracker-logos/seedpool_logo.png",
 
   // ── External Links ──────────────────────────────────────────────────
   trackerHubSlug: "",

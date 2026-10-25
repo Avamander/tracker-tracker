@@ -22,7 +22,7 @@ export const c411: TrackerRegistryEntry = {
 
   // ── Visual ──────────────────────────────────────────────────────────
   color: "#e11d48",
-  logo: "",
+  logo: "/tracker-logos/c411_logo.png",
   bonusName: "Zen",
 
   // ── External Links ──────────────────────────────────────────────────

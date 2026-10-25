@@ -22,7 +22,7 @@ export const animebytes: TrackerRegistryEntry = {
 
   // ── Visual ──────────────────────────────────────────────────────────
   color: "#ff7043",
-  logo: "",
+  logo: "/tracker-logos/animebytes_logo.png",
 
   // ── External Links ──────────────────────────────────────────────────
   trackerHubSlug: "anime-bytes",

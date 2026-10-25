@@ -1,13 +1,14 @@
 // src/lib/tracker-platforms/helpers/html-fetch.ts
 //
-// Functions: buildHtmlHeaders, fetchFailure, getHtmlViaProxy, getHtml, followRedirectChain,
-//            fetchTrackerHtml
+// Functions: buildHtmlHeaders, fetchFailure, failureBody, getHtmlViaProxy, getHtml,
+//            followRedirectChain, fetchTrackerHtml
 
 import { classifyFetchError, classifyProxyFetchError } from "@/lib/error-utils"
 import { ADAPTER_FETCH_TIMEOUT_MS } from "@/lib/limits"
 import { isRedirect } from "@/lib/network"
 import type { FetchOptions } from "../contract"
 import { SessionExpiredError } from "./errors"
+import { isCloudflareChallenge } from "./html-parse"
 
 // ---------------------------------------------------------------------------
 // Shared HTML fetcher for the scraping adapters.
@@ -34,7 +35,7 @@ const ACCEPT_HTML = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q
 export interface TrackerHtmlRequest {
   url: string
   cookies: string
-  /** Tracker display name, used in the redirect error messages. */
+  /** Tracker display name, used in error messages. */
   label: string
   /** Thrown when an authenticated request is bounced to a login page. */
   sessionExpiredMessage: string
@@ -81,6 +82,18 @@ interface HtmlResponse {
 }
 
 type HtmlFetcher = (url: string) => Promise<HtmlResponse>
+
+/**
+ * A failed response's body, or "" when it cannot be read, so the error falls
+ * back to the status.
+ */
+async function failureBody(response: HtmlResponse): Promise<string> {
+  try {
+    return await response.text()
+  } catch {
+    return ""
+  }
+}
 
 async function getHtmlViaProxy(
   url: string,
@@ -220,7 +233,17 @@ export async function fetchTrackerHtml(request: TrackerHtmlRequest): Promise<str
     throw new SessionExpiredError(sessionExpiredMessage)
   }
 
-  if (!response.ok) throw fetchFailure(response.status, response.statusText)
+  if (!response.ok) {
+    // Cloudflare serves its challenge with a 403 or a 503. Read by its status
+    // alone, the 403 would show as rejected credentials.
+    if (
+      (response.status === 403 || response.status === 503) &&
+      isCloudflareChallenge(await failureBody(response))
+    ) {
+      throw new Error(`Cloudflare challenge detected on ${label}`)
+    }
+    throw fetchFailure(response.status, response.statusText)
+  }
 
   return response.text()
 }

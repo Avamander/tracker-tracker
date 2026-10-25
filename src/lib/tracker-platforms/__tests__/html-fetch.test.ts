@@ -245,6 +245,7 @@ describe("fetchTrackerHtml - errors", () => {
       status,
       statusText,
       headers: { get: () => null },
+      text: async () => "",
     } as unknown as Response)
     const err = await fetchTrackerHtml(BASE)
       .then(() => null)
@@ -280,6 +281,74 @@ describe("fetchTrackerHtml - errors", () => {
     vi.spyOn(global, "fetch").mockRejectedValueOnce(new TypeError("fetch failed", { cause }))
 
     await expect(fetchTrackerHtml(BASE)).rejects.toThrow("tracker.example")
+  })
+})
+
+describe("fetchTrackerHtml - a Cloudflare page on a failed status", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  // Read by its status alone, a challenge served with a 403 becomes
+  // "Authentication failed" and sends the user to re-paste cookies that work.
+  function failWith(status: number, statusText: string, body: string): Promise<Error | null> {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: false,
+      status,
+      statusText,
+      headers: { get: () => null },
+      text: async () => body,
+    } as unknown as Response)
+    return fetchTrackerHtml(BASE)
+      .then(() => null)
+      .catch((e: unknown) => (e instanceof Error ? e : null))
+  }
+
+  it.each([
+    [403, "Forbidden"],
+    [503, "Service Unavailable"],
+  ])("reads the interstitial served with a %i as a challenge", async (status, statusText) => {
+    const err = await failWith(
+      status,
+      statusText,
+      "<!DOCTYPE html><html><head><title>Just a moment...</title></head></html>"
+    )
+
+    expect(err?.message).toBe("Cloudflare challenge detected on ExampleTracker")
+    expect(sanitizeNetworkError(err?.message ?? "", "Poll failed")).toBe(
+      "Cloudflare challenge blocked the request"
+    )
+  })
+
+  it("reads a Turnstile page served with a 403 as a challenge", async () => {
+    const err = await failWith(
+      403,
+      "Forbidden",
+      '<html><script src="https://challenges.cloudflare.com/turnstile/v0/api.js"></script></html>'
+    )
+
+    expect(err?.message).toBe("Cloudflare challenge detected on ExampleTracker")
+  })
+
+  it("keeps an ordinary 403 an authentication failure", async () => {
+    const err = await failWith(403, "Forbidden", "<html>Access denied</html>")
+
+    expect(err?.message).toBe("Tracker API error: 403 Forbidden")
+    expect(sanitizeNetworkError(err?.message ?? "", "Poll failed")).toBe("Authentication failed")
+  })
+
+  it("falls back to the status when the body of a 403 cannot be read", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: false,
+      status: 403,
+      statusText: "Forbidden",
+      headers: { get: () => null },
+      text: async () => {
+        throw new TypeError("terminated")
+      },
+    } as unknown as Response)
+
+    await expect(fetchTrackerHtml(BASE)).rejects.toThrow("Tracker API error: 403 Forbidden")
   })
 })
 
@@ -364,6 +433,14 @@ describe("fetchTrackerHtml - through a proxy", () => {
       /refusing to send credentials/
     )
     expect(proxyFetch).toHaveBeenCalledTimes(1)
+  })
+
+  it("reads a Cloudflare page on a proxied 403 as a challenge", async () => {
+    proxyFetch.mockResolvedValueOnce(
+      proxyResponse(403, "<html><head><title>Just a moment...</title></head></html>")
+    )
+
+    await expect(run({})).rejects.toThrow("Cloudflare challenge detected on ExampleTracker")
   })
 
   it("still returns the body on an ordinary proxied response", async () => {
