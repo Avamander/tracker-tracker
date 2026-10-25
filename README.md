@@ -15,6 +15,7 @@ Self-hosted dashboard for monitoring private tracker stats over time. Track uplo
 - Per-tracker and fleet-wide stats with 30+ charts
 - UNIT3D, Gazelle, GGn, Nebulance, MAM, and AvistaZ network support out of the box
 - qBittorrent and Transmission integration - cross-seed tracking, activity heatmaps, speed history, etc
+- Prowlarr integration - shows each tracker's indexer status and stats from one or more Prowlarr instances
 - Everything stays on your machine. No telemetry, no phoning home.
 
 ## Screenshots
