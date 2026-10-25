@@ -124,13 +124,15 @@ export const URL_PATH_MAX = 500
 // ─── Prowlarr ─────────────────────────────────────────────────────────────────
 /** A few hundred indexers with their capability lists come to a few megabytes. */
 export const PROWLARR_RESPONSE_MAX_BYTES = 32 * 1024 * 1024
-/** A poll makes up to three requests, each bounded by ADAPTER_FETCH_TIMEOUT_MS. */
+/** A poll makes up to five requests, each bounded by ADAPTER_FETCH_TIMEOUT_MS. */
 export const PROWLARR_CYCLE_DEADLINE_MS = 2 * 60 * 1000
 /**
  * How often the indexer list is read outside of saving an instance. The list
  * includes each indexer's site credentials, so it is not read on every poll.
  */
 export const PROWLARR_INDEXER_REFRESH_MS = 6 * 60 * 60 * 1000
+/** How often the per-indexer stats are read. Their windows are a day and a week long. */
+export const PROWLARR_STATS_REFRESH_MS = 60 * 60 * 1000
 /**
  * An indexer reading older than this does not warn. It means the poller has
  * stopped (no session key since a restart), and a failure from then may long

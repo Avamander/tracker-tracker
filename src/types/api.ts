@@ -143,6 +143,21 @@ export interface TrackerProwlarrIndexer {
   mostRecentFailure: string | null
   initialFailure: string | null
   checkedAt: string
+  stats24h: ProwlarrIndexerStats | null
+  stats7d: ProwlarrIndexerStats | null
+}
+
+/** One Prowlarr indexer's counters over a stats window. */
+export interface ProwlarrIndexerStats {
+  averageResponseTime: number
+  queries: number
+  grabs: number
+  rssQueries: number
+  authQueries: number
+  failedQueries: number
+  failedGrabs: number
+  failedRssQueries: number
+  failedAuthQueries: number
 }
 
 export interface TrackerProwlarrState {
@@ -333,12 +348,19 @@ export type SafeNotificationTarget = Omit<
 /** API response shape for Prowlarr instances (API key stripped, dates serialized) */
 export type SafeProwlarrInstance = Omit<
   ProwlarrInstanceRow,
-  "encryptedApiKey" | "lastPolledAt" | "indexersReadAt" | "errorSince" | "createdAt" | "updatedAt"
+  | "encryptedApiKey"
+  | "lastPolledAt"
+  | "indexersReadAt"
+  | "statsReadAt"
+  | "errorSince"
+  | "createdAt"
+  | "updatedAt"
 > & {
   hasApiKey: boolean
   indexerCount: number
   lastPolledAt: string | null
   indexersReadAt: string | null
+  statsReadAt: string | null
   errorSince: string | null
   createdAt: string
   updatedAt: string

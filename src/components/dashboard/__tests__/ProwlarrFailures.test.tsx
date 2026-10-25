@@ -19,6 +19,8 @@ function indexer(overrides: Partial<TrackerProwlarrIndexer> = {}): TrackerProwla
     mostRecentFailure: null,
     initialFailure: null,
     checkedAt: "2026-08-14T12:00:00.000Z",
+    stats24h: null,
+    stats7d: null,
     ...overrides,
   }
 }

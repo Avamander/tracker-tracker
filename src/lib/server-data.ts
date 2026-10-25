@@ -219,6 +219,7 @@ export const prowlarrInstanceColumns = {
   lastError: prowlarrInstances.lastError,
   errorSince: prowlarrInstances.errorSince,
   indexersReadAt: prowlarrInstances.indexersReadAt,
+  statsReadAt: prowlarrInstances.statsReadAt,
   version: prowlarrInstances.version,
   indexerCount:
     sql<number>`(SELECT COUNT(*)::int FROM ${prowlarrIndexers} WHERE ${prowlarrIndexers.instanceId} = ${prowlarrInstances.id})`.as(
@@ -240,6 +241,7 @@ export function serializeProwlarrInstance(row: ProwlarrInstanceListRow): SafePro
     indexerCount: Number(row.indexerCount) || 0,
     lastPolledAt: row.lastPolledAt?.toISOString() ?? null,
     indexersReadAt: row.indexersReadAt?.toISOString() ?? null,
+    statsReadAt: row.statsReadAt?.toISOString() ?? null,
     errorSince: row.errorSince?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),

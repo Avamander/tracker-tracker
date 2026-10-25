@@ -473,6 +473,7 @@ describe("prowlarrInstanceColumns security invariant", () => {
         "enabled",
         "lastPolledAt",
         "indexersReadAt",
+        "statsReadAt",
         "lastError",
         "errorSince",
         "version",

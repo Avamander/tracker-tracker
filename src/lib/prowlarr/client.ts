@@ -1,8 +1,8 @@
 // src/lib/prowlarr/client.ts
 //
 // Functions: prowlarrUrlError, normalizeProwlarrUrl, sanitizeProwlarrError, parseSystemStatus,
-//            parseIndexers, parseIndexerStatuses, fetchSystemStatus, fetchIndexers,
-//            fetchIndexerStatuses
+//            parseIndexers, parseIndexerStatuses, parseIndexerStats, fetchSystemStatus,
+//            fetchIndexers, fetchIndexerStatuses, fetchIndexerStats
 //
 // Read-only client for Prowlarr's v1 API. An indexer's settings include its site
 // credentials, so only its URLs are read from them, and the indexer list is
@@ -17,6 +17,7 @@ import {
   TRACKER_URL_MAX,
 } from "@/lib/limits"
 import { hostsFromUrls } from "@/lib/prowlarr/matching"
+import type { ProwlarrIndexerStats } from "@/types/api"
 
 export interface ProwlarrConnection {
   url: string
@@ -104,6 +105,10 @@ function dateOrNull(value: unknown): Date | null {
   return Number.isNaN(date.getTime()) ? null : date
 }
 
+function count(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : 0
+}
+
 function stringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : []
 }
@@ -149,6 +154,26 @@ export function parseIndexerStatuses(body: unknown): ParsedIndexerStatus[] {
       disabledTill: dateOrNull(item.disabledTill),
       mostRecentFailure: dateOrNull(item.mostRecentFailure),
       initialFailure: dateOrNull(item.initialFailure),
+    })
+  }
+  return out
+}
+
+export function parseIndexerStats(body: unknown): Map<number, ProwlarrIndexerStats> {
+  if (!isRecord(body) || !Array.isArray(body.indexers)) throw unexpected("indexer stats")
+  const out = new Map<number, ProwlarrIndexerStats>()
+  for (const item of body.indexers) {
+    if (!isRecord(item) || !isId(item.indexerId)) continue
+    out.set(item.indexerId, {
+      averageResponseTime: count(item.averageResponseTime),
+      queries: count(item.numberOfQueries),
+      grabs: count(item.numberOfGrabs),
+      rssQueries: count(item.numberOfRssQueries),
+      authQueries: count(item.numberOfAuthQueries),
+      failedQueries: count(item.numberOfFailedQueries),
+      failedGrabs: count(item.numberOfFailedGrabs),
+      failedRssQueries: count(item.numberOfFailedRssQueries),
+      failedAuthQueries: count(item.numberOfFailedAuthQueries),
     })
   }
   return out
@@ -222,4 +247,9 @@ export async function fetchIndexers(conn: ProwlarrConnection) {
 
 export async function fetchIndexerStatuses(conn: ProwlarrConnection) {
   return parseIndexerStatuses(await prowlarrGet(conn, "indexerstatus"))
+}
+
+export async function fetchIndexerStats(conn: ProwlarrConnection, start: Date, end: Date) {
+  const qs = `startDate=${encodeURIComponent(start.toISOString())}&endDate=${encodeURIComponent(end.toISOString())}`
+  return parseIndexerStats(await prowlarrGet(conn, `indexerstats?${qs}`))
 }

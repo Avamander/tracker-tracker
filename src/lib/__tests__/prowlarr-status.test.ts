@@ -6,6 +6,7 @@ import {
   getIndexerStatus,
   getProwlarrFailures,
   prowlarrIndexersUrl,
+  statsTotals,
 } from "@/lib/prowlarr/status"
 import { getTrackerHealth } from "@/lib/tracker-status"
 import type { TrackerProwlarrIndexer, TrackerSummary } from "@/types/api"
@@ -26,6 +27,8 @@ function indexer(overrides: Partial<TrackerProwlarrIndexer> = {}): TrackerProwla
     mostRecentFailure: null,
     initialFailure: null,
     checkedAt: CHECKED_AT,
+    stats24h: null,
+    stats7d: null,
     ...overrides,
   }
 }
@@ -76,6 +79,39 @@ describe("getProwlarrFailures", () => {
       prowlarr: { matchedBy: "auto" as const, indexers: [newer, indexer(), older] },
     }
     expect(getProwlarrFailures(tracker).map((i) => i.indexerId)).toEqual([2, 1])
+  })
+})
+
+describe("statsTotals", () => {
+  it("counts every kind of request and the share that failed", () => {
+    expect(
+      statsTotals({
+        averageResponseTime: 300,
+        queries: 20,
+        grabs: 3,
+        rssQueries: 76,
+        authQueries: 1,
+        failedQueries: 5,
+        failedGrabs: 0,
+        failedRssQueries: 20,
+        failedAuthQueries: 0,
+      })
+    ).toEqual({ requests: 100, failed: 25, failureRate: 0.25 })
+  })
+
+  it("has no failure rate without requests", () => {
+    const zero = {
+      averageResponseTime: 0,
+      queries: 0,
+      grabs: 0,
+      rssQueries: 0,
+      authQueries: 0,
+      failedQueries: 0,
+      failedGrabs: 0,
+      failedRssQueries: 0,
+      failedAuthQueries: 0,
+    }
+    expect(statsTotals(zero).failureRate).toBeNull()
   })
 })
 

@@ -621,6 +621,8 @@ export const prowlarrInstances = pgTable("prowlarr_instances", {
   lastPolledAt: timestamp("last_polled_at"),
   // When the indexer list was last read. It is read far less often than the status.
   indexersReadAt: timestamp("indexers_read_at"),
+  // When the per-indexer stats were last read. They are read hourly.
+  statsReadAt: timestamp("stats_read_at"),
   lastError: text("last_error"),
   errorSince: timestamp("error_since"),
   version: varchar("version", { length: 50 }),
@@ -651,6 +653,9 @@ export const prowlarrIndexers = pgTable(
     disabledTill: timestamp("disabled_till"),
     mostRecentFailure: timestamp("most_recent_failure"),
     initialFailure: timestamp("initial_failure"),
+    // Prowlarr's counters over the last 24 hours and 7 days, as ProwlarrIndexerStats.
+    stats24h: jsonb("stats_24h"),
+    stats7d: jsonb("stats_7d"),
     // The last status read that covered this indexer.
     checkedAt: timestamp("checked_at").notNull(),
   },

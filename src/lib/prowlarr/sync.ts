@@ -15,9 +15,14 @@ import { decrypt } from "@/lib/crypto"
 import { db } from "@/lib/db"
 import { prowlarrIndexers, prowlarrInstances } from "@/lib/db/schema"
 import { errMsg, isDecryptionError } from "@/lib/error-utils"
-import { PROWLARR_INDEXER_REFRESH_MS, PROWLARR_STALE_MS } from "@/lib/limits"
+import {
+  PROWLARR_INDEXER_REFRESH_MS,
+  PROWLARR_STALE_MS,
+  PROWLARR_STATS_REFRESH_MS,
+} from "@/lib/limits"
 import { log } from "@/lib/logger"
 import {
+  fetchIndexerStats,
   fetchIndexerStatuses,
   fetchIndexers,
   fetchSystemStatus,
@@ -27,9 +32,12 @@ import {
 import { type MatchableTracker, matchTrackerIndexers } from "@/lib/prowlarr/matching"
 import type {
   ProwlarrIndexerOption,
+  ProwlarrIndexerStats,
   TrackerProwlarrIndexer,
   TrackerProwlarrState,
 } from "@/types/api"
+
+const DAY_MS = 24 * 60 * 60 * 1000
 
 type KeyedInstance = { url: string; encryptedApiKey: string | null }
 
@@ -68,10 +76,28 @@ export async function testProwlarrInstance(
   }
 }
 
+function isDue(readAt: Date | null, now: Date, intervalMs: number): boolean {
+  return !readAt || now.getTime() - readAt.getTime() >= intervalMs
+}
+
+/** Both stats windows, or undefined when either read fails. Stats are only shown. */
+async function readStats(conn: ProwlarrConnection, now: Date) {
+  try {
+    const [day, week] = await Promise.all([
+      fetchIndexerStats(conn, new Date(now.getTime() - DAY_MS), now),
+      fetchIndexerStats(conn, new Date(now.getTime() - 7 * DAY_MS), now),
+    ])
+    return { day, week }
+  } catch {
+    return undefined
+  }
+}
+
 /**
- * Reads the indexer status of one instance, plus the indexer list when it is
- * due or `readIndexers` is set. All reads finish before any write, so a poll
- * with a failed request changes only the instance's error.
+ * Reads the indexer status of one instance, plus the indexer list and the
+ * stats when they are due or `readIndexers` is set. All reads finish before
+ * any write, so a poll with a failed status or list request changes only the
+ * instance's error.
  */
 export async function pollProwlarrInstance(
   instanceId: number,
@@ -86,6 +112,7 @@ export async function pollProwlarrInstance(
       enabled: prowlarrInstances.enabled,
       lastError: prowlarrInstances.lastError,
       indexersReadAt: prowlarrInstances.indexersReadAt,
+      statsReadAt: prowlarrInstances.statsReadAt,
     })
     .from(prowlarrInstances)
     .where(eq(prowlarrInstances.id, instanceId))
@@ -95,12 +122,12 @@ export async function pollProwlarrInstance(
   const now = new Date()
   const readIndexers =
     options.readIndexers === true ||
-    !instance.indexersReadAt ||
-    now.getTime() - instance.indexersReadAt.getTime() >= PROWLARR_INDEXER_REFRESH_MS
+    isDue(instance.indexersReadAt, now, PROWLARR_INDEXER_REFRESH_MS)
+  const statsDue = readIndexers || isDue(instance.statsReadAt, now, PROWLARR_STATS_REFRESH_MS)
 
   try {
     const conn = decryptInstanceKey(instance, key)
-    const [indexers, statuses, version] = await Promise.all([
+    const [indexers, statuses, version, stats] = await Promise.all([
       readIndexers ? fetchIndexers(conn) : null,
       fetchIndexerStatuses(conn),
       // Only shown in settings, so a failure here does not fail the poll.
@@ -110,6 +137,7 @@ export async function pollProwlarrInstance(
             () => undefined
           )
         : undefined,
+      statsDue ? readStats(conn, now) : undefined,
     ])
     const statusById = new Map(statuses.map((s) => [s.indexerId, s]))
     const failureFields = (indexerId: number) => {
@@ -121,6 +149,14 @@ export async function pollProwlarrInstance(
         checkedAt: now,
       }
     }
+    // Left out when the stats were not read, so the stored ones are kept.
+    const statsFields = (indexerId: number): Record<string, ProwlarrIndexerStats | null> =>
+      stats
+        ? {
+            stats24h: stats.day.get(indexerId) ?? null,
+            stats7d: stats.week.get(indexerId) ?? null,
+          }
+        : {}
 
     await db.transaction(async (tx) => {
       if (indexers) {
@@ -141,6 +177,7 @@ export async function pollProwlarrInstance(
             enabled: indexer.enabled,
             hosts: indexer.hosts,
             ...failureFields(indexer.indexerId),
+            ...statsFields(indexer.indexerId),
           }
           await tx
             .insert(prowlarrIndexers)
@@ -155,16 +192,20 @@ export async function pollProwlarrInstance(
         // so its status is skipped until the next one.
         await tx
           .update(prowlarrIndexers)
-          .set(failureFields(0))
+          .set({ ...failureFields(0), ...statsFields(0) })
           .where(eq(prowlarrIndexers.instanceId, instanceId))
-        for (const status of statuses) {
+        const changed = new Set([
+          ...statuses.map((s) => s.indexerId),
+          ...(stats ? [...stats.day.keys(), ...stats.week.keys()] : []),
+        ])
+        for (const indexerId of changed) {
           await tx
             .update(prowlarrIndexers)
-            .set(failureFields(status.indexerId))
+            .set({ ...failureFields(indexerId), ...statsFields(indexerId) })
             .where(
               and(
                 eq(prowlarrIndexers.instanceId, instanceId),
-                eq(prowlarrIndexers.indexerId, status.indexerId)
+                eq(prowlarrIndexers.indexerId, indexerId)
               )
             )
         }
@@ -176,6 +217,7 @@ export async function pollProwlarrInstance(
           lastError: null,
           errorSince: null,
           ...(readIndexers ? { indexersReadAt: now } : {}),
+          ...(stats ? { statsReadAt: now } : {}),
           ...(version !== undefined ? { version: version?.slice(0, 50) ?? null } : {}),
         })
         .where(eq(prowlarrInstances.id, instanceId))
@@ -235,6 +277,8 @@ async function loadStoredIndexers(): Promise<StoredIndexer[]> {
       disabledTill: prowlarrIndexers.disabledTill,
       mostRecentFailure: prowlarrIndexers.mostRecentFailure,
       initialFailure: prowlarrIndexers.initialFailure,
+      stats24h: prowlarrIndexers.stats24h,
+      stats7d: prowlarrIndexers.stats7d,
       checkedAt: prowlarrIndexers.checkedAt,
     })
     .from(prowlarrIndexers)
@@ -257,6 +301,8 @@ async function loadStoredIndexers(): Promise<StoredIndexer[]> {
       mostRecentFailure: row.mostRecentFailure?.toISOString() ?? null,
       initialFailure: row.initialFailure?.toISOString() ?? null,
       checkedAt: row.checkedAt.toISOString(),
+      stats24h: (row.stats24h as ProwlarrIndexerStats | null) ?? null,
+      stats7d: (row.stats7d as ProwlarrIndexerStats | null) ?? null,
     }
   })
 }
