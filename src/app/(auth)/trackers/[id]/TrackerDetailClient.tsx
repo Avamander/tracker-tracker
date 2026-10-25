@@ -11,7 +11,6 @@ import { TrackerCredentialsSheet } from "@/components/TrackerCredentialsSheet"
 import { TrackerDefunctBanner } from "@/components/TrackerDefunctBanner"
 import { TrackerSettingsSheet } from "@/components/TrackerSettingsSheet"
 import { AnalyticsTab } from "@/components/tracker-detail/AnalyticsTab"
-import { ratioTrend24h } from "@/components/tracker-detail/CoreStatCards"
 import type { DebugData } from "@/components/tracker-detail/DebugResponseDialog"
 import { DebugResponseDialog } from "@/components/tracker-detail/DebugResponseDialog"
 import { resolveSlots } from "@/components/tracker-detail/resolve-slots"
@@ -21,7 +20,7 @@ import { TrackerStatusBanner } from "@/components/tracker-detail/TrackerStatusBa
 import { registryBonusName, registryEntryFor } from "@/data/tracker-registry"
 import { useTrackerTorrents } from "@/hooks/useTrackerTorrents"
 import { hexToRgba } from "@/lib/color-utils"
-import { computeDelta } from "@/lib/data-transforms"
+import { computeDelta, ratioTrend24h } from "@/lib/data-transforms"
 import type {
   DayRange,
   GazellePlatformMeta,
@@ -46,6 +45,8 @@ interface TrackerDetailClientProps {
   trackerId: number
   initialTracker: TrackerSummary
   initialAllTimeSnapshots: Snapshot[]
+  /** The last two days unbucketed, for the 24-hour figures */
+  initialRecentSnapshots: Snapshot[]
   initialTagGroups: TagGroup[]
   initialQbitmanageConfig: { enabled: boolean; tags: QbitmanageTagConfig } | null
   initialTab?: string | null
@@ -55,6 +56,7 @@ export function TrackerDetailClient({
   trackerId,
   initialTracker,
   initialAllTimeSnapshots,
+  initialRecentSnapshots,
   initialTagGroups,
   initialQbitmanageConfig,
   initialTab: initialTabProp,
@@ -68,6 +70,7 @@ export function TrackerDetailClient({
 
   const [tracker, setTracker] = useState<TrackerSummary>(initialTracker)
   const [allTimeSnapshots, setAllTimeSnapshots] = useState<Snapshot[]>(initialAllTimeSnapshots)
+  const [recentSnapshots, setRecentSnapshots] = useState<Snapshot[]>(initialRecentSnapshots)
   const tagGroups = initialTagGroups
   const qbitmanageConfig = initialQbitmanageConfig
   const [days, setDays] = useState<DayRange>(30)
@@ -168,12 +171,14 @@ export function TrackerDetailClient({
         const body = await res.json().catch(() => ({ error: "Poll failed" }))
         setPollError((body as { error?: string }).error ?? "Poll failed")
       } else {
-        const [trackerRes, allTimeRes] = await Promise.all([
+        const [trackerRes, allTimeRes, recentRes] = await Promise.all([
           fetch(`/api/trackers/${id}`),
           fetch(`/api/trackers/${id}/snapshots?days=0`),
+          fetch(`/api/trackers/${id}/snapshots?days=2`),
         ])
         if (trackerRes.ok) setTracker(await trackerRes.json())
         if (allTimeRes.ok) setAllTimeSnapshots(await allTimeRes.json())
+        if (recentRes.ok) setRecentSnapshots(await recentRes.json())
       }
     } catch {
       setPollError("Network error during poll")
@@ -214,9 +219,10 @@ export function TrackerDetailClient({
   }, [])
 
   const latestSnapshot = snapshots.length > 0 ? snapshots[snapshots.length - 1] : null
-  const ratioTrend = useMemo(() => ratioTrend24h(allTimeSnapshots), [allTimeSnapshots])
   const stats = tracker?.latestStats ?? null
-  const delta = useMemo(() => computeDelta(snapshots), [snapshots])
+  // Older ranges are bucketed by day, so the 24-hour figures read the unbucketed two days
+  const delta = useMemo(() => computeDelta(recentSnapshots), [recentSnapshots])
+  const ratioTrend = useMemo(() => ratioTrend24h(recentSnapshots), [recentSnapshots])
 
   const tc = tracker?.color || CHART_THEME.accent
   const trackerStyle = useMemo(
