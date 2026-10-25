@@ -306,7 +306,6 @@ The path appended to `url` for API requests. Must match the platform's actual en
 | `ggn`       | `/api.php` |
 | `nebulance` | `/api.php` |
 | `avistaz`   | `/profile` |
-| `c411`      | `/api/user/profile` |
 | `v3x`       | `/auth/me` |
 
 Almost all trackers use the platform default. Only change it if you've verified the tracker deviates.

@@ -23,7 +23,6 @@
 //       gazelle  → "/ajax.php"
 //       ggn      → "/api.php"
 //       avistaz  → "/profile"
-//       c411     → "/api/user/profile"
 //       v3x      → "/auth/me"
 //   - url: https only
 //   - contentCategories: values must come from the allowed list above

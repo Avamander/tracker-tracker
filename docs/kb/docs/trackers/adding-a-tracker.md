@@ -150,6 +150,12 @@ Click the **+** button next to "Trackers" in the sidebar, or go to `/trackers/ne
     | --------- | ------------ |
     | RuTracker | RuT          |
 
+=== "V3X"
+
+    | Name | Abbreviation |
+    | ---- | ------------ |
+    | V3X  | V3X          |
+
 === "FunFile"
 
     | Name    | Abbreviation |
@@ -343,6 +349,21 @@ Location varies by platform:
 
     !!! info "Upload figures need statistics switched on"
         Upload figures are hidden unless statistics are switched on. In your profile settings (**Профиль → Настройки**), set **Включить учет отданного** to **Да**. With it off, only the account overview is shown.
+
+=== "V3X"
+
+    V3X reads your stats from its JSON API at `api.v3x.club` with your logged-in session.
+
+    1. Open [v3x.club](https://v3x.club) in your browser and log in
+    2. Open DevTools (F12 or Cmd+Option+I)
+    3. Go to the **Network** tab and refresh the page
+    4. Click the request to `api.v3x.club/auth/me`
+    5. **Right-click** the `Cookie` header in **Request Headers** and select **Copy Value**
+
+    Paste it into the Add Tracker dialog. The User-Agent gets captured automatically, so add or update V3X from the same browser you are logged in with. The class shown is your V3X rank (Figurant, Second rôle, ...).
+
+    !!! warning "Cookie expiration"
+        When polling fails with "Session expired," log back in and re-copy the cookie string.
 
 !!! warning "Keep your token private"
     Your API token works like a password. Tracker Tracker encrypts it before storing it.
