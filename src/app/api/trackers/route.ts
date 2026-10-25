@@ -14,11 +14,12 @@ import {
   validateMouseholeToken,
   validateMouseholeUrl,
 } from "@/lib/api-helpers"
+import { maxTokenLengthFor } from "@/lib/credential-forms"
 import { encrypt } from "@/lib/crypto"
 import { db } from "@/lib/db"
 import { trackers } from "@/lib/db/schema"
 import { errMsg } from "@/lib/error-utils"
-import { LONG_STRING_MAX, maxTokenLengthFor, TRACKER_NAME_MAX, TRACKER_TAG_MAX } from "@/lib/limits"
+import { LONG_STRING_MAX, TRACKER_NAME_MAX, TRACKER_TAG_MAX } from "@/lib/limits"
 import { log } from "@/lib/logger"
 import { getTrackerListForDashboard } from "@/lib/server-data"
 

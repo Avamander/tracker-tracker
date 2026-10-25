@@ -772,16 +772,17 @@ invisible or unusable:
 | 1 | The adapter itself | `src/lib/tracker-platforms/adapters/<platform>.ts` implementing `TrackerAdapter` |
 | 2 | Register it | `adapters` record in `src/lib/tracker-platforms/index.ts` |
 | 3 | Declare the platform | `VALID_PLATFORM_TYPES` and `DEFAULT_API_PATHS` in `src/data/platform-types.ts` |
-| 4 | Credential UI | a branch in `src/components/AddTrackerDialog.tsx` **and** `src/components/TrackerSettingsSheet.tsx` |
-| 5 | Credential size cap | `LARGE_TOKEN_PLATFORMS` in `src/lib/limits.ts`, if credentials are a JSON blob |
+| 4 | Credential UI | a `CREDENTIAL_FORMS` row in `src/lib/credential-forms.ts` |
+| 5 | Credential size cap | follows the `kind` in that row; cookie, uid-pass and login kinds get the large cap |
 
-Steps 4 and 5 are the ones people miss. If your platform authenticates with
-anything other than a single API key (session cookies, a username/password
-pair, a JSON blob), the "API Token" textbox is the wrong input, and
-`TRACKER_TOKEN_MAX` (500 characters) will reject a real cookie header at the
-API boundary before the adapter ever runs. Add the platform to
-`LARGE_TOKEN_PLATFORMS` and it gets the 5000-character cap in all three
-routes at once.
+Steps 4 and 5 are one row. tsc refuses a platform with no `CREDENTIAL_FORMS`
+row, so the part to get right is its `kind`. If your platform authenticates
+with anything other than a single API key (session cookies, a
+username/password pair), a `token` kind gives it the "API Token" textbox,
+which is the wrong input, and `TRACKER_TOKEN_MAX` (500 characters) will reject
+a real cookie header at the API boundary before the adapter ever runs. A
+cookie, uid-pass or login kind gets the 5000-character cap in all three routes
+at once. The two key kinds, `token` and `token-username`, keep the 500 cap.
 
 The pull request also needs a redacted sample of the tracker's response, which becomes your
 test fixture and the example on the platform's page. [Sharing a Response Sample](tracker-responses.md#sharing-a-response-sample)

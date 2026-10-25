@@ -1,8 +1,8 @@
 // src/lib/credential-forms.ts
 //
 // Functions: resolveFieldLabel, tokenForm, credentialFormFor, credentialFormForPlatform,
-//            cleanCookies, checkToken, checkCookies, validateCredentialValues,
-//            buildCredentialBlob
+//            maxTokenLengthFor, cleanCookies, checkToken, checkCookies,
+//            validateCredentialValues, buildCredentialBlob
 
 // ---------------------------------------------------------------------------
 // One row per platform: what the credential UI asks for, what a valid answer
@@ -10,6 +10,7 @@
 // ---------------------------------------------------------------------------
 
 import type { PlatformType } from "@/data/platform-types"
+import { LARGE_TOKEN_MAX, TRACKER_TOKEN_MAX } from "@/lib/limits"
 import { validateCookieHeader } from "@/lib/tracker-credentials/cookie-header"
 import { validateHeaderToken } from "@/lib/tracker-credentials/header-token"
 import { validateTrackerUsername } from "@/lib/tracker-credentials/tracker-username"
@@ -384,6 +385,27 @@ export function credentialFormForPlatform(platform: string): CredentialForm {
   // inherited function and skip the fallback.
   if (!Object.hasOwn(CREDENTIAL_FORMS, platform)) return CREDENTIAL_FORMS.custom
   return CREDENTIAL_FORMS[platform as PlatformType]
+}
+
+/**
+ * Longest stored credential each kind accepts. The cookie, uid-pass and login
+ * kinds store a pasted cookie header or a login blob, and an IPTorrents cookie
+ * header alone can run past 1 KB. A key with a username stays small because
+ * the username stops at 100 characters. A new kind fails tsc until it has one.
+ */
+const CREDENTIAL_CAP: Record<CredentialKind, number> = {
+  token: TRACKER_TOKEN_MAX,
+  "token-username": TRACKER_TOKEN_MAX,
+  cookies: LARGE_TOKEN_MAX,
+  "cookies-username": LARGE_TOKEN_MAX,
+  "uid-pass": LARGE_TOKEN_MAX,
+  login: LARGE_TOKEN_MAX,
+}
+
+/** The routes' cap on a stored credential. An unknown platform gets the token cap. */
+export function maxTokenLengthFor(platform: string | null | undefined): number {
+  if (!platform) return TRACKER_TOKEN_MAX
+  return CREDENTIAL_CAP[credentialFormForPlatform(platform).kind]
 }
 
 // ---------------------------------------------------------------------------

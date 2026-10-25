@@ -1,16 +1,19 @@
 // src/lib/credential-forms.test.ts
 //
 // Pins the stored blob shapes, which are a contract with the adapters'
-// parseCredentialJson key lists, and the cookie messages a user acts on.
+// parseCredentialJson key lists, the cookie messages a user acts on, and the
+// length cap each credential kind gets at the routes.
 
 import { describe, expect, it } from "vitest"
 import { VALID_PLATFORM_TYPES } from "@/data/platform-types"
+import { LARGE_TOKEN_MAX, TRACKER_TOKEN_MAX } from "@/lib/limits"
 import {
   buildCredentialBlob,
   CREDENTIAL_FORMS,
   credentialFormFor,
   credentialFormForPlatform,
   EMPTY_CREDENTIAL_VALUES,
+  maxTokenLengthFor,
   validateCredentialValues,
 } from "./credential-forms"
 
@@ -90,6 +93,49 @@ describe("credentialFormForPlatform", () => {
   it("treats an inherited object property name as unknown", () => {
     expect(credentialFormForPlatform("constructor")).toBe(CREDENTIAL_FORMS.custom)
     expect(credentialFormForPlatform("__proto__")).toBe(CREDENTIAL_FORMS.custom)
+  })
+})
+
+describe("maxTokenLengthFor", () => {
+  it.each([
+    ["unit3d", TRACKER_TOKEN_MAX], // token
+    ["animebytes", TRACKER_TOKEN_MAX], // token-username
+    ["iptorrents", LARGE_TOKEN_MAX], // cookies
+    ["avistaz", LARGE_TOKEN_MAX], // cookies-username
+    ["digitalcore", LARGE_TOKEN_MAX], // uid-pass
+    ["torrentleech", LARGE_TOKEN_MAX], // login
+    ["luminance", LARGE_TOKEN_MAX], // login with a session cookie
+  ])("caps %s at %i", (platform, cap) => {
+    expect(maxTokenLengthFor(platform)).toBe(cap)
+  })
+
+  it("gives the token cap when the platform is missing or unknown", () => {
+    expect(maxTokenLengthFor(null)).toBe(TRACKER_TOKEN_MAX)
+    expect(maxTokenLengthFor(undefined)).toBe(TRACKER_TOKEN_MAX)
+    expect(maxTokenLengthFor("")).toBe(TRACKER_TOKEN_MAX)
+    expect(maxTokenLengthFor("some-future-platform")).toBe(TRACKER_TOKEN_MAX)
+  })
+
+  // A minimal IPTorrents blob (cf_clearance + uid + pass + UA) lands around
+  // 390-480 chars, so it squeaks under the old 500 cap. Once the session also
+  // carries remember_web/XSRF cookies it runs past 700. The old cap therefore
+  // failed unpredictably depending on the user's cookie set, the large cap
+  // removes that cliff.
+  const iptBlob = (cookies: string) =>
+    JSON.stringify({ cookies, userAgent: `Mozilla/5.0 ${"z".repeat(120)}` })
+
+  it("admits a full IPTorrents session blob that the plain cap would reject", () => {
+    const full = iptBlob(
+      `cf_clearance=${"x".repeat(250)}; uid=123456; pass=${"y".repeat(32)}; ` +
+        `remember_web_59ba36=${"w".repeat(180)}; XSRF-TOKEN=${"v".repeat(40)}`
+    )
+    expect(full.length).toBeGreaterThan(TRACKER_TOKEN_MAX)
+    expect(full.length).toBeLessThanOrEqual(maxTokenLengthFor("iptorrents"))
+  })
+
+  it("also admits a minimal blob that happened to fit under the old cap", () => {
+    const minimal = iptBlob(`cf_clearance=${"x".repeat(250)}; uid=123456; pass=${"y".repeat(32)}`)
+    expect(minimal.length).toBeLessThanOrEqual(maxTokenLengthFor("iptorrents"))
   })
 })
 
