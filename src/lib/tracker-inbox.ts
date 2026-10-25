@@ -19,7 +19,8 @@ function toDate(value: string | undefined): Date | null {
 /**
  * Store a poll's inbox: current counts and links on the tracker row, every
  * listed unread message (messages no longer listed are marked read) and news
- * items not seen before. Kinds the site reports as read are dismissed.
+ * items not seen before. Kinds the site reports as read are dismissed. A poll
+ * that lists no messages but counts none unread marks that kind read too.
  */
 export async function recordTrackerInbox(
   trackerId: number,
@@ -71,6 +72,25 @@ export async function recordTrackerInbox(
           unreadIds.length > 0 ? notInArray(trackerMessages.remoteId, unreadIds) : undefined
         )
       )
+  } else {
+    // Some adapters fetch the list only when the count is above zero. A null
+    // count says nothing, so only a reported zero marks its kind read.
+    const readKinds = [
+      ...(inbox.unreadMessages === 0 ? [false] : []),
+      ...(inbox.unreadStaffMessages === 0 ? [true] : []),
+    ]
+    if (readKinds.length > 0) {
+      await db
+        .update(trackerMessages)
+        .set({ readAt: now })
+        .where(
+          and(
+            eq(trackerMessages.trackerId, trackerId),
+            isNull(trackerMessages.readAt),
+            inArray(trackerMessages.isStaff, readKinds)
+          )
+        )
+    }
   }
 
   const seen = inbox.newsSeenOnSite ?? {}
