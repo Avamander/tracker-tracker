@@ -4,7 +4,8 @@
 // filesystem or the process, so a test can import it; the audit script keeps
 // its CLI entry and still runs every check on load.
 //
-// Functions: fetchWindowEnd, catchBodyLines, swallowsError, hasInjectionGuard, logsCredential
+// Functions: fetchWindowEnd, catchBodyLines, swallowsError, hasInjectionGuard, logsCredential,
+//            gatesAuthResult
 
 export const FETCH_RE = /\bfetch\s*\(/
 
@@ -127,4 +128,34 @@ const CRED_IN_LOG_RE = new RegExp(
 
 export function logsCredential(line: string): boolean {
   return CRED_IN_LOG_RE.test(line)
+}
+
+// Routes that may check readSession() for null alone. Logout signs out a stale
+// session too, so it refuses only a request that sent no usable cookie.
+const READ_SESSION_NULL_GATE_ROUTES = new Set(["api/auth/logout"])
+
+const READ_SESSION_RE = /\breadSession\s*\(/
+const INSTANCEOF_GATE_RE = /instanceof\s+(?:Next)?Response/
+const NULL_GATE_RE = /!\s*session\b|session\s*===?\s*null/
+const VALID_STATUS_GATE_RE = /\.status\s*(?:===|!==)\s*["']valid["']/
+
+// authenticate() returns NextResponse | { encryptionKey }, so instanceof checks
+// it, and getSession() returns { encryptionKey } | null, so !session does.
+// readSession() can also return { status: "stale" }, which is truthy, so a null
+// check lets a session from before a password change or lockdown through.
+// Outside READ_SESSION_NULL_GATE_ROUTES it needs a status === "valid" check.
+export function gatesAuthResult(routePath: string, handlerBody: string): boolean {
+  // A commented-out check is not a check
+  const code = handlerBody
+    .split("\n")
+    .filter((line) => {
+      const trimmed = line.trim()
+      return !trimmed.startsWith("//") && !trimmed.startsWith("*")
+    })
+    .join("\n")
+
+  if (READ_SESSION_RE.test(code) && !READ_SESSION_NULL_GATE_ROUTES.has(routePath)) {
+    return VALID_STATUS_GATE_RE.test(code)
+  }
+  return INSTANCEOF_GATE_RE.test(code) || NULL_GATE_RE.test(code)
 }

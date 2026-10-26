@@ -68,7 +68,7 @@ Last audited: `2026-03-17`
 - **TOTP 2FA**: Optional TOTP via `otpauth` (SHA1, 6 digits, 30s period, ±1 window). Secret encrypted at rest with AES-256-GCM. Stateless enrollment via JWE setup tokens (5min TTL).
 - **Backup codes**: 8 codes in XXXX-XXXX hex format, hashed with SHA-256 + random salt, encrypted at rest. Each code is single-use.
 - **Two-step login**: When TOTP is enabled, login returns a pending token (60s JWE). The client sends the pending token + TOTP code to complete authentication.
-- **Auth model**: No whitelist or bypass. Every API route independently calls `authenticate()`, which decrypts the JWE session.
+- **Auth model**: No whitelist or bypass. Every API route independently calls `authenticate()`, which decrypts the JWE session and checks its master-key fingerprint against `app_settings`.
 
 ---
 
@@ -112,6 +112,8 @@ All tracker API tokens are encrypted before database storage. See `src/lib/crypt
 
 The encryption key is derived from the master password on login and stored in the encrypted JWE session. It is never persisted to disk in plaintext.
 
+The session also carries a SHA-256 fingerprint of `password_hash` and `encryption_salt`, taken from the row that verified the password. Every session read compares it with the current row, so a password change, an emergency lockdown or a `tt-recover` reset signs out every session minted before it. Sessions minted before the fingerprint existed are refused too.
+
 The scheduler key (used to decrypt API tokens during background polling) is wrapped with a separate HKDF-derived key from `SESSION_SECRET` and stored in `appSettings.encryptedSchedulerKey`. This enables polling to run 24/7, surviving both container restarts and user logouts. The key is only cleared on destructive operations: lockdown, nuke, password change, and restore. If `SESSION_SECRET` is rotated, the stored key becomes undecryptable and polling will resume after the next login.
 
 ---
@@ -121,7 +123,7 @@ The scheduler key (used to decrypt API tokens during background polling) is wrap
 Authentication is enforced at three independent levels:
 
 1. **Proxy** (`src/proxy.ts`): Checks for `tt_session` cookie on all non-public routes. Returns 401 for API routes; redirects to `/login` for pages.
-2. **Route handlers**: Each API route calls `authenticate()` from `src/lib/api-helpers.ts`, which decrypts and validates the full JWE token.
+2. **Route handlers**: Each API route calls `authenticate()` from `src/lib/api-helpers.ts`, which decrypts the full JWE token and refuses it unless its fingerprint matches the current password hash and salt. A refused stale session gets its cookie cleared.
 3. **Layout guard** (`src/app/(auth)/layout.tsx`): Server Component calls `getSession()` before rendering any authenticated page.
 
 Public routes are explicitly limited to: `/login`, `/setup`, `/api/auth/*`, `/api/health`.
@@ -133,7 +135,7 @@ Public routes are explicitly limited to: `/login`, `/setup`, `/api/auth/*`, `/ap
 - `encryptedApiToken`, `encryptedCredentials` and `encryptedMouseholeToken` are never included in API responses. `serializeTrackerResponse()` in `src/lib/tracker-serializer.ts` uses an allowlist pattern, so they are structurally unreachable from the response object. The Mousehole token is reduced to `hasMouseholeToken` in SQL by `trackerColumns` in `src/lib/server-data.ts`.
 - All database queries use Drizzle ORM (parameterized queries, no SQL injection surface).
 - No unsafe HTML injection methods anywhere in the codebase.
-- **Emergency lockdown** (`POST /api/settings/lockdown`): Stops scheduler, revokes all API tokens, clears credential vaults and Mousehole API tokens, rotates encryption salt, wipes TOTP/username, destroys session. Requires active session and three-checkbox UI acknowledgment.
+- **Emergency lockdown** (`POST /api/settings/lockdown`): Stops scheduler, revokes all API tokens, clears credential vaults and Mousehole API tokens, rotates encryption salt, wipes TOTP/username, and signs out every session, since none of them matches the new salt. Requires active session and three-checkbox UI acknowledgment.
 - **Scrub & delete** (`POST /api/settings/nuke`): Overwrites sensitive columns with random bytes, then deletes all rows. Requires active session + master password. Disk reclamation handled by PostgreSQL autovacuum.
 - **Backup/restore**: Pure JSON format (no zip/tar). Restore validates all fields before database writes. File deletion uses `path.resolve()` + base directory prefix check. Restore requires master password re-confirmation. Encrypted fields travel as ciphertext. See [Backup Security](#backup-security).
 - External HTTP requests use `AbortSignal.timeout(15_000)`. See `src/lib/tracker-platforms/helpers/adapter-fetch.ts`.
@@ -377,7 +379,7 @@ The security audit (`scripts/security-audit.ts`) performs 38 automated checks on
 
 | #   | Check                    | Severity | What's Verified                                                                       |
 | --- | ------------------------ | -------- | ------------------------------------------------------------------------------------- |
-| 1   | Auth enforcement         | Critical | Every non-public API route calls `authenticate()` or `getSession()`                   |
+| 1   | Auth enforcement         | Critical | Every non-public API route calls `authenticate()`, `getSession()` or `readSession()`  |
 | 2   | Dangerous functions      | Critical | No code-injection-risk functions in source                                            |
 | 3   | Hardcoded secrets        | Critical | No AWS keys, private keys, PATs, or API keys in source                                |
 | 4   | Security headers         | Critical | All 7 required headers present in `next.config.ts`                                    |
@@ -405,7 +407,7 @@ The security audit (`scripts/security-audit.ts`) performs 38 automated checks on
 | 26  | Nuke flow integrity      | Critical | Scrub & delete requires session + password, uses `scrubAndDeleteAll()`                |
 | 27  | Backup restore integrity | Critical | Restore requires session + password, resets failed attempts, uses transaction         |
 | 28  | Login flow integrity     | Critical | Login uses Argon2, atomic failed attempts, key derivation, TOTP pending token support |
-| 29  | Auth result gating       | Critical | Handlers check the `authenticate()` or `getSession()` result before going on          |
+| 29  | Auth result gating       | Critical | Handlers check the `authenticate()`, `getSession()` or `readSession()` result         |
 | 30  | Backup password bounds   | Critical | Backup export and restore cap the password length before `deriveKey()`                |
 | 31  | Webhook redirect policy  | Critical | Every `fetch()` in `notifications/deliver.ts` sets `redirect: "error"`                |
 | 32  | Session secret length    | Critical | `getSessionKey()` and `deriveWrappingKey()` reject a `SESSION_SECRET` under 32 chars  |
@@ -544,8 +546,8 @@ Verify in `next.config.ts`:
 # Run static security audit (covers XSS, auth, secrets, headers)
 npx tsx scripts/security-audit.ts
 
-# Verify all API routes authenticate (files missing authenticate/getSession)
-grep -rL 'authenticate\|getSession' src/app/api/**/route.ts
+# Verify all API routes authenticate (files missing authenticate/getSession/readSession)
+grep -rL 'authenticate\|getSession\|readSession' src/app/api/**/route.ts
 
 # Count security tests (must meet the minimum in .github/workflows/security-audit.yml)
 pnpm test:run -- src/lib/__tests__/security.test.ts 2>&1 | grep 'Tests'
