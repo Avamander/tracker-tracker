@@ -98,8 +98,11 @@ export interface TrackerRegistryEntry {
    */
   bonusName?: string
   /**
-   * Announce domains that differ from `url`s. Bare hostnames only, never an
-   * announce URL: those carry the passkey.
+   * The domains this tracker's torrents announce on, checked in a member's
+   * client and each written as its registrable domain ("flacsfor.me"). Lists
+   * the site's own domain too when torrents announce there. Absent means nobody
+   * has checked yet, and [] is rejected. Never an announce URL or a subdomain,
+   * since either can carry the passkey.
    */
   announceHosts?: string[]
   draft?: boolean

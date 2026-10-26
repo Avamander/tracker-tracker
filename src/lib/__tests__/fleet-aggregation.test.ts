@@ -10,8 +10,8 @@ import type { TagGroup, TagGroupMember } from "@/types/api"
 // ---------------------------------------------------------------------------
 
 const TRACKER_TAGS: TrackerTag[] = [
-  { tag: "aither", name: "Aither", color: "#01d4ff" },
-  { tag: "blutopia", name: "Blutopia", color: "#3b82f6" },
+  { tag: "aither", name: "Aither", color: "#01d4ff", registrySlug: null },
+  { tag: "blutopia", name: "Blutopia", color: "#3b82f6", registrySlug: null },
 ]
 
 const CROSS_SEED_TAGS = ["cross-seed"]
@@ -741,9 +741,21 @@ describe("computeFleetAggregation", () => {
 // Tracker Tracker to get the tracker from the tracker URL."
 describe("computeFleetAggregation — announce URL matching (issue #152)", () => {
   const TAGGED_AND_URL: TrackerTag[] = [
-    { tag: "aither", name: "Aither", color: "#01d4ff", baseUrl: "https://aither.cc" },
+    {
+      tag: "aither",
+      name: "Aither",
+      color: "#01d4ff",
+      baseUrl: "https://aither.cc",
+      registrySlug: null,
+    },
     // An untagged tracker is keyed by its announce host instead.
-    { tag: "example.org", name: "Example", color: "#3b82f6", baseUrl: "https://example.org" },
+    {
+      tag: "example.org",
+      name: "Example",
+      color: "#3b82f6",
+      baseUrl: "https://example.org",
+      registrySlug: null,
+    },
   ]
 
   it("attributes a torrent with no tracker tag via its announce URL", () => {

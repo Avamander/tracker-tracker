@@ -111,6 +111,7 @@ export const mytracker: TrackerRegistryEntry = {
   // ── External Links ──────────────────────────────────────────────────
   trackerHubSlug: "", // slug on trackerhub.xyz, if listed, "" if none
   statusPageUrl: "", // external status page URL, "" if none
+  // announceHosts: ["flacsfor.me"], // optional, domains torrents announce on as checked in your client, registrable domains only, never a URL or subdomain, omit if unchecked
 
   // ── Community ───────────────────────────────────────────────────────
   userClasses: [], // [{ name: "Power User", requirements: "Upload ≥ 100 GiB" }]
@@ -410,6 +411,20 @@ URL to an external status page. Many trackers have one at `trackerstatus.info`. 
 ```typescript
 statusPageUrl: "https://status.aither.cc/status/aither"
 statusPageUrl: ""
+```
+
+#### `announceHosts`
+
+Type: `string[]`
+
+Optional. The domains this tracker's torrents announce on. A torrent without a tracker tag is matched by its announce domain. The site's own domain always matches, but Redacted's site is redacted.sh and its torrents announce on flacsfor.me, so without this field those torrents stay unmatched.
+
+If you're a member, open one of the tracker's torrents in your client and look at its tracker URL (in qBittorrent, the **Trackers** tab). List only its domain, even when that is the site's own. If you're not a member or haven't checked, leave the field out. Don't write an empty list, because a present field says someone checked.
+
+Write each one as its registrable domain, `flacsfor.me` rather than `tracker.flacsfor.me`. Matching ignores subdomains, so the short form covers every announce host under it. An announce URL can carry your passkey in its path, its query string or a subdomain, so never paste the URL or a subdomain copied from it. The registry test and `scripts/validate-trackers.ts` reject both, and an empty list too. If you push a passkey by mistake, reset it on the tracker, because it stays in the PR's history after you remove it.
+
+```typescript
+announceHosts: ["flacsfor.me"]
 ```
 
 ---

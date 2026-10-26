@@ -6,6 +6,7 @@
 import { describe, expect, it } from "vitest"
 import { TRACKER_REGISTRY } from "@/data/tracker-registry"
 import {
+  announceHostKeySet,
   announceMatchesTracker,
   resolveTorrentTracker,
   trackerAnnounceKeys,
@@ -75,53 +76,36 @@ describe("registry announceHosts", () => {
     expect(trackerAnnounceKeys(site(null))).toEqual([])
   })
 
-  it("lists bare hostnames only, never an announce URL with its passkey", () => {
-    for (const entry of TRACKER_REGISTRY) {
-      for (const host of entry.announceHosts ?? []) {
-        expect(host).toMatch(/^[a-z0-9-]+(\.[a-z0-9-]+)+$/)
+  it("matches every registry alias to its own entry and no other", () => {
+    const aliased = TRACKER_REGISTRY.filter((e) => e.announceHosts?.length)
+    expect(aliased.length).toBeGreaterThan(0)
+    for (const entry of aliased) {
+      for (const [i, host] of (entry.announceHosts ?? []).entries()) {
+        const announce = `https://tracker.${host}:443/a/announce`
+        const owners = TRACKER_REGISTRY.filter((e) =>
+          announceMatchesTracker(announce, site(e.url, e.slug))
+        ).map((e) => e.slug)
+        // Labelled by index: a bad entry may be a passkey URL.
+        expect(owners, `${entry.slug} announceHosts[${i}]`).toEqual([entry.slug])
       }
     }
   })
 
-  it("matches Redacted's flacsfor.me announces, and only for Redacted", () => {
-    expect(trackerAnnounceKeys(site("https://redacted.sh", "redacted"))).toEqual([
-      "redacted.sh",
-      "flacsfor.me",
-    ])
-    expect(announceMatchesTracker("flacsfor.me:443", site("https://redacted.sh", "redacted"))).toBe(
-      true
-    )
-    expect(announceMatchesTracker("flacsfor.me", site("https://orpheus.network", "orpheus"))).toBe(
-      false
-    )
-  })
-
-  it("matches IPTorrents' bgp.technology announces", () => {
+  it("collects every row's keys, aliases included, in one set", () => {
     expect(
-      announceMatchesTracker("routing.bgp.technology", site("https://iptorrents.com", "iptorrents"))
-    ).toBe(true)
-  })
-
-  it("matches Orpheus' opsfet.ch announces", () => {
-    expect(
-      announceMatchesTracker("home.opsfet.ch", site("https://orpheus.network", "orpheus"))
-    ).toBe(true)
-  })
-
-  it("matches TorrentLeech's tleechreload.org announces", () => {
-    expect(
-      announceMatchesTracker(
-        "tracker.tleechreload.org",
-        site("https://www.torrentleech.org", "torrentleech")
-      )
-    ).toBe(true)
+      announceHostKeySet([
+        site("https://redacted.sh", "redacted"),
+        site("https://aither.cc"),
+        site(null),
+      ])
+    ).toEqual(new Set(["redacted.sh", "flacsfor.me", "aither.cc"]))
   })
 })
 
 describe("resolveTorrentTracker", () => {
   const trackers = [
-    { qbtTag: "aith", baseUrl: "https://aither.cc" },
-    { qbtTag: null, baseUrl: "https://example.org" },
+    { qbtTag: "aith", baseUrl: "https://aither.cc", registrySlug: null },
+    { qbtTag: null, baseUrl: "https://example.org", registrySlug: null },
   ]
 
   it("prefers an explicit tag over the announce URL", () => {

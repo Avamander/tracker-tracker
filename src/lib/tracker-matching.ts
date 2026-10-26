@@ -1,12 +1,11 @@
 // src/lib/tracker-matching.ts
 //
-// Functions: trackerHostKey, announceMatchesTracker, createTrackedTorrentPredicate,
-//            resolveTorrentTracker
+// Functions: trackerHostKey, trackerAnnounceKeys, announceHostKeySet,
+//            announceMatchesTracker, createTrackedTorrentPredicate, resolveTorrentTracker
 //
-// Resolves a torrent to one of the user's trackers. Matching used to rely
-// solely on a qBittorrent tag, which silently dropped every torrent for users
-// who don't tag per-tracker (issue #152). The torrent's announce URL is
-// already captured, so fall back to matching on that.
+// Resolves a torrent to one of the user's trackers: by qBittorrent tag first,
+// then by announce host, so users who don't tag per tracker still see their
+// torrents (issue #152).
 
 import { registryEntryFor } from "@/data/tracker-registry"
 import { parseTorrentTags } from "@/lib/fleet"
@@ -74,18 +73,25 @@ export function trackerHostKey(input: string | null | undefined): string | null 
   return labels.slice(-take).join(".")
 }
 
-/** A tracker row as far as announce matching is concerned. */
+/**
+ * A tracker row as far as announce matching is concerned. `registrySlug` is
+ * required so a select that leaves the column out fails to compile instead of
+ * dropping the entry's `announceHosts`.
+ */
 export interface AnnounceSource {
   baseUrl?: string | null
-  registrySlug?: string | null
+  registrySlug: string | null
 }
 
+// resolveTorrentTracker asks for every tracker's keys on every torrent. The
+// registry is static, so they are memoised on slug and URL; without the memo a
+// 10k-torrent resolve takes about twice as long.
 const announceKeyCache = new Map<string, readonly string[]>()
 
 /** The tracker's own host key plus those of its registry entry's `announceHosts`. */
-export function trackerAnnounceKeys(tracker: AnnounceSource | null | undefined): readonly string[] {
-  const baseUrl = tracker?.baseUrl ?? ""
-  const registrySlug = tracker?.registrySlug ?? null
+export function trackerAnnounceKeys(tracker: AnnounceSource): readonly string[] {
+  const baseUrl = tracker.baseUrl ?? ""
+  const registrySlug = tracker.registrySlug
   const cacheKey = `${registrySlug ?? ""} ${baseUrl}`
   const cached = announceKeyCache.get(cacheKey)
   if (cached) return cached
@@ -101,10 +107,15 @@ export function trackerAnnounceKeys(tracker: AnnounceSource | null | undefined):
   return keys
 }
 
+/** Every row's announce keys in one set, for createTrackedTorrentPredicate. */
+export function announceHostKeySet(rows: readonly AnnounceSource[]): Set<string> {
+  return new Set(rows.flatMap((r) => trackerAnnounceKeys(r)))
+}
+
 /** True when a torrent's announce URL points at the same site as a tracker. */
 export function announceMatchesTracker(
   announceUrl: string | null | undefined,
-  tracker: AnnounceSource | null | undefined
+  tracker: AnnounceSource
 ): boolean {
   const a = trackerHostKey(announceUrl)
   return a !== null && trackerAnnounceKeys(tracker).includes(a)
@@ -113,7 +124,7 @@ export function announceMatchesTracker(
 interface MatchableTracker {
   qbtTag: string | null
   baseUrl: string
-  registrySlug?: string | null
+  registrySlug: string | null
 }
 
 interface MatchableTorrent {
@@ -124,12 +135,12 @@ interface MatchableTorrent {
 /**
  * Build the "this torrent belongs to one of the user's trackers" filter, shared
  * by the warm read in download-clients/coordinator.ts and the cache write in
- * download-client-scheduler.ts. The two used to build it separately and drifted
- * apart when announce-URL attribution landed: the scheduler still matched on
- * tags alone. An untagged torrent from a tracked site was in a warm result but
- * missing from the cached one, under-reporting the fleet on cold start.
+ * download-client-scheduler.ts. The two must agree: if the cache write matched
+ * on tags alone, an untagged torrent from a tracked site would be in a warm
+ * result but missing from the cached one, under-reporting the fleet on cold
+ * start.
  *
- * `announceHostKeys` holds trackerHostKey() output, not raw base URLs. A full
+ * `announceHostKeys` holds announceHostKeySet() output, not raw base URLs. A full
  * URL can never equal a reduced host key, so passing one degrades the predicate
  * to tag-only matching without failing. An empty set is exactly the tag-only
  * filter, which is what makes it safe to omit.

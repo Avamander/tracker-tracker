@@ -174,6 +174,7 @@ function makeTracker(
     name?: string
     color?: string
     baseUrl?: string
+    registrySlug?: string | null
   } = {}
 ) {
   return {
@@ -182,6 +183,7 @@ function makeTracker(
     name: "Aither",
     color: "#00d4ff",
     baseUrl: "https://aither.cc",
+    registrySlug: null,
     ...overrides,
   }
 }
@@ -648,6 +650,27 @@ describe("fetchTrackerTorrents", () => {
     )
   })
 
+  it("should match an untagged tracker's torrents on its registry alias host", async () => {
+    setupDbReturns([
+      [
+        makeTracker({
+          id: 3,
+          qbtTag: null,
+          baseUrl: "https://redacted.sh",
+          registrySlug: "redacted",
+        }),
+      ],
+      [makeFetchClient()],
+    ])
+
+    await fetchTrackerTorrents(3, makeKey())
+    const matches = capturedMatcher()
+
+    expect(matches(makeTorrent("h1", { tags: "", tracker: "https://flacsfor.me/announce" }))).toBe(
+      true
+    )
+  })
+
   it("should still match by tag when the tracker has one", async () => {
     setupDbReturns([
       [makeTracker({ id: 1, qbtTag: "Aither", baseUrl: "https://aither.cc" })],
@@ -885,7 +908,15 @@ describe("fetchFleetAggregation", () => {
 
     expect(computeFleetAggregation).toHaveBeenCalledWith(
       expect.any(Array), // stamped torrents
-      [{ tag: "aither", name: "Aither", color: "#ff0000", baseUrl: "https://aither.cc" }],
+      [
+        {
+          tag: "aither",
+          name: "Aither",
+          color: "#ff0000",
+          baseUrl: "https://aither.cc",
+          registrySlug: null,
+        },
+      ],
       expect.any(Array), // crossSeedTags
       [] // tagGroups, omitted by callers that don't want the breakdown
     )
@@ -922,7 +953,15 @@ describe("fetchFleetAggregation", () => {
 
     expect(computeFleetAggregation).toHaveBeenCalledWith(
       expect.any(Array),
-      [{ tag: "aither", name: "Aither", color: "#01d4ff", baseUrl: "https://aither.cc" }],
+      [
+        {
+          tag: "aither",
+          name: "Aither",
+          color: "#01d4ff",
+          baseUrl: "https://aither.cc",
+          registrySlug: null,
+        },
+      ],
       expect.any(Array),
       []
     )
@@ -1032,6 +1071,35 @@ describe("fetchFleetAggregation", () => {
     expect(hashes).toContain("h1")
     expect(hashes).toContain("h2")
     expect(hashes).not.toContain("h3")
+  })
+
+  it("keeps an untagged torrent announcing on a known tracker's registry alias", async () => {
+    vi.mocked(isStoreFresh).mockReturnValue(true)
+    vi.mocked(getFilteredTorrents).mockImplementation(
+      (_url: string, pred: (t: TorrentRecord) => boolean) =>
+        [
+          makeTorrent("alias", { tags: "", tracker: "https://flacsfor.me/announce" }),
+          makeTorrent("stranger", { tags: "", tracker: "https://unknown.test/announce" }),
+        ].filter(pred)
+    )
+
+    setupDbReturns([
+      [makeCachedClient()],
+      [
+        makeTracker({
+          qbtTag: null,
+          name: "Redacted",
+          baseUrl: "https://redacted.sh",
+          registrySlug: "redacted",
+        }),
+      ],
+    ])
+
+    await fetchFleetAggregation(makeKey())
+
+    const mergeCall = vi.mocked(mergeTorrentLists).mock.calls[0]
+    const hashes = (mergeCall[0] as { hash: string }[][]).flat().map((t) => t.hash)
+    expect(hashes).toEqual(["alias"])
   })
 
   // The scheduler keys the sync store by the adapter's baseUrl, path included.

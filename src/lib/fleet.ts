@@ -48,7 +48,7 @@ export interface TrackerTag {
   /** Tracker web URL, used to match torrents by announce host (issue #152). */
   baseUrl?: string
   /** Registry entry whose `announceHosts` also match. */
-  registrySlug?: string | null
+  registrySlug: string | null
 }
 
 /** Parse comma-separated qBT tag string into trimmed array */

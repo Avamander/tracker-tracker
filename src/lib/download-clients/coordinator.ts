@@ -17,6 +17,7 @@ import { parseTorrentTags } from "@/lib/fleet"
 import { computeFleetAggregation, type FleetAggregation } from "@/lib/fleet-aggregation"
 import { log } from "@/lib/logger"
 import {
+  announceHostKeySet,
   createTrackedTorrentPredicate,
   resolveTorrentTracker,
   trackerAnnounceKeys,
@@ -126,14 +127,13 @@ function trackerTorrentMatcher(
     // return `target` from its tag branch. That branch fires only when a torrent
     // tag equals target.qbtTag, which step 1 already tested (and tested more
     // permissively, since it trims the configured tag first). So the only way
-    // target can still win is the announce branch, which requires exactly this
-    // host equality.
+    // target can still win is the announce branch, which requires the torrent's
+    // host to be one of the target's announce keys.
     //
-    // Worth doing: resolveTorrentTracker re-parses every tracker's baseUrl for
-    // every torrent, which measured 267ms per 10k torrents against 25 trackers.
-    // Hoisting the target's host out of the loop and rejecting on it first cuts
-    // that to 31ms, and the expensive path then runs only for the handful of
-    // torrents that really do announce to this tracker.
+    // Worth doing: resolveTorrentTracker walks every tracker for every torrent.
+    // Building the target's keys once and rejecting on them first means the full
+    // resolve runs only for the handful of torrents that really do announce to
+    // this tracker.
     const host = trackerHostKey(torrent.tracker)
     if (host === null || !targetHosts.has(host)) return false
 
@@ -273,7 +273,7 @@ export async function fetchFleetAggregation(
   const tagSet = new Set(allTags.map((t) => t.toLowerCase()))
   // Announce hosts of every tracker we know about, so a torrent from a tracked
   // site is kept even when it carries no recognised tag.
-  const knownAnnounceHosts = new Set(trackerTagRows.flatMap((r) => trackerAnnounceKeys(r)))
+  const knownAnnounceHosts = announceHostKeySet(trackerTagRows)
   const tagPredicate = createTrackedTorrentPredicate(tagSet, knownAnnounceHosts)
 
   const clientTorrents: { clientName: string; torrents: (TorrentRecord | SlimTorrent)[] }[] = []

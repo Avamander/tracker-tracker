@@ -64,7 +64,7 @@ import {
 import { parseTorrentTags } from "@/lib/fleet"
 import { localDateStr } from "@/lib/formatters"
 import { log } from "@/lib/logger"
-import { createTrackedTorrentPredicate, trackerAnnounceKeys } from "@/lib/tracker-matching"
+import { announceHostKeySet, createTrackedTorrentPredicate } from "@/lib/tracker-matching"
 import { clearUptimeAccumulator, flushCompletedBuckets, recordHeartbeat } from "@/lib/uptime"
 
 /** Needed by heartbeatClient. Excludes large blobs like cachedTorrents */
@@ -560,8 +560,8 @@ async function deepPollAllClients(encryptionKey: Buffer): Promise<void> {
   if (overdue.length === 0) return
 
   // Fetch trackers once for the entire cycle (same for all clients). Untagged
-  // trackers are read too: they contribute no tag, but their announce host is
-  // what lets the cached list match the warm read.
+  // trackers are read too: they contribute no tag, but their announce hosts are
+  // what let the cached list match the warm read.
   const trackerRows = await db
     .select({
       qbtTag: trackers.qbtTag,
@@ -570,7 +570,7 @@ async function deepPollAllClients(encryptionKey: Buffer): Promise<void> {
     })
     .from(trackers)
   const trackerTags = trackerRows.map((r) => r.qbtTag).filter((t): t is string => Boolean(t))
-  const announceHostKeys = new Set(trackerRows.flatMap((r) => trackerAnnounceKeys(r)))
+  const announceHostKeys = announceHostKeySet(trackerRows)
 
   await Promise.allSettled(
     overdue.map((c) => deepPollClient(c.id, encryptionKey, trackerTags, announceHostKeys))
