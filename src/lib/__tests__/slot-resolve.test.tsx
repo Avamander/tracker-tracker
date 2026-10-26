@@ -17,6 +17,7 @@ import type {
   NebulancePlatformMeta,
   RuTrackerPlatformMeta,
   Unit3dPlatformMeta,
+  V3xPlatformMeta,
 } from "@/types/tracker-stats"
 
 // ---------------------------------------------------------------------------
@@ -1350,5 +1351,32 @@ describe("FunFile context", () => {
     const ids = slotIds(funfileCtx({}), "stat-card")
     expect(ids).not.toContain("funfile-next-class")
     expect(ids).not.toContain("funfile-freeleech")
+  })
+})
+
+describe("V3X context", () => {
+  function v3xCtx(meta: V3xPlatformMeta): SlotContext {
+    return {
+      tracker: makeTracker({ platformType: "v3x" }),
+      latestSnapshot: makeSnapshot(),
+      meta,
+      registry: undefined,
+      accentColor: BASE_ACCENT,
+    }
+  }
+
+  it("shows the freeleech download, bonus upload and invites", () => {
+    const ctx = v3xCtx({ freeleechDownloadedBytes: 0, bonusUploadedBytes: 2 ** 30, invites: 2 })
+    expect(slotIds(ctx, "stat-card")).toEqual(
+      expect.arrayContaining(["v3x-freeleech", "v3x-bonus-upload"])
+    )
+    expect(slotIds(ctx, "badge")).toContain("v3x-invites")
+  })
+
+  it("hides the bonus upload and invites at zero, and every slot without the figures", () => {
+    const zero = v3xCtx({ bonusUploadedBytes: 0, invites: 0 })
+    expect(slotIds(zero, "stat-card")).not.toContain("v3x-bonus-upload")
+    expect(slotIds(zero, "badge")).not.toContain("v3x-invites")
+    expect(slotIds(v3xCtx({}), "stat-card")).not.toContain("v3x-freeleech")
   })
 })
