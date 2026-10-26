@@ -124,6 +124,9 @@ describe("POST /api/prowlarr", () => {
     [{ url: "http://prowlarr.test:9696", apiKey: API_KEY }, /required/],
     [{ name: "Home", url: "ftp://prowlarr", apiKey: API_KEY }, /http/],
     [{ name: "Home", url: "http://u:p@prowlarr", apiKey: API_KEY }, /username or password/],
+    // Both would send every request to Prowlarr's root.
+    [{ name: "Home", url: "http://prowlarr.test:9696/?", apiKey: API_KEY }, /query/],
+    [{ name: "Home", url: "http://prowlarr.test:9696/#", apiKey: API_KEY }, /query/],
     [{ name: "Home", url: "http://prowlarr.test:9696", apiKey: "" }, /API key is required/],
     [{ name: "Home", url: "http://prowlarr.test:9696", apiKey: "has space" }, /printable/],
     [{ name: "", url: "http://prowlarr.test:9696", apiKey: API_KEY }, /Name/],

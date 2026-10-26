@@ -57,7 +57,8 @@ export function prowlarrUrlError(url: string): string | null {
   if (parsed.username || parsed.password) {
     return "URL must not contain a username or password. Enter the API key in its own field"
   }
-  if (parsed.search || parsed.hash) return "URL must not contain a query or fragment"
+  // A bare "?" or "#" parses to an empty search or hash, so the raw string is checked.
+  if (/[?#]/.test(url)) return "URL must not contain a query or fragment"
   return null
 }
 

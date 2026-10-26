@@ -170,6 +170,8 @@ describe("prowlarrUrlError and normalizeProwlarrUrl", () => {
     expect(prowlarrUrlError("ftp://prowlarr")).toMatch(/http/)
     expect(prowlarrUrlError("http://user:pass@prowlarr.test:9696")).toMatch(/username or password/)
     expect(prowlarrUrlError("http://prowlarr.test:9696/?apikey=x")).toMatch(/query/)
+    expect(prowlarrUrlError("http://prowlarr.test:9696/?")).toMatch(/query/)
+    expect(prowlarrUrlError("http://prowlarr.test:9696/#")).toMatch(/query/)
     expect(prowlarrUrlError("prowlarr")).toBe("Invalid URL format")
   })
 

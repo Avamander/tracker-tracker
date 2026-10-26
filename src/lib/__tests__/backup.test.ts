@@ -262,6 +262,8 @@ describe("validateBackupJson", () => {
   it.each([
     "http://user:secret@prowlarr.test:9696",
     "http://prowlarr.test:9696/?apikey=secret",
+    "http://prowlarr.test:9696/?",
+    "http://prowlarr.test:9696/#",
     "ftp://prowlarr.test",
   ])("rejects a Prowlarr instance with the URL %s", (url) => {
     const p = validPayload() as unknown as Record<string, unknown>
