@@ -123,6 +123,11 @@ describe("FleetHeadline other changes", () => {
     expect(card("Bonus gained")).toHaveTextContent(/^Bonus gained0pts$/)
   })
 
+  it("shows a missing bonus change as 0, without a sign", () => {
+    render(<FleetHeadline fleet={fleet(null, { seedbonusChange: null })} />)
+    expect(card("Bonus gained")).toHaveTextContent(/^Bonus gained0pts$/)
+  })
+
   it("keeps the sign of a bonus change", () => {
     const { unmount } = render(<FleetHeadline fleet={fleet(null, { seedbonusChange: 12.7 })} />)
     expect(card("Bonus gained")).toHaveTextContent("+12")

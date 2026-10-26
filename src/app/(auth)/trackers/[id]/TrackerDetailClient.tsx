@@ -220,7 +220,8 @@ export function TrackerDetailClient({
 
   const latestSnapshot = snapshots.length > 0 ? snapshots[snapshots.length - 1] : null
   const stats = tracker?.latestStats ?? null
-  // Older ranges are bucketed by day, so the 24-hour figures read the unbucketed two days
+  // The all-time series is bucketed by hour past two days stored and by day past 90,
+  // so the 24-hour figures read the raw last two days
   const delta = useMemo(() => computeDelta(recentSnapshots), [recentSnapshots])
   const ratioTrend = useMemo(() => ratioTrend24h(recentSnapshots), [recentSnapshots])
 

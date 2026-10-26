@@ -271,7 +271,8 @@ const CHANGE_SIGN: Record<TrendDirection, string> = { up: "+", down: "-", flat: 
 /**
  * Formats a change with its sign, taking the sign and direction from the value
  * rounded to `decimals`, so a change that displays as zero reads "0.0" and not
- * "+0.0" or "-0.0". `format` receives the unsigned magnitude.
+ * "+0.0" or "-0.0". `format` receives the unsigned magnitude and must round to
+ * the same `decimals`, or a zero can still print with a sign.
  */
 export function formatSignedChange(
   value: number,

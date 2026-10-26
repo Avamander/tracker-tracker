@@ -13,8 +13,8 @@ import type { Snapshot } from "@/types/api"
 
 /**
  * The earliest and latest snapshots inside the last 24 hours, measured from now,
- * or null with fewer than two. Reads unbucketed snapshots, since a daily bucket
- * keeps one row per day and leaves at most one inside the window.
+ * or null with fewer than two. Needs unbucketed snapshots: a daily bucket keeps
+ * only each day's last poll, so the span it measures can shrink to minutes.
  */
 function lastDayEnds(snaps: Snapshot[]): [Snapshot, Snapshot] | null {
   const cutoff = Date.now() - MS_PER_DAY

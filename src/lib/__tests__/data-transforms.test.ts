@@ -211,7 +211,7 @@ describe("ratioTrend24h", () => {
     expect(ratioTrend24h([snap(20, 4.48), snap(2, 4.0), snap(0, 4.48)])).toBe("flat")
   })
 
-  it("reads an old tracker's daily rows as at most one reading inside the window", () => {
+  it("ignores an old tracker's daily rows from before the window", () => {
     // What the all-time query returns past 90 days: the last poll of each day
     const daily = [snap(72, 3.0), snap(47, 3.0), snap(23, 3.5), snap(0, 3.2)]
     expect(ratioTrend24h(daily)).toBe("down")
