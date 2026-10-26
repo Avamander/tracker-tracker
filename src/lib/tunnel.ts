@@ -34,7 +34,8 @@ export function buildProxyUrl(config: ProxyConfig): string {
     throw new Error(`Invalid proxy type: ${config.type}`)
   }
 
-  const scheme = config.type === "socks5" ? "socks5" : config.type
+  // socks5h leaves DNS to the proxy, so the local resolver never sees tracker hostnames
+  const scheme = config.type === "socks5" ? "socks5h" : config.type
   const auth =
     config.username && config.password
       ? `${encodeURIComponent(config.username)}:${encodeURIComponent(config.password)}@`
