@@ -1,12 +1,18 @@
 // src/lib/tracker-platforms/adapters/v3x.ts
 //
 // Functions: parseV3xCredentials, numeric, parseV3xMe, fetchJson, fetchMe, fetchGamification,
-//            rankLabel, V3xAdapter
+//            rankLabel, unreadCount, fetchInbox, V3xAdapter
 
 import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
 import { log } from "@/lib/logger"
 import { validateCookieHeader } from "@/lib/tracker-credentials/cookie-header"
-import type { DebugApiCall, FetchOptions, TrackerAdapter, TrackerStats } from "../contract"
+import type {
+  DebugApiCall,
+  FetchOptions,
+  TrackerAdapter,
+  TrackerInbox,
+  TrackerStats,
+} from "../contract"
 import { adapterRequest } from "../helpers/adapter-fetch"
 import { requireBytes } from "../helpers/bytes"
 import { presentClass } from "../helpers/class-name"
@@ -20,6 +26,10 @@ const API_HOST = "api.v3x.club"
 const API_BASE = `https://${API_HOST}`
 const ME_PATH = "/auth/me"
 const GAMIFICATION_PATH = "/me/gamification"
+const NOTIFICATIONS_PATH = "/notifications/unread-count"
+// Direct messages and group conversations, which the site's message badge adds up
+const MESSAGES_PATH = "/messages/unread"
+const CONVERSATIONS_PATH = "/conversations/unread"
 const LABEL = "V3X"
 const SESSION_EXPIRED = "Session expired. Browser cookies need to be refreshed"
 
@@ -115,12 +125,40 @@ function rankLabel(game: V3xGamification | null): string | null {
   return label === null ? null : label.trim()
 }
 
+function unreadCount(body: unknown, field: "unread" | "count", path: string): number {
+  const value = (body as Record<string, unknown> | null)?.[field]
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
+    throw new Error(`Unexpected response from ${API_HOST}: missing ${field} in ${path}`)
+  }
+  return value
+}
+
+async function fetchInbox(
+  baseUrl: string,
+  creds: V3xCredentials,
+  options?: FetchOptions
+): Promise<TrackerInbox> {
+  const [notifications, messages, conversations] = await Promise.all(
+    [NOTIFICATIONS_PATH, MESSAGES_PATH, CONVERSATIONS_PATH].map((path) =>
+      fetchJson<unknown>(path, creds, options)
+    )
+  )
+  return {
+    unreadMessages:
+      unreadCount(messages, "count", MESSAGES_PATH) +
+      unreadCount(conversations, "count", CONVERSATIONS_PATH),
+    unreadStaffMessages: null,
+    unreadNotifications: unreadCount(notifications, "unread", NOTIFICATIONS_PATH),
+    links: { inbox: new URL("/messages", baseUrl).toString() },
+  }
+}
+
 export class V3xAdapter implements TrackerAdapter {
   // _apiPath is ignored: /auth/me is intrinsic to the platform, not a property
   // of a user's row, so a stale persisted api_path value self-heals instead of
   // breaking the adapter (the filelist.ts precedent).
   async fetchStats(
-    _baseUrl: string,
+    baseUrl: string,
     apiToken: string,
     _apiPath: string,
     options?: FetchOptions
@@ -135,6 +173,13 @@ export class V3xAdapter implements TrackerAdapter {
     } catch (err) {
       if (err instanceof SessionExpiredError) throw err
       log.warn({ err }, "v3x: gamification failed, class left empty")
+    }
+
+    try {
+      stats.inbox = await fetchInbox(baseUrl, creds, options)
+    } catch (err) {
+      if (err instanceof SessionExpiredError) throw err
+      log.warn({ err }, "v3x: unread counts failed, inbox left as last read")
     }
     return stats
   }
@@ -175,6 +220,24 @@ export class V3xAdapter implements TrackerAdapter {
         (data) => parseV3xMe(data as V3xMe)
       ),
       await call("Gamification", GAMIFICATION_PATH, () => fetchGamification(creds, options)),
+      await call(
+        "Notifications",
+        NOTIFICATIONS_PATH,
+        () => fetchJson<unknown>(NOTIFICATIONS_PATH, creds, options),
+        (data) => unreadCount(data, "unread", NOTIFICATIONS_PATH)
+      ),
+      await call(
+        "Messages",
+        MESSAGES_PATH,
+        () => fetchJson<unknown>(MESSAGES_PATH, creds, options),
+        (data) => unreadCount(data, "count", MESSAGES_PATH)
+      ),
+      await call(
+        "Conversations",
+        CONVERSATIONS_PATH,
+        () => fetchJson<unknown>(CONVERSATIONS_PATH, creds, options),
+        (data) => unreadCount(data, "count", CONVERSATIONS_PATH)
+      ),
     ]
   }
 }
