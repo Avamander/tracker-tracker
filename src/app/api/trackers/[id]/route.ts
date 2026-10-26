@@ -181,6 +181,13 @@ export async function PATCH(request: Request, props: RouteContext) {
     if (tokenErr) return tokenErr
     const key = decodeKey(auth)
     updates.encryptedApiToken = encrypt(trimmedToken, key)
+    // A new token can belong to another account, so the old account's cached id
+    // and avatar are cleared. The next poll fetches them again.
+    updates.remoteUserId = null
+    updates.avatarData = null
+    updates.avatarMimeType = null
+    updates.avatarCachedAt = null
+    updates.avatarRemoteUrl = null
   }
 
   try {
