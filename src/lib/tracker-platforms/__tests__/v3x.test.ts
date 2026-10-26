@@ -1,6 +1,6 @@
 // src/lib/tracker-platforms/__tests__/v3x.test.ts
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { parseV3xMe, V3xAdapter } from "../adapters/v3x"
+import { parseV3xMe, parseV3xProfile, V3xAdapter } from "../adapters/v3x"
 import { SessionExpiredError } from "../helpers/errors"
 
 // Synthetic fixture shaped like /auth/me. No real account data.
@@ -35,10 +35,25 @@ const GAME = {
 }
 
 const HOST = "https://v3x.club"
-const UNREAD: Record<string, unknown> = {
+const PROFILE = {
+  id: 4242,
+  username: "testuser",
+  lastLoginAt: "2026-10-25T08:00:00.000Z",
+  invitesLeft: 2,
+  uploadBonusBytes: 10737418240,
+}
+const SEEDS_SEEDING = "/me/seeds?kind=seeding&perPage=1"
+const SEEDS_LEECHING = "/me/seeds?kind=leeching&perPage=1"
+// Every read after /auth/me, by path and query
+const FIXTURES: Record<string, unknown> = {
+  "/me/gamification": GAME,
   "/notifications/unread-count": { unread: 3 },
   "/messages/unread": { count: 2 },
   "/conversations/unread": { count: 1 },
+  [SEEDS_SEEDING]: { rows: [{}], total: 120 },
+  [SEEDS_LEECHING]: { rows: [], total: 0 },
+  "/me/warnings": { warnings: [], threshold: 3 },
+  "/users/testuser": PROFILE,
 }
 const CREDENTIALS = JSON.stringify({ cookies: "v3x_session=abc", userAgent: "Mozilla/5.0" })
 
@@ -81,7 +96,17 @@ describe("parseV3xMe", () => {
     expect(stats.seedingCount).toBeNull()
     expect(stats.leechingCount).toBeNull()
     expect(stats.warned).toBeNull()
-    expect(stats.platformMeta).toBeUndefined()
+    expect(stats.platformMeta).toEqual({ freeleechDownloadedBytes: 0 })
+  })
+
+  it("counts the real download above the counted one as freeleech", () => {
+    const stats = parseV3xMe({ ...ME, downloaded: 1000, downloadedReal: 1500 })
+
+    expect(stats.platformMeta).toEqual({ freeleechDownloadedBytes: 500 })
+  })
+
+  it("leaves out the freeleech figure without a real download", () => {
+    expect(parseV3xMe({ ...ME, downloadedReal: undefined }).platformMeta).toBeUndefined()
   })
 
   it.each(["uploaded", "downloaded"])("fails when %s is missing", (field) => {
@@ -116,12 +141,12 @@ describe("V3xAdapter", () => {
     const inits: { url: string; init?: RequestInit }[] = []
     vi.spyOn(global, "fetch").mockImplementation((url, init) => {
       inits.push({ url: String(url), init })
-      const path = new URL(String(url)).pathname
+      const { pathname, search } = new URL(String(url))
+      const path = pathname + search
       const override = overrides[path]
       if (override instanceof Error) return Promise.reject(override)
       if (override) return Promise.resolve(override)
-      const body = path === "/auth/me" ? ME : path === "/me/gamification" ? GAME : UNREAD[path]
-      return Promise.resolve(jsonResponse(body))
+      return Promise.resolve(jsonResponse(path === "/auth/me" ? ME : FIXTURES[path]))
     })
     return inits
   }
@@ -138,6 +163,10 @@ describe("V3xAdapter", () => {
       "https://api.v3x.club/notifications/unread-count",
       "https://api.v3x.club/messages/unread",
       "https://api.v3x.club/conversations/unread",
+      "https://api.v3x.club/me/seeds?kind=seeding&perPage=1",
+      "https://api.v3x.club/me/seeds?kind=leeching&perPage=1",
+      "https://api.v3x.club/me/warnings",
+      "https://api.v3x.club/users/testuser",
     ])
     expect(stats.uploadedBytes).toBe(186064294312n)
     expect(stats.group).toBe("Second rôle")
@@ -145,6 +174,57 @@ describe("V3xAdapter", () => {
     expect(headers["User-Agent"]).toBe("Mozilla/5.0")
     expect(headers.Accept).toBe("application/json")
     expect(headers["Sec-Fetch-Mode"]).toBeUndefined()
+  })
+
+  it("reads the peer counts, warnings and profile", async () => {
+    routeFetch()
+
+    const stats = await adapter.fetchStats(HOST, CREDENTIALS, "/auth/me")
+
+    expect(stats).toMatchObject({
+      seedingCount: 120,
+      leechingCount: 0,
+      warned: false,
+      remoteUserId: 4242,
+      lastAccessDate: "2026-10-25T08:00:00.000Z",
+      platformMeta: { freeleechDownloadedBytes: 0, invites: 2, bonusUploadedBytes: 10737418240 },
+    })
+  })
+
+  it("reads an active warning as warned", async () => {
+    routeFetch({ "/me/warnings": jsonResponse({ warnings: [{ id: 1 }], threshold: 3 }) })
+
+    const stats = await adapter.fetchStats(HOST, CREDENTIALS, "/auth/me")
+
+    expect(stats.warned).toBe(true)
+  })
+
+  it("leaves each failed read unknown and keeps the rest", async () => {
+    routeFetch({
+      [SEEDS_SEEDING]: new TypeError("fetch failed"),
+      [SEEDS_LEECHING]: jsonResponse({ rows: [] }),
+      "/me/warnings": statusResponse(500, "Internal Server Error"),
+      "/users/testuser": statusResponse(404, "Not Found"),
+    })
+
+    const stats = await adapter.fetchStats(HOST, CREDENTIALS, "/auth/me")
+
+    expect(stats.seedingCount).toBeNull()
+    expect(stats.leechingCount).toBeNull()
+    expect(stats.warned).toBeNull()
+    expect(stats.remoteUserId).toBeUndefined()
+    expect(stats.lastAccessDate).toBeUndefined()
+    expect(stats.platformMeta).toEqual({ freeleechDownloadedBytes: 0 })
+    expect(stats.group).toBe("Second rôle")
+    expect(stats.inbox?.unreadNotifications).toBe(3)
+  })
+
+  it("rethrows a 401 from the profile", async () => {
+    routeFetch({ "/users/testuser": statusResponse(401, "Unauthorized") })
+
+    await expect(adapter.fetchStats(HOST, CREDENTIALS, "/auth/me")).rejects.toBeInstanceOf(
+      SessionExpiredError
+    )
   })
 
   it("adds direct and group messages, and reads notifications", async () => {
@@ -244,6 +324,10 @@ describe("V3xAdapter", () => {
         data: { count: 1 },
         error: null,
       },
+      { label: "Seeding", endpoint: SEEDS_SEEDING, data: FIXTURES[SEEDS_SEEDING], error: null },
+      { label: "Leeching", endpoint: SEEDS_LEECHING, data: FIXTURES[SEEDS_LEECHING], error: null },
+      { label: "Warnings", endpoint: "/me/warnings", data: FIXTURES["/me/warnings"], error: null },
+      { label: "Profile", endpoint: "/users/testuser", data: PROFILE, error: null },
     ])
   })
 
@@ -255,6 +339,30 @@ describe("V3xAdapter", () => {
     expect(calls[3].error).toBe(
       "Unexpected response from api.v3x.club: missing count in /messages/unread"
     )
+  })
+
+  it("flags a seed list without a total and a warnings body without a list", async () => {
+    routeFetch({
+      [SEEDS_LEECHING]: jsonResponse({ rows: [] }),
+      "/me/warnings": jsonResponse({ threshold: 3 }),
+    })
+
+    const calls = await adapter.fetchRaw(HOST, CREDENTIALS, "/auth/me")
+
+    expect(calls[6].error).toBe(
+      `Unexpected response from api.v3x.club: missing total in ${SEEDS_LEECHING}`
+    )
+    expect(calls[7].error).toBe(
+      "Unexpected response from api.v3x.club: missing warnings in /me/warnings"
+    )
+  })
+
+  it("skips the profile when /auth/me fails", async () => {
+    routeFetch({ "/auth/me": statusResponse(500, "Internal Server Error") })
+
+    const calls = await adapter.fetchRaw(HOST, CREDENTIALS, "/auth/me")
+
+    expect(calls.map((c) => c.label)).not.toContain("Profile")
   })
 
   it("flags a /auth/me body the poll would fail, and still reads gamification", async () => {
@@ -277,5 +385,27 @@ describe("V3xAdapter", () => {
       error: "Tracker API error: 500 Internal Server Error",
     })
     expect(calls[1]).toMatchObject({ label: "Gamification", data: GAME, error: null })
+  })
+})
+
+describe("parseV3xProfile", () => {
+  it("reads the user ID, last login, invites and bonus upload", () => {
+    expect(parseV3xProfile(PROFILE)).toEqual({
+      remoteUserId: 4242,
+      lastAccessDate: "2026-10-25T08:00:00.000Z",
+      meta: { invites: 2, bonusUploadedBytes: 10737418240 },
+    })
+  })
+
+  it("leaves out an ID that is not a positive integer", () => {
+    expect(parseV3xProfile({ ...PROFILE, id: "abc" as unknown as number }).remoteUserId).toBe(
+      undefined
+    )
+  })
+
+  it("fails on a body without a profile object", () => {
+    expect(() => parseV3xProfile(null)).toThrow(
+      "Unexpected response from api.v3x.club: missing profile object"
+    )
   })
 })
