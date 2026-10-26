@@ -38,7 +38,8 @@ const HOST = "https://v3x.club"
 const PROFILE = {
   id: 4242,
   username: "testuser",
-  lastLoginAt: "2026-10-25T08:00:00.000Z",
+  lastLoginAt: "2026-10-20T08:00:00.000Z",
+  lastVisitDay: "2026-10-25",
   invitesLeft: 2,
   uploadBonusBytes: 10737418240,
 }
@@ -186,7 +187,7 @@ describe("V3xAdapter", () => {
       leechingCount: 0,
       warned: false,
       remoteUserId: 4242,
-      lastAccessDate: "2026-10-25T08:00:00.000Z",
+      lastAccessDate: "2026-10-25",
       platformMeta: { freeleechDownloadedBytes: 0, invites: 2, bonusUploadedBytes: 10737418240 },
     })
   })
@@ -392,9 +393,15 @@ describe("parseV3xProfile", () => {
   it("reads the user ID, last login, invites and bonus upload", () => {
     expect(parseV3xProfile(PROFILE)).toEqual({
       remoteUserId: 4242,
-      lastAccessDate: "2026-10-25T08:00:00.000Z",
+      lastAccessDate: "2026-10-25",
       meta: { invites: 2, bonusUploadedBytes: 10737418240 },
     })
+  })
+
+  it("falls back to the last login without a last visit day", () => {
+    expect(parseV3xProfile({ ...PROFILE, lastVisitDay: undefined }).lastAccessDate).toBe(
+      "2026-10-20T08:00:00.000Z"
+    )
   })
 
   it("leaves out an ID that is not a positive integer", () => {

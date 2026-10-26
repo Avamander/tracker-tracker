@@ -75,6 +75,7 @@ interface V3xMe {
 interface V3xProfile {
   id?: number
   lastLoginAt?: string
+  lastVisitDay?: string
   invitesLeft?: number
   uploadBonusBytes?: number
 }
@@ -205,7 +206,10 @@ export function parseV3xProfile(profile: V3xProfile | null) {
       typeof profile.id === "number" && Number.isInteger(profile.id) && profile.id > 0
         ? profile.id
         : undefined,
-    lastAccessDate: typeof profile.lastLoginAt === "string" ? profile.lastLoginAt : undefined,
+    // The site shows the last visit day, and the last login only without one
+    lastAccessDate: [profile.lastVisitDay, profile.lastLoginAt].find(
+      (value): value is string => typeof value === "string" && value !== ""
+    ),
     meta,
   }
 }
