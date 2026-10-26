@@ -22,6 +22,8 @@
 //                        rutracker-releases, rutracker-role, rutracker-posts
 //   rutracker badge: rutracker-restricted, rutracker-stats-off
 //   funfile stat-card: funfile-next-class, funfile-freeleech
+//   v3x stat-card: v3x-freeleech, v3x-bonus-upload
+//   v3x badge: v3x-invites
 
 import type { ComponentType, ReactNode } from "react"
 import { createElement } from "react"
@@ -1247,6 +1249,58 @@ const funfileFreeleechSlot: SlotDefinition<StatCardBasicProps> = {
 // Exported registry
 // ---------------------------------------------------------------------------
 
+// V3X slot definitions
+
+const v3xFreeleechSlot: SlotDefinition<StatCardBasicProps> = {
+  id: "v3x-freeleech",
+  category: "stat-card",
+  component: StatCard as ComponentType<StatCardBasicProps>,
+  priority: 11,
+  resolve(ctx) {
+    const bytes = metaFor(ctx, "v3x")?.freeleechDownloadedBytes
+    if (bytes === undefined) return null
+    const [value, unit] = formatBytesNum(bytes).split(" ")
+    return {
+      label: "Freeleech Downloaded",
+      value,
+      unit,
+      accentColor: ctx.accentColor,
+      icon: icon16(DownloadArrowIcon),
+    }
+  },
+}
+
+const v3xBonusUploadSlot: SlotDefinition<StatCardBasicProps> = {
+  id: "v3x-bonus-upload",
+  category: "stat-card",
+  component: StatCard as ComponentType<StatCardBasicProps>,
+  priority: 12,
+  resolve(ctx) {
+    const bytes = metaFor(ctx, "v3x")?.bonusUploadedBytes
+    if (!bytes) return null
+    const [value, unit] = formatBytesNum(bytes).split(" ")
+    return {
+      label: "Upload Gifted or Bought",
+      value,
+      unit,
+      accentColor: ctx.accentColor,
+      icon: icon16(UploadArrowIcon),
+    }
+  },
+}
+
+const v3xInvitesBadgeSlot: SlotDefinition<SlotBadgeProps> = {
+  id: "v3x-invites",
+  category: "badge",
+  component: SlotBadge,
+  priority: 21,
+  resolve(ctx) {
+    const invites = metaFor(ctx, "v3x")?.invites
+    if (typeof invites !== "number" || invites <= 0) return null
+    return { variant: "default", label: `${invites} Invites` }
+  },
+}
+
 export const SLOT_DEFINITIONS: AnySlotDefinition[] = [
   // stat-card slots
   loginDeadlineSlot,
@@ -1326,6 +1380,10 @@ export const SLOT_DEFINITIONS: AnySlotDefinition[] = [
   // FunFile slots (stat-card)
   funfileNextClassSlot,
   funfileFreeleechSlot,
+  // V3X slots
+  v3xFreeleechSlot,
+  v3xBonusUploadSlot,
+  v3xInvitesBadgeSlot,
 ]
 
 // Shared component lookup: single source for rendering resolved slots

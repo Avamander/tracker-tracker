@@ -388,6 +388,15 @@ export interface FunFilePlatformMeta {
   comments?: number
 }
 
+/** V3X figures that fit no TrackerStats field. Byte counts are plain numbers. */
+export interface V3xPlatformMeta {
+  /** Real download above the counted figure, which the ratio does not count */
+  freeleechDownloadedBytes?: number
+  /** Upload gifted or bought, included in the uploaded total */
+  bonusUploadedBytes?: number
+  invites?: number
+}
+
 /** Union of all platform-specific metadata types */
 export type PlatformMeta =
   | GGnPlatformMeta
@@ -404,6 +413,7 @@ export type PlatformMeta =
   | AnimeBytesPlatformMeta
   | RuTrackerPlatformMeta
   | FunFilePlatformMeta
+  | V3xPlatformMeta
 
 /** Maps platformType string → the corresponding PlatformMeta variant */
 export interface PlatformMetaMap {
@@ -421,6 +431,7 @@ export interface PlatformMetaMap {
   animebytes: AnimeBytesPlatformMeta
   rutracker: RuTrackerPlatformMeta
   funfile: FunFilePlatformMeta
+  v3x: V3xPlatformMeta
 }
 
 /**

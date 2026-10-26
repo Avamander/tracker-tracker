@@ -360,7 +360,7 @@ Location varies by platform:
     4. Click the request to `api.v3x.club/auth/me`
     5. **Right-click** the `Cookie` header in **Request Headers** and select **Copy Value**
 
-    Paste it into the Add Tracker dialog. The User-Agent gets captured automatically, so add or update V3X from the same browser you are logged in with. The class shown is your V3X rank (Figurant, Second rôle, ...). Unread notifications and unread direct and group messages are counted in the inbox; the messages themselves are not listed.
+    Paste it into the Add Tracker dialog. The User-Agent gets captured automatically, so add or update V3X from the same browser you are logged in with. The class shown is your V3X rank (Figurant, Second rôle, ...). Seeding and leeching counts, active warnings, last login and remaining invites are read too, along with the download that freeleech kept off your ratio and the upload you were gifted or bought. Unread notifications and unread direct and group messages are counted in the inbox; the messages themselves are not listed.
 
     !!! warning "Cookie expiration"
         When polling fails with "Session expired," log back in and re-copy the cookie string.
