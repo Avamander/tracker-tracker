@@ -57,7 +57,7 @@ You can check out a few other, longer, screenshots in the docs folder.
 | TorrentLeech          | TorrentLeech | 🟡 Unverified       | Username/password login, no public API             |
 | Portugas              | UNIT3D    | 📋 Draft               | API endpoint unavailable on this custom build     |
 | AlphaRatio            | Gazelle   | 🟡 Unverified ⛔ Stuck |                                                   |
-| AnimeBytes            | Gazelle   | 🟡 Unverified ⛔ Stuck |                                                   |
+| AnimeBytes            | AnimeBytes | 🟡 Unverified         | Own API (/api/stats/personal), not Gazelle        |
 | BroadcastheNet (BTN)  | BTN       | 🟡 Unverified          | JSON-RPC adapter; needs an account holder to verify |
 | Empornium             | Gazelle   | 🟡 Unverified ⛔ Stuck | XXX trackers aren't really my jam, so PRs welcome |
 | GreatPosterWall (GPW) | Gazelle   | 🟡 Unverified          |                                                   |
@@ -73,7 +73,7 @@ You can check out a few other, longer, screenshots in the docs folder.
 | MyAnonamouse (MAM)    | MAM       | ✅ Verified            | Cookie auth via mam_id                            |
 | DarkPeers             | UNIT3D    | ✅ Verified            |                                                   |
 | Luminarr              | UNIT3D    | 🟡 Unverified          |                                                   |
-| CathodeRayTube (CRT)  | UNIT3D    | 📋 Draft               |                                                   |
+| CathodeRayTube (CRT)  | Luminance | 🟡 Unverified          | Username/password login, no stats API             |
 | DigitalCore           | Custom    | ✅ Verified            |                                                   |
 | HDBits                | Custom    | 📋 Needs adapter       |                                                   |
 | SecretCinema          | Custom    | 📋 Needs adapter       |                                                   |
@@ -232,7 +232,7 @@ Covers installation, tracker setup (UNIT3D, Gazelle, GGn, MAM, AvistaZ), feature
 
 PRs welcome. Areas where help matters most:
 
-- **New trackers & missing data**: copy [`src/data/trackers/_template.ts`](src/data/trackers/_template.ts), fill in what you know, and submit a PR. Partial entries are fine. Set `draft: true` and CI will accept it. Filling in user classes, rules, release groups, and banned groups on existing trackers is just as valuable.
+- **New trackers & missing data**: copy [`src/data/trackers/_template.ts`](src/data/trackers/_template.ts), fill in what you know, and submit a PR. Partial entries are fine. Set `draft: true` and CI will accept it. Filling in user classes, rules, release groups, and banned groups on existing trackers is just as valuable. [Adding a Tracker](https://jordanlambrecht.github.io/tracker-tracker/contributing/adding-a-tracker/) has the full guide, including when to include a redacted API response.
 - **Download client adapters**: only qBittorrent is supported. Deluge, Transmission, and rTorrent all need adapters. See `src/lib/download-clients/adapters/qbt.ts` for the pattern.
 - **Tracker verification**: if you belong to a tracker marked 🟡 above, testing and confirming it works helps greatly.
 - **Security auditing**: check out SECURITY.md for threat surfice info.

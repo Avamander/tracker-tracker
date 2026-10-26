@@ -10,6 +10,8 @@ If your tracker runs on a new platform, read [Tracker API Responses](tracker-res
 
 Branch from `development` and open your pull request against `development`, not `main`. `main` is updated from `development` when a release ships, so a pull request against it is built on code that is weeks behind and has to be rebased before it can merge.
 
+If the tracker's response differs from the example for its platform, include a redacted sample as [Sharing a Response Sample](tracker-responses.md#sharing-a-response-sample) describes.
+
 ---
 
 ## Standardization Philosophy
@@ -66,7 +68,7 @@ Full template:
 //
 // Validator checks:
 //   - slug: lowercase letters and hyphens only
-//   - platform: "unit3d" | "gazelle" | "ggn" | "nebulance" | "mam" | "avistaz" | "digitalcore" | "filelist" | "btn" | "iptorrents" | "torrentleech" | "hawke" | "retrotoon" | "tr4ker" | "custom"
+//   - platform: "unit3d" | "gazelle" | "ggn" | "nebulance" | "mam" | "avistaz" | "digitalcore" | "filelist" | "btn" | "iptorrents" | "torrentleech" | "hawke" | "retrotoon" | "tr4ker" | "c411" | "animebytes" | "luminance" | "custom"
 //   - apiPath must match platform default:
 //       unit3d     → "/api/user"
 //       gazelle    → "/ajax.php"
@@ -89,7 +91,7 @@ export const mytracker: TrackerRegistryEntry = {
   description: "TODO", // 1-2 sentence overview
 
   // ── Platform & API ──────────────────────────────────────────────────
-  platform: "unit3d", // "unit3d" | "gazelle" | "ggn" | "nebulance" | "mam" | "avistaz" | "digitalcore" | "filelist" | "btn" | "iptorrents" | "torrentleech" | "hawke" | "retrotoon" | "tr4ker" | "custom"
+  platform: "unit3d", // "unit3d" | "gazelle" | "ggn" | "nebulance" | "mam" | "avistaz" | "digitalcore" | "filelist" | "btn" | "iptorrents" | "torrentleech" | "hawke" | "retrotoon" | "tr4ker" | "c411" | "animebytes" | "luminance" | "custom"
   // Platform-specific fields (uncomment for your platform):
   //   gazelleAuthStyle: "token",   // gazelle only, "token" | "raw"
   //   gazelleEnrich: true,         // gazelle only, enables enrichment call
@@ -222,7 +224,7 @@ description: "The largest general music tracker (also has some software). Has an
 
 #### `platform`
 
-Type: `"unit3d" | "gazelle" | "ggn" | "nebulance" | "mam" | "avistaz" | "digitalcore" | "filelist" | "btn" | "iptorrents" | "torrentleech" | "hawke" | "retrotoon" | "tr4ker" | "custom"`
+Type: `"unit3d" | "gazelle" | "ggn" | "nebulance" | "mam" | "avistaz" | "digitalcore" | "filelist" | "btn" | "iptorrents" | "torrentleech" | "hawke" | "retrotoon" | "tr4ker" | "c411" | "animebytes" | "luminance" | "custom"`
 
 Which adapter handles API requests. This tells the scheduler how to fetch stats. Pick the one that matches the tracker's software.
 
@@ -242,6 +244,9 @@ Which adapter handles API requests. This tells the scheduler how to fetch stats.
 | `"hawke"`        | HawkeUno, API key against `/api/profile`                    |
 | `"retrotoon"`    | RetroToon World, cookie auth + profile scraping             |
 | `"tr4ker"`       | TR4KER, API key against `/api/me`                           |
+| `"c411"`         | C411, Bearer API key against `/api/user/profile`            |
+| `"animebytes"`   | AnimeBytes, key and username against `/api/stats/personal`  |
+| `"luminance"`    | Luminance, username/password login + profile scraping       |
 | `"custom"`       | Placeholder, not implemented yet                            |
 
 #### `gazelleAuthStyle`
@@ -767,16 +772,21 @@ invisible or unusable:
 | 1 | The adapter itself | `src/lib/tracker-platforms/adapters/<platform>.ts` implementing `TrackerAdapter` |
 | 2 | Register it | `adapters` record in `src/lib/tracker-platforms/index.ts` |
 | 3 | Declare the platform | `VALID_PLATFORM_TYPES` and `DEFAULT_API_PATHS` in `src/data/platform-types.ts` |
-| 4 | Credential UI | a branch in `src/components/AddTrackerDialog.tsx` **and** `src/components/TrackerSettingsSheet.tsx` |
-| 5 | Credential size cap | `LARGE_TOKEN_PLATFORMS` in `src/lib/limits.ts`, if credentials are a JSON blob |
+| 4 | Credential UI | a `CREDENTIAL_FORMS` row in `src/lib/credential-forms.ts` |
+| 5 | Credential size cap | follows the `kind` in that row; cookie, uid-pass and login kinds get the large cap |
 
-Steps 4 and 5 are the ones people miss. If your platform authenticates with
-anything other than a single API key (session cookies, a username/password
-pair, a JSON blob), the "API Token" textbox is the wrong input, and
-`TRACKER_TOKEN_MAX` (500 characters) will reject a real cookie header at the
-API boundary before the adapter ever runs. Add the platform to
-`LARGE_TOKEN_PLATFORMS` and it gets the 5000-character cap in all three
-routes at once.
+Steps 4 and 5 are one row. tsc refuses a platform with no `CREDENTIAL_FORMS`
+row, so the part to get right is its `kind`. If your platform authenticates
+with anything other than a single API key (session cookies, a
+username/password pair), a `token` kind gives it the "API Token" textbox,
+which is the wrong input, and `TRACKER_TOKEN_MAX` (500 characters) will reject
+a real cookie header at the API boundary before the adapter ever runs. A
+cookie, uid-pass or login kind gets the 5000-character cap in all three routes
+at once. The two key kinds, `token` and `token-username`, keep the 500 cap.
+
+The pull request also needs a redacted sample of the tracker's response, which becomes your
+test fixture and the example on the platform's page. [Sharing a Response Sample](tracker-responses.md#sharing-a-response-sample)
+covers what to scrub and how to capture it.
 
 ### Use the shared fetch helper
 
@@ -794,12 +804,19 @@ parts that vary per tracker as options:
 
 - `label` is the tracker name used in error messages
 - `sessionExpiredMessage` is thrown when the server bounces you to login
-- `userAgent` carries the user's copied browser UA; omit it if the session came
-  from your own login request rather than a browser
+- `userAgent` carries the user's copied browser UA, sent with browser navigation
+  headers; omit it if the session came from your own login request rather than a
+  browser, and the app's User-Agent goes out instead
 - `followRedirects` should be set when a redirect can be routine rather than a
   session expiry, and give it the pattern that identifies the login page
 
-Only write your own fetch if neither helper fits. If you do, you must still
+A tracker with no API key at all needs a login. Send its form requests through
+`loginRequest` (`src/lib/tracker-platforms/helpers/login-session.ts`), which
+reads Set-Cookie and Location without following the redirect, on either
+transport, and wrap the work in `withLoginSession`, which caches the session per
+credential set and logs in again once when the work throws `SessionExpiredError`.
+
+Only write your own fetch if none of these fits. If you do, you must still
 honour `options.proxyAgent` yourself, or fail loudly when one is set. Silently
 ignoring it sends a user's tracker traffic straight out of their real IP when
 they configured a tunnel to prevent exactly that.

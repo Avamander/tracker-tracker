@@ -17,11 +17,12 @@ import {
   validateMouseholeToken,
   validateMouseholeUrl,
 } from "@/lib/api-helpers"
+import { maxTokenLengthFor } from "@/lib/credential-forms"
 import { encrypt } from "@/lib/crypto"
 import { db } from "@/lib/db"
 import { trackers } from "@/lib/db/schema"
 import { errMsg } from "@/lib/error-utils"
-import { LONG_STRING_MAX, maxTokenLengthFor, TRACKER_NAME_MAX, TRACKER_TAG_MAX } from "@/lib/limits"
+import { LONG_STRING_MAX, TRACKER_NAME_MAX, TRACKER_TAG_MAX } from "@/lib/limits"
 import { log } from "@/lib/logger"
 import { getTrackerForClient } from "@/lib/server-data"
 
@@ -180,6 +181,13 @@ export async function PATCH(request: Request, props: RouteContext) {
     if (tokenErr) return tokenErr
     const key = decodeKey(auth)
     updates.encryptedApiToken = encrypt(trimmedToken, key)
+    // A new token can belong to another account, so the old account's cached id
+    // and avatar are cleared. The next poll fetches them again.
+    updates.remoteUserId = null
+    updates.avatarData = null
+    updates.avatarMimeType = null
+    updates.avatarCachedAt = null
+    updates.avatarRemoteUrl = null
   }
 
   try {

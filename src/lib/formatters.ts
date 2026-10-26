@@ -83,10 +83,13 @@ export function formatRatio(ratio: number | null | undefined, suffix = ""): stri
  */
 export function formatAccountAge(joinedAt: string | null): string | null {
   if (!joinedAt) return null
-  const joined = new Date(joinedAt)
-  const now = new Date()
-  const diffMs = now.getTime() - joined.getTime()
-  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  // Whole calendar days between local midnights, read the way formatJoinedDate
+  // reads the date. A bare date parsed as UTC midnight is still in the future
+  // east of UTC, which made the join day read as -1 days.
+  const joined = new Date(`${joinedAt}T00:00:00`)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const days = Math.max(0, Math.round((today.getTime() - joined.getTime()) / 86_400_000))
   if (days < 30) return `${days} day${days !== 1 ? "s" : ""}`
   const months = Math.floor(days / 30)
   if (months < 12) {
@@ -246,10 +249,19 @@ export function formatOrdinal(n: number | null | undefined): string {
   return `${n.toLocaleString("en-US")}${suffix}`
 }
 
-/** Formats a percentage value with configurable decimal places. */
-export function formatPercent(value: number, decimals = 1): string {
+/**
+ * Formats a percentage value, one decimal by default. The sign comes from the
+ * rounded value, so -0.04 reads "0.0%", and signed mode never prints "+0.0%".
+ */
+export function formatPercent(
+  value: number,
+  { decimals = 1, signed = false }: { decimals?: number; signed?: boolean } = {}
+): string {
   if (!Number.isFinite(value)) return "—"
-  return `${value.toFixed(decimals)}%`
+  const digits = Math.abs(value).toFixed(decimals)
+  if (Number(digits) === 0) return `${digits}%`
+  const sign = value < 0 ? "-" : signed ? "+" : ""
+  return `${sign}${digits}%`
 }
 
 /** Formats a Date, ISO string, or timestamp as a locale-pinned datetime string. */

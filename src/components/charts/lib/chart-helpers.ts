@@ -7,7 +7,7 @@
 
 import type { EChartsOption } from "echarts"
 import { hexToRgba } from "@/lib/color-utils"
-import { formatCount } from "@/lib/formatters"
+import { formatCount, formatPercent } from "@/lib/formatters"
 import type { StackedAreaSeries } from "@/types/charts"
 import {
   CHART_THEME,
@@ -157,12 +157,12 @@ export function buildBucketedBarOption<TBucket, TTorrent>(
         const p = params as { name: string; value: number; color: string; dataIndex: number }
         const entry = enriched[p.dataIndex]
         if (!entry) return ""
-        const pct = total > 0 ? ((entry.count / total) * 100).toFixed(1) : "0.0"
+        const pct = formatPercent(total > 0 ? (entry.count / total) * 100 : 0)
         return (
           chartDot(p.color) +
           `<span style="color:${CHART_THEME.textPrimary};font-weight:600;">${labelPrefix} ${getLabel(entry.bucket)}</span><br/>` +
           `<span style="color:${CHART_THEME.textSecondary};">${formatCount(entry.count)} torrents</span>` +
-          `<span style="color:${CHART_THEME.textTertiary};"> · ${pct}%${pctSuffix}</span>`
+          `<span style="color:${CHART_THEME.textTertiary};"> · ${pct}${pctSuffix}</span>`
         )
       },
     }),

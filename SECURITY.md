@@ -84,7 +84,7 @@ Last audited: `2026-03-17`
 | Encryption salt        | `app_settings.encryption_salt`          | No                                                              | Salt is not secret; useless without master password                                                  |
 | Tracker names          | `trackers.name`                         | No                                                              | User-assigned label; not inherently identifying                                                      |
 | Tracker base URLs      | `trackers.base_url`                     | No                                                              | Reveals which trackers the user monitors                                                             |
-| Tracker usernames      | `tracker_snapshots.username`            | No                                                              | Fetched fresh from tracker API on each poll                                                          |
+| Tracker usernames      | `tracker_snapshots.username`            | No                                                              | Written each poll; from the tracker, or from the encrypted credential when the tracker omits it      |
 | User class/group       | `tracker_snapshots.group_name`          | No                                                              | Fetched fresh from tracker API on each poll                                                          |
 | Upload/download stats  | `tracker_snapshots.*_bytes`             | No                                                              | Numeric time-series; meaningful only with context                                                    |
 | Ratio, seedbonus, H&Rs | `tracker_snapshots.*`                   | No                                                              | Numeric time-series; meaningful only with context                                                    |
@@ -258,9 +258,9 @@ These vectors are not fully mitigated at the application layer. Apply the recomm
 
 **Countermeasure:** None at the application level. Users should be aware that API tokens may appear in tracker server logs depending on the platform.
 
-**Risk:** Outbound requests to JSON tracker APIs identify the application, sending `User-Agent: tracker-tracker/<major>.<minor>` (for example `tracker-tracker/2.10`). A tracker that prohibits third-party stat tools can find that string in its access logs.
+**Risk:** Outbound requests to JSON tracker APIs, and every request for a session the app logs in for itself with the user's password (TorrentLeech, Luminance), identify the application, sending `User-Agent: tracker-tracker/<major>.<minor>` (for example `tracker-tracker/2.10`). A tracker that prohibits third-party stat tools can find that string in its access logs, and Luminance also stores the User-Agent of each login on the account.
 
-**Countermeasure:** The patch version is deliberately omitted. An exact version is a rare enough string to link one user's accounts across several trackers reached through the same proxy exit IP; major.minor is common enough not to. Adapters that authenticate with a browser-copied session send that browser's own User-Agent instead, so the identifying string never appears alongside a scraped session. Users on trackers that forbid automated access should check the rules before polling.
+**Countermeasure:** The patch version is deliberately omitted. An exact version is a rare enough string to link one user's accounts across several trackers reached through the same proxy exit IP; major.minor is common enough not to. Adapters that authenticate with a browser-copied session send that browser's own User-Agent instead, with the headers a browser sends on a page load, so the identifying string never appears alongside a scraped session. A session the app logged in for itself was never a browser's, so it does not claim to be one. Users on trackers that forbid automated access should check the rules before polling.
 
 #### 6. DNS Rebinding
 

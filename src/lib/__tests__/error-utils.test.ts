@@ -160,6 +160,23 @@ describe("sanitizeNetworkError", () => {
     )
   })
 
+  // Fixed strings in, fixed strings out: no part of the raw message, which the
+  // adapter builds from no tracker text, is passed through.
+  it("maps each Luminance login refusal to its own card, clear of the TorrentLeech rules", () => {
+    expect(sanitizeNetworkError("Luminance login refused: the account is disabled")).toBe(
+      "Account is disabled on the tracker. Log in on the site to see why"
+    )
+    expect(
+      sanitizeNetworkError("Luminance login refused: the password is in a known breach")
+    ).toBe("Tracker refused the password as breached. Change it on the site, then update it here")
+    expect(
+      sanitizeNetworkError("Luminance login refused: the account uses two-factor login")
+    ).toBe(
+      "Two-factor login is on for this account. Add a session cookie from a browser login to the tracker's credentials"
+    )
+    expect(sanitizeNetworkError("Invalid Luminance credentials")).toBe("Invalid credentials")
+  })
+
   it("maps a username/password rejection to a credentials message", () => {
     expect(
       sanitizeNetworkError("Authentication failed. qBittorrent rejected the username and password")
@@ -408,8 +425,9 @@ describe("sanitizeNetworkError Cloudflare challenge", () => {
 
 describe("sanitizeNetworkError redirect refusals", () => {
   // The scrapers refuse a redirect off the tracker's own origin, which would
-  // carry the session cookies to another host, and give up on a loop. The
-  // tracker answered either way, so neither may read as unreachable.
+  // carry the session cookies to another host, and give up on a loop. JSON API
+  // requests refuse every redirect. The tracker answered in each case, so none
+  // may read as unreachable.
   it("names an off-site redirect instead of falling back to Poll failed", () => {
     const card = sanitizeNetworkError(
       "IPTorrents redirected off-site; refusing to send credentials",
@@ -422,6 +440,15 @@ describe("sanitizeNetworkError redirect refusals", () => {
   it("names a redirect loop instead of falling back to Poll failed", () => {
     const card = sanitizeNetworkError("Too many redirects from FileList", "Poll failed")
     expect(card).toBe("Tracker redirected too many times")
+    expect(isUnreachableMessage(card)).toBe(false)
+  })
+
+  it("names a refused API redirect instead of falling back to Poll failed", () => {
+    const card = sanitizeNetworkError(
+      "aither.cc answered with a 302 redirect, which is not followed",
+      "Poll failed"
+    )
+    expect(card).toBe("Tracker redirected the request")
     expect(isUnreachableMessage(card)).toBe(false)
   })
 })
