@@ -4,7 +4,7 @@
 // filesystem or the process, so a test can import it; the audit script keeps
 // its CLI entry and still runs every check on load.
 //
-// Functions: fetchWindowEnd, hasInjectionGuard, logsCredential
+// Functions: fetchWindowEnd, catchBodyLines, swallowsError, hasInjectionGuard, logsCredential
 
 export const FETCH_RE = /\bfetch\s*\(/
 
@@ -37,6 +37,47 @@ export function fetchWindowEnd(lines: string[], startIndex: number): number {
   }
 
   return windowEnd
+}
+
+export const CATCH_RE = /}\s*catch\s*(?:\([^)]*\))?\s*\{/
+
+// Inside the body, a log, a rethrow, an error response or any return counts as
+// handling the error.
+const RECOVERY_RE =
+  /console\.error|console\.warn|log\.error|log\.warn|\bthrow\b|setPollError|setError|return\s+null|return\s+\[\]|return\s+0|return\s+false|NextResponse\.json|Response\.json|return\s+new\s+Response|return\s+NextResponse|status:\s*[45]\d\d|\.push\s*\(|\breturn\b|\berror\b.*message/
+
+// A file with an unbalanced brace must not drag the body to the end of the
+// file, so the balancer gives up after this many lines.
+export const CATCH_BODY_MAX_LINES = 60
+
+// The catch block that opens on lines[startIndex], one entry per line, from
+// after its "{" to before the matching "}". Code after the block, such as an
+// unrelated return, is not part of it. Braces in strings, comments and regex
+// literals still count, so the line cap is the backstop.
+export function catchBodyLines(lines: string[], startIndex: number): string[] {
+  const match = CATCH_RE.exec(lines[startIndex])
+  if (!match) return []
+  const body: string[] = []
+  let depth = 1
+
+  for (let j = startIndex; j < Math.min(startIndex + CATCH_BODY_MAX_LINES, lines.length); j++) {
+    const from = j === startIndex ? match.index + match[0].length : 0
+    let k = from
+    for (; k < lines[j].length; k++) {
+      const ch = lines[j][k]
+      if (ch === "{") depth++
+      else if (ch === "}") depth--
+      if (depth === 0) break
+    }
+    body.push(lines[j].slice(from, k))
+    if (depth === 0) break
+  }
+
+  return body
+}
+
+export function swallowsError(lines: string[], startIndex: number): boolean {
+  return !catchBodyLines(lines, startIndex).some((line) => RECOVERY_RE.test(line))
 }
 
 // Evidence that a file validates cookie values before interpolation. Each

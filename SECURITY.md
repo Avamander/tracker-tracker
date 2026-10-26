@@ -149,12 +149,12 @@ All API routes validate inputs. See `src/app/api/trackers/route.ts` and `src/app
 | --------------- | ---------------------------------------------------------------------------------------- |
 | Tracker name    | string, max 100 chars, trimmed                                                           |
 | Tracker         | registry slug; must name a registry entry, which supplies the URL, platform and API path |
-| API token       | string, max 500 chars                                                                    |
+| API token       | string; 500 chars for an API key, 5000 for cookie, uid-pass and login credentials        |
 | Color           | hex color format only (`#[0-9a-fA-F]{3,8}`), rejects arbitrary strings                   |
 | qBittorrent tag | string, max 100 chars, trimmed                                                           |
 | Poll interval   | integer, clamped to 15-1440 minutes                                                      |
 | Tracker ID      | parsed as integer, NaN rejected                                                          |
-| Platform type   | allowlist: `["unit3d", "gazelle", "ggn", "nebulance", "avistaz", "mam", "custom"]`       |
+| Platform type   | set by the registry entry; a slugless connection test checks `VALID_PLATFORM_TYPES`      |
 | Password        | string, 8-128 chars                                                                      |
 | Role name       | string, max 255 chars                                                                    |
 | joinedAt        | regex-validated YYYY-MM-DD or null                                                       |
@@ -336,19 +336,19 @@ If you discover a security vulnerability:
 
 ### Security Testing
 
-Security invariants are verified by 106 automated tests in `src/lib/__tests__/security.test.ts`:
+Security invariants are verified by automated tests in `src/lib/__tests__/security.test.ts`:
 
-| Category         | Tests | What's Verified                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| ---------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Auth enforcement | 59    | Every protected route returns 401 without a valid session: trackers, snapshots, roles, reorder, poll-all, settings, dashboard, quicklinks, reset-stats, logs, clients (CRUD + test + torrents + snapshots + speeds), tag-groups (CRUD + members + member CRUD), fleet (snapshots + torrents), TOTP setup/confirm/disable, change-password, lockdown, nuke, proxy-test, backup (export + restore + history + get + delete), changelog, logout |
-| Token leakage    | 2     | `encryptedApiToken` never appears in API responses (list + detail)                                                                                                                                                                                                                                                                                                                                                                           |
-| Setup protection | 1     | Setup cannot be re-triggered after initial configuration                                                                                                                                                                                                                                                                                                                                                                                     |
-| Input validation | 14    | URL scheme allowlist, hex color validation, poll interval clamping, oversized input rejection, API token max length, qBT tag max length, role name max length, notes max length, date format validation, tracker ID validation                                                                                                                                                                                                               |
-| Crypto integrity | 5     | Encrypt/decrypt round-trip, tampered ciphertext rejected, wrong key rejected, truncated ciphertext rejected, random IV uniqueness                                                                                                                                                                                                                                                                                                            |
-| Key zeroing      | 2     | Encryption key buffer is zero-filled on scheduler stop; double-stop is safe                                                                                                                                                                                                                                                                                                                                                                  |
-| Backup auth      | 6     | Export, restore, history, get, and delete routes return 401 without valid session; restore validates password                                                                                                                                                                                                                                                                                                                                |
+| Category         | Tests | What's Verified                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ---------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Auth enforcement | 70    | Every protected route returns 401 without a valid session: trackers (CRUD + debug + poll + resume + test + snapshots + roles + torrents + avatar), reorder, poll-all, settings, dashboard, quicklinks, reset-stats, logs (read + download + delete), events, db-size, image-hosts, upload-image, clients (CRUD + test + torrents + snapshots + speeds), tag-groups (CRUD + members + member CRUD), fleet (snapshots + torrents), dismissed alerts, notifications (CRUD + test), TOTP setup/confirm/disable, change-password, lockdown, nuke, proxy-test, backup (export + restore + history + get + delete), changelog, logout |
+| Token leakage    | 5     | Encrypted values never appear in API responses: `encryptedApiToken` (tracker list + detail, which also omits `apiPath`), notification `encryptedConfig`, and image hosting keys (settings, and image-hosts returns booleans)                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Setup protection | 1     | Setup cannot be re-triggered after initial configuration                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Input validation | 11    | Tracker slugs must be in the registry, the stored URL comes from the registry rather than a `javascript:` or `data:` baseUrl in the body, hex color validation, qBT tag max length, role name max length, notes max length, date format validation, tracker ID validation                                                                                                                                                                                                                                                                                                                                                      |
+| Key zeroing      | 3     | Encryption key buffer is zero-filled on scheduler stop; stopping with no scheduler running is safe; the SIGTERM handler is registered on import                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Backup restore   | 11    | Wrong password returns 401 and records a failed attempt; bad JSON, bad structure, a missing password and an oversized file return 400; a master password under `PASSWORD_MIN` returns 400; a key derivation failure returns 500; the scheduler restarts after a rolled-back restore; notify* columns survive a round-trip and default to false from an older backup                                                                                                                                                                                                                                                            |
+| Crypto failures  | 3     | Login, TOTP verify and backup export return 500 when a password hash check or decrypt fails                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
-Additional security-relevant tests exist across other test files.
+Additional security-relevant tests exist across other test files. `src/lib/crypto.test.ts` covers encryption integrity, including round-trips, tampered or truncated ciphertext, a wrong key, and random IV uniqueness.
 
 Run the full test suite:
 
@@ -360,20 +360,20 @@ pnpm test:run
 
 ### CI Integration
 
-The GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push and PR to `main`:
+Two GitHub Actions workflows run on every PR to `main` or `development` and on every push to `main`. `.github/workflows/ci.yml` runs steps 1 and 2, and `.github/workflows/security-audit.yml` runs steps 3 and 4:
 
 1. **Type check** (`pnpm tsc`) catches type errors before runtime
-2. **Full test suite** (`pnpm test:run`) runs all 2050+ tests including security invariants
-3. **Security test count guard** fails the build if the security test count drops below 78, so security tests cannot be removed by accident
-4. **Static security audit** (`scripts/security-audit.ts`) runs on every PR, comments results on the PR, and fails on critical findings
+2. **Full test suite** (`pnpm test:run`) runs every test, security invariants included
+3. **Security test count guard** fails the build if `security.test.ts` holds fewer tests than the minimum set in `security-audit.yml`, so security tests cannot be removed by accident
+4. **Static security audit** (`scripts/security-audit.ts`) posts results to the PR, or to the job summary for a fork, and fails on critical findings. A second guard fails the build if the audit runs fewer checks than its minimum.
 
-The count guard ensures security coverage is monotonically non-decreasing. If a security test is removed or refactored, CI fails until the count is restored or the threshold is explicitly updated.
+The count guards ensure security coverage is monotonically non-decreasing. If a security test or audit check is removed or refactored, CI fails until the count is restored or the threshold is explicitly updated.
 
 ---
 
 ### Static Security Audit
 
-The security audit (`scripts/security-audit.ts`) performs 28 automated checks on every push and PR:
+The security audit (`scripts/security-audit.ts`) performs 38 automated checks on every PR and every push to `main`:
 
 | #   | Check                    | Severity | What's Verified                                                                       |
 | --- | ------------------------ | -------- | ------------------------------------------------------------------------------------- |
@@ -394,7 +394,7 @@ The security audit (`scripts/security-audit.ts`) performs 28 automated checks on
 | 15  | Console in routes        | Warning  | No `console.log/debug/info` in API route handlers                                     |
 | 16  | TODO in security files   | Warning  | No `TODO`/`FIXME` in security-critical source files                                   |
 | 17  | JSON.parse safety        | Warning  | `JSON.parse()` calls wrapped in try-catch                                             |
-| 18  | Bare catch blocks        | Warning  | No swallowed errors in API routes/lib catch blocks                                    |
+| 18  | Bare catch blocks        | Warning  | Catch bodies in API routes and `src/lib` log, rethrow, or return                      |
 | 19  | Request body size        | Warning  | POST/PATCH/PUT handlers validate request body size                                    |
 | 20  | BigInt safety            | Warning  | BigInt fields use string serialization, not `Number()`                                |
 | 21  | Path traversal defense   | Critical | File delete operations use `path.resolve()` + `startsWith(base)`                      |
@@ -405,12 +405,22 @@ The security audit (`scripts/security-audit.ts`) performs 28 automated checks on
 | 26  | Nuke flow integrity      | Critical | Scrub & delete requires session + password, uses `scrubAndDeleteAll()`                |
 | 27  | Backup restore integrity | Critical | Restore requires session + password, resets failed attempts, uses transaction         |
 | 28  | Login flow integrity     | Critical | Login uses Argon2, atomic failed attempts, key derivation, TOTP pending token support |
+| 29  | Auth result gating       | Critical | Handlers check the `authenticate()` or `getSession()` result before going on          |
+| 30  | Backup password bounds   | Critical | Backup export and restore cap the password length before `deriveKey()`                |
+| 31  | Webhook redirect policy  | Critical | Every `fetch()` in `notifications/deliver.ts` sets `redirect: "error"`                |
+| 32  | Session secret length    | Critical | `getSessionKey()` and `deriveWrappingKey()` reject a `SESSION_SECRET` under 32 chars  |
+| 33  | Notification SSRF check  | Critical | Every active notification type in `validate.ts` calls `isUnsafeNetworkHost()`         |
+| 34  | Error message disclosure | Warning  | No `err.message` passed into an API route's JSON response                             |
+| 35  | Docker COPY of secrets   | Critical | Dockerfile `COPY`/`ADD` skips `.env`, `.pem`, `.key`, `id_rsa` and `credentials.json` |
+| 36  | Client env leak          | Critical | `use client` files don't read secret env vars such as `SESSION_SECRET`                |
+| 37  | Adapter cookie injection | Critical | Adapters and clients reject `;`, CR and LF before interpolating a `Cookie` header     |
+| 38  | Credential logging       | Critical | Adapter log calls (console or pino) never carry a credential variable                 |
 
 Critical failures block the build. Warnings are reported but don't block.
 
 #### Inline Suppression
 
-Suppress individual findings with an inline comment on the flagged line or the line above:
+Suppress individual findings with an inline comment on the flagged line, the line above, or the first two lines of a catch body:
 
 ```ts
 /* security-audit-ignore: stream closed by client disconnect. Nothing to recover */
@@ -433,8 +443,8 @@ Run this checklist when adding new features, modifying API routes, or before rel
 
 ```sh
 pnpm tsc                              # Type safety
-pnpm test:run                         # Full test suite (including 78+ security tests)
-npx tsx scripts/security-audit.ts     # Static security audit (28 checks)
+pnpm test:run                         # Full test suite, security invariants included
+npx tsx scripts/security-audit.ts     # Static security audit (38 checks)
 ```
 
 #### 1. Authentication & Authorization
@@ -537,7 +547,7 @@ npx tsx scripts/security-audit.ts
 # Verify all API routes authenticate (files missing authenticate/getSession)
 grep -rL 'authenticate\|getSession' src/app/api/**/route.ts
 
-# Count security tests (must be >= 78)
+# Count security tests (must meet the minimum in .github/workflows/security-audit.yml)
 pnpm test:run -- src/lib/__tests__/security.test.ts 2>&1 | grep 'Tests'
 ```
 

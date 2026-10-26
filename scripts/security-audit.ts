@@ -21,7 +21,7 @@
 //   checkClientEnvLeak, checkAdapterCookieInjection, checkAdapterCredentialLogging,
 //   runAudit
 //
-// The recognizers behind checks 17, 37 and 38 live in scripts/security-audit-lib.ts,
+// The recognizers behind checks 12, 17, 37 and 38 live in scripts/security-audit-lib.ts,
 // which has no CLI entry so a test can import them.
 //
 // Usage: npx tsx scripts/security-audit.ts [--changed-only file1 file2 ...]
@@ -34,7 +34,14 @@
 import { execFileSync } from "node:child_process"
 import fs from "node:fs"
 import path from "node:path"
-import { FETCH_RE, fetchWindowEnd, hasInjectionGuard, logsCredential } from "./security-audit-lib"
+import {
+  CATCH_RE,
+  FETCH_RE,
+  fetchWindowEnd,
+  hasInjectionGuard,
+  logsCredential,
+  swallowsError,
+} from "./security-audit-lib"
 
 const ROOT = path.resolve(__dirname, "..")
 const SRC_DIR = path.resolve(ROOT, "src")
@@ -803,10 +810,6 @@ function checkBareCatchBlocks(files?: string[]): CheckResult {
     ? files.filter((f) => f.includes("app/api/") || f.includes("src/lib/"))
     : walkFiles(API_DIR, ".ts").concat(walkFiles(path.resolve(SRC_DIR, "lib"), ".ts"))
 
-  const CATCH_RE = /}\s*catch\s*(?:\([^)]*\))?\s*\{/
-  const RECOVERY_RE =
-    /console\.error|console\.warn|log\.error|log\.warn|\bthrow\b|setPollError|setError|return\s+null|return\s+\[\]|return\s+0|return\s+false|NextResponse\.json|Response\.json|return\s+new\s+Response|return\s+NextResponse|status:\s*[45]\d\d|\.push\s*\(|\breturn\b|\berror\b.*message/
-
   for (const file of serverFiles) {
     if (isTestFile(file)) continue
     const content = fs.readFileSync(file, "utf8")
@@ -817,16 +820,7 @@ function checkBareCatchBlocks(files?: string[]): CheckResult {
       if (lineContent.startsWith("//") || lineContent.startsWith("*")) continue
       if (!CATCH_RE.test(lines[i])) continue
 
-      // Check the next 8 lines for any recovery action
-      let hasRecovery = false
-      for (let j = i + 1; j <= i + 8 && j < lines.length; j++) {
-        if (RECOVERY_RE.test(lines[j])) {
-          hasRecovery = true
-          break
-        }
-      }
-
-      if (!hasRecovery) {
+      if (swallowsError(lines, i)) {
         findings.push({
           file: relativePath(file),
           line: i + 1,

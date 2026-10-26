@@ -1,11 +1,12 @@
 // src/lib/__tests__/security-audit-recognizers.test.ts
 //
-// Pins the three recognizers scripts/security-audit.ts uses for its critical
-// checks. They live in scripts/security-audit-lib.ts so this suite can import
+// Tests the recognizers scripts/security-audit.ts uses for checks 12, 17, 37
+// and 38. They live in scripts/security-audit-lib.ts so this suite can import
 // them without the audit script's CLI entry running.
 //
 // Functions:
 //   - describe("fetch argument window")
+//   - describe("catch body recognizer")
 //   - describe("cookie injection guard recognizer")
 //   - describe("adapter credential logging detector")
 
@@ -13,16 +14,19 @@ import fs from "node:fs"
 import path from "node:path"
 import { describe, expect, it } from "vitest"
 import {
+  CATCH_BODY_MAX_LINES,
+  catchBodyLines,
   FETCH_WINDOW_MAX_LINES,
   fetchWindowEnd,
   hasInjectionGuard,
   logsCredential,
+  swallowsError,
 } from "../../../scripts/security-audit-lib"
 
 const REPO_ROOT = path.resolve(__dirname, "../../..")
 
 // Every file in the audit's scan that interpolates into a Cookie header. Read
-// from disk so the recognizer stays pinned to the guards the repo ships, not to
+// from disk so the recognizer stays tied to the guards the repo ships, not to
 // a copy of them.
 const GUARDED_FILES = [
   "src/lib/tracker-platforms/adapters/digitalcore.ts",
@@ -80,6 +84,61 @@ describe("fetch argument window", () => {
     ]
 
     expect(fetchWindowEnd(lines, 1)).toBe(FETCH_WINDOW_MAX_LINES)
+  })
+})
+
+describe("catch body recognizer", () => {
+  it("a return after the block closes does not count as handling", () => {
+    const lines = [`  } catch {`, `    // Keep the homepage stats.`, `  }`, `  return stats`]
+
+    expect(swallowsError(lines, 0)).toBe(true)
+  })
+
+  it("a return inside the block counts as handling", () => {
+    const lines = [`  } catch {`, `    return null`, `  }`]
+
+    expect(swallowsError(lines, 0)).toBe(false)
+  })
+
+  it("a one-line catch that logs is read from its own line", () => {
+    const lines = [`  } catch (err) { log.warn({ err }, "profile failed") }`, `  const next = 1`]
+
+    expect(swallowsError(lines, 0)).toBe(false)
+  })
+
+  it("an empty one-line catch is flagged even when a throw follows it", () => {
+    const lines = [`    } catch {}`, `    throw new Error("Tracker API error")`]
+
+    expect(swallowsError(lines, 0)).toBe(true)
+  })
+
+  it("a nested block does not end the body early", () => {
+    const lines = [
+      `  } catch (err) {`,
+      `    if (err instanceof TypeError) {`,
+      `      fallback = { reason: "type" }`,
+      `    }`,
+      `    log.warn({ err }, "profile failed")`,
+      `  }`,
+    ]
+
+    expect(swallowsError(lines, 0)).toBe(false)
+  })
+
+  it("a finally block on the closing line is not read as handling", () => {
+    const lines = [`  } catch {`, `    copied = false`, `  } finally { log.warn("fallback used") }`]
+
+    expect(swallowsError(lines, 0)).toBe(true)
+  })
+
+  it("an unbalanced brace inside a string stops at the 60 line cap", () => {
+    const lines = [
+      `  } catch {`,
+      `    const open = "{"`,
+      ...Array.from({ length: 200 }, () => `    pad`),
+    ]
+
+    expect(catchBodyLines(lines, 0)).toHaveLength(CATCH_BODY_MAX_LINES)
   })
 })
 
