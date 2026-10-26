@@ -265,10 +265,19 @@ export function formatOrdinal(n: number | null | undefined): string {
   return `${n.toLocaleString("en-US")}${suffix}`
 }
 
-/** Formats a percentage value with configurable decimal places. */
-export function formatPercent(value: number, decimals = 1): string {
+/**
+ * Formats a percentage value, one decimal by default. The sign comes from the
+ * rounded value, so -0.04 reads "0.0%", and signed mode never prints "+0.0%".
+ */
+export function formatPercent(
+  value: number,
+  { decimals = 1, signed = false }: { decimals?: number; signed?: boolean } = {}
+): string {
   if (!Number.isFinite(value)) return "—"
-  return `${value.toFixed(decimals)}%`
+  const digits = Math.abs(value).toFixed(decimals)
+  if (Number(digits) === 0) return `${digits}%`
+  const sign = value < 0 ? "-" : signed ? "+" : ""
+  return `${sign}${digits}%`
 }
 
 /** Formats a Date, ISO string, or timestamp as a locale-pinned datetime string. */

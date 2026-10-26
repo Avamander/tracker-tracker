@@ -741,6 +741,62 @@ describe("PATCH /api/trackers/[id]", () => {
     expect(data.error).toMatch(/token/i)
   })
 
+  // A new token can sign in as another account, whose id and avatar the next poll fetches.
+  it("clears the cached member id and avatar when the API token is replaced", async () => {
+    ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue({ apiToken: "new-token" })
+
+    const mockLimit = vi.fn().mockResolvedValue([{ platformType: "unit3d" }])
+    const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit })
+    const mockFrom = vi.fn().mockReturnValue({ where: mockWhere })
+    ;(db.select as ReturnType<typeof vi.fn>).mockReturnValueOnce({ from: mockFrom })
+
+    const mockUpdateWhere = vi.fn().mockResolvedValue([])
+    const mockSet = vi.fn().mockReturnValue({ where: mockUpdateWhere })
+    ;(db.update as ReturnType<typeof vi.fn>).mockReturnValue({ set: mockSet })
+
+    const request = makeRequest(
+      "http://localhost/api/trackers/1",
+      { apiToken: "new-token" },
+      "PATCH"
+    )
+    const params = Promise.resolve({ id: "1" })
+    const response = await PATCH(request, { params })
+
+    expect(response.status).toBe(200)
+    expect(mockSet.mock.calls[0]?.[0]).toMatchObject({
+      encryptedApiToken: "encrypted-token",
+      remoteUserId: null,
+      avatarData: null,
+      avatarMimeType: null,
+      avatarCachedAt: null,
+      avatarRemoteUrl: null,
+    })
+  })
+
+  it("keeps the cached member id and avatar when the body has no API token", async () => {
+    ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue({ name: "Renamed" })
+
+    const mockWhere = vi.fn().mockResolvedValue([])
+    const mockSet = vi.fn().mockReturnValue({ where: mockWhere })
+    ;(db.update as ReturnType<typeof vi.fn>).mockReturnValue({ set: mockSet })
+
+    const request = makeRequest("http://localhost/api/trackers/1", { name: "Renamed" }, "PATCH")
+    const params = Promise.resolve({ id: "1" })
+    const response = await PATCH(request, { params })
+
+    expect(response.status).toBe(200)
+    const updates = mockSet.mock.calls[0]?.[0]
+    for (const column of [
+      "remoteUserId",
+      "avatarData",
+      "avatarMimeType",
+      "avatarCachedAt",
+      "avatarRemoteUrl",
+    ]) {
+      expect(updates).not.toHaveProperty(column)
+    }
+  })
+
   it("accepts boolean isActive update", async () => {
     ;(parseJsonBody as ReturnType<typeof vi.fn>).mockResolvedValue({
       isActive: false,

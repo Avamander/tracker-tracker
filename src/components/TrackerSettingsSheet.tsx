@@ -25,7 +25,7 @@ import { registryEntryFor } from "@/data/tracker-registry"
 import {
   buildCredentialBlob,
   type CredentialValues,
-  credentialFormForPlatform,
+  credentialFormFor,
   EMPTY_CREDENTIAL_VALUES,
   validateCredentialValues,
 } from "@/lib/credential-forms"
@@ -175,7 +175,10 @@ function TrackerSettingsSheet({ open, tracker, onClose, onUpdated }: TrackerSett
   // close, where MaskedSecret would hide it until the next save sent it.
   const [mouseholeToken, setMouseholeToken] = useState("")
   const [credentials, setCredentials] = useState<CredentialValues>(EMPTY_CREDENTIAL_VALUES)
-  const credentialForm = credentialFormForPlatform(tracker.platformType)
+  const credentialForm = credentialFormFor({
+    platform: tracker.platformType,
+    gazelleEnrich: registryEntry?.gazelleEnrich,
+  })
 
   const setCredentialField = useCallback((field: keyof CredentialValues, value: string) => {
     setCredentials((prev) => ({ ...prev, [field]: value }))
@@ -486,16 +489,7 @@ function TrackerSettingsSheet({ open, tracker, onClose, onUpdated }: TrackerSett
 
           <ColorPicker label="Color" value={form.color} onChange={(v) => updateField("color", v)} />
 
-          {!(
-            registryEntry?.gazelleEnrich ||
-            tracker.platformType === "ggn" ||
-            tracker.platformType === "avistaz" ||
-            tracker.platformType === "digitalcore" ||
-            tracker.platformType === "filelist" ||
-            tracker.platformType === "iptorrents" ||
-            tracker.platformType === "torrentleech" ||
-            tracker.platformType === "retrotoon"
-          ) && (
+          {!credentialForm.hidesJoinDate && (
             <div>
               <label
                 htmlFor="settings-joined-at"

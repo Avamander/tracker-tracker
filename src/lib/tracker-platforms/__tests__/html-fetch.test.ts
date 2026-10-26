@@ -1,6 +1,7 @@
 // src/lib/tracker-platforms/__tests__/html-fetch.test.ts
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { sanitizeNetworkError } from "@/lib/error-utils"
+import { DEFAULT_USER_AGENT } from "@/lib/user-agent"
 import { SessionExpiredError } from "../helpers/errors"
 import { fetchTrackerHtml } from "../helpers/html-fetch"
 
@@ -29,6 +30,8 @@ describe("fetchTrackerHtml - headers", () => {
     vi.restoreAllMocks()
   })
 
+  // A session the app logged in for itself announces the app, and a copied one
+  // keeps the browser it was issued to.
   it("sends browser navigation headers only when a User-Agent is supplied", async () => {
     let headers: Record<string, string> | undefined
     vi.spyOn(global, "fetch").mockImplementation((_url, init) => {
@@ -42,7 +45,7 @@ describe("fetchTrackerHtml - headers", () => {
     expect(headers?.DNT).toBe("1")
 
     await fetchTrackerHtml(BASE)
-    expect(headers?.["User-Agent"]).toBeUndefined()
+    expect(headers?.["User-Agent"]).toBe(DEFAULT_USER_AGENT)
     expect(headers?.["Sec-Fetch-Mode"]).toBeUndefined()
     expect(headers?.DNT).toBeUndefined()
   })
@@ -447,5 +450,17 @@ describe("fetchTrackerHtml - through a proxy", () => {
     proxyFetch.mockResolvedValueOnce(proxyResponse(200, "<html>ok</html>"))
 
     expect(await run({})).toContain("ok")
+  })
+
+  // proxyFetch adds no User-Agent of its own, so a default missing here would
+  // send none at all through the proxy.
+  it("sends the app User-Agent through the proxy when the caller passes none", async () => {
+    proxyFetch.mockResolvedValueOnce(proxyResponse(200, "<html>ok</html>"))
+
+    await run({})
+
+    const headers = proxyFetch.mock.calls[0][2].headers as Record<string, string>
+    expect(headers["User-Agent"]).toBe(DEFAULT_USER_AGENT)
+    expect(headers["Sec-Fetch-Mode"]).toBeUndefined()
   })
 })

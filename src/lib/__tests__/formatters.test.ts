@@ -189,13 +189,27 @@ describe("formatPercent", () => {
   })
 
   it("respects custom decimal places", () => {
-    expect(formatPercent(85, 0)).toBe("85%")
-    expect(formatPercent(33.333, 2)).toBe("33.33%")
+    expect(formatPercent(85, { decimals: 0 })).toBe("85%")
+    expect(formatPercent(33.333, { decimals: 2 })).toBe("33.33%")
   })
 
   it("handles edge values", () => {
     expect(formatPercent(-5.1)).toBe("-5.1%")
-    expect(formatPercent(0.05, 0)).toBe("0%")
+    expect(formatPercent(0.05, { decimals: 0 })).toBe("0%")
+    expect(formatPercent(Number.POSITIVE_INFINITY, { signed: true })).toBe("—")
+  })
+
+  it("drops the minus from a negative that rounds to zero", () => {
+    expect(formatPercent(-0.04)).toBe("0.0%")
+    expect(formatPercent(-0.4, { decimals: 0 })).toBe("0%")
+  })
+
+  it("signs the rounded value in signed mode", () => {
+    expect(formatPercent(5.79, { signed: true })).toBe("+5.8%")
+    expect(formatPercent(-2.96, { signed: true })).toBe("-3.0%")
+    expect(formatPercent(0.04, { signed: true })).toBe("0.0%")
+    expect(formatPercent(-0.04, { signed: true })).toBe("0.0%")
+    expect(formatPercent(0.4, { decimals: 0, signed: true })).toBe("0%")
   })
 })
 
