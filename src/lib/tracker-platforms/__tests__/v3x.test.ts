@@ -35,6 +35,11 @@ const GAME = {
 }
 
 const HOST = "https://v3x.club"
+const UNREAD: Record<string, unknown> = {
+  "/notifications/unread-count": { unread: 3 },
+  "/messages/unread": { count: 2 },
+  "/conversations/unread": { count: 1 },
+}
 const CREDENTIALS = JSON.stringify({ cookies: "v3x_session=abc", userAgent: "Mozilla/5.0" })
 
 const jsonResponse = (body: unknown) =>
@@ -106,12 +111,23 @@ describe("V3xAdapter", () => {
     vi.restoreAllMocks()
   })
 
-  it("reads /auth/me and takes the class from the gamification rank", async () => {
+  // Answers each API path with its fixture, or the given response for that path
+  const routeFetch = (overrides: Record<string, Response | Error> = {}) => {
     const inits: { url: string; init?: RequestInit }[] = []
     vi.spyOn(global, "fetch").mockImplementation((url, init) => {
       inits.push({ url: String(url), init })
-      return Promise.resolve(jsonResponse(String(url).endsWith("/auth/me") ? ME : GAME))
+      const path = new URL(String(url)).pathname
+      const override = overrides[path]
+      if (override instanceof Error) return Promise.reject(override)
+      if (override) return Promise.resolve(override)
+      const body = path === "/auth/me" ? ME : path === "/me/gamification" ? GAME : UNREAD[path]
+      return Promise.resolve(jsonResponse(body))
     })
+    return inits
+  }
+
+  it("reads /auth/me and takes the class from the gamification rank", async () => {
+    const inits = routeFetch()
 
     const stats = await adapter.fetchStats(HOST, CREDENTIALS, "/auth/me")
     const headers = inits[0].init?.headers as Record<string, string>
@@ -119,6 +135,9 @@ describe("V3xAdapter", () => {
     expect(inits.map((c) => c.url)).toEqual([
       "https://api.v3x.club/auth/me",
       "https://api.v3x.club/me/gamification",
+      "https://api.v3x.club/notifications/unread-count",
+      "https://api.v3x.club/messages/unread",
+      "https://api.v3x.club/conversations/unread",
     ])
     expect(stats.uploadedBytes).toBe(186064294312n)
     expect(stats.group).toBe("Second rôle")
@@ -128,10 +147,41 @@ describe("V3xAdapter", () => {
     expect(headers["Sec-Fetch-Mode"]).toBeUndefined()
   })
 
+  it("adds direct and group messages, and reads notifications", async () => {
+    routeFetch()
+
+    const stats = await adapter.fetchStats(HOST, CREDENTIALS, "/auth/me")
+
+    expect(stats.inbox).toEqual({
+      unreadMessages: 3,
+      unreadStaffMessages: null,
+      unreadNotifications: 3,
+      links: { inbox: "https://v3x.club/messages" },
+    })
+  })
+
+  it.each([
+    ["a failed count", { "/conversations/unread": new TypeError("fetch failed") }],
+    ["a malformed count", { "/notifications/unread-count": jsonResponse({ unread: "3" }) }],
+  ])("leaves the inbox unset on %s and keeps the stats", async (_, overrides) => {
+    routeFetch(overrides)
+
+    const stats = await adapter.fetchStats(HOST, CREDENTIALS, "/auth/me")
+
+    expect(stats.inbox).toBeUndefined()
+    expect(stats.group).toBe("Second rôle")
+  })
+
+  it("rethrows a 401 from an unread count", async () => {
+    routeFetch({ "/messages/unread": statusResponse(401, "Unauthorized") })
+
+    await expect(adapter.fetchStats(HOST, CREDENTIALS, "/auth/me")).rejects.toBeInstanceOf(
+      SessionExpiredError
+    )
+  })
+
   it("leaves the class empty when gamification is unavailable", async () => {
-    vi.spyOn(global, "fetch")
-      .mockResolvedValueOnce(jsonResponse(ME))
-      .mockRejectedValueOnce(new TypeError("fetch failed"))
+    routeFetch({ "/me/gamification": new TypeError("fetch failed") })
 
     const stats = await adapter.fetchStats(HOST, CREDENTIALS, "/auth/me")
 
@@ -139,9 +189,7 @@ describe("V3xAdapter", () => {
   })
 
   it("leaves the class empty for a blank rank label", async () => {
-    vi.spyOn(global, "fetch")
-      .mockResolvedValueOnce(jsonResponse(ME))
-      .mockResolvedValueOnce(jsonResponse({ ...GAME, rank: { key: "x", label: "  " } }))
+    routeFetch({ "/me/gamification": jsonResponse({ ...GAME, rank: { key: "x", label: "  " } }) })
 
     const stats = await adapter.fetchStats(HOST, CREDENTIALS, "/auth/me")
 
@@ -175,23 +223,42 @@ describe("V3xAdapter", () => {
     expect((err as Error).message).toBe("Tracker API error: 403 Forbidden")
   })
 
-  it("returns both raw payloads for the debug view", async () => {
-    vi.spyOn(global, "fetch")
-      .mockResolvedValueOnce(jsonResponse(ME))
-      .mockResolvedValueOnce(jsonResponse(GAME))
+  it("returns every raw payload for the debug view", async () => {
+    routeFetch()
 
     const calls = await adapter.fetchRaw(HOST, CREDENTIALS, "/auth/me")
 
     expect(calls).toEqual([
       { label: "Me", endpoint: "/auth/me", data: ME, error: null },
       { label: "Gamification", endpoint: "/me/gamification", data: GAME, error: null },
+      {
+        label: "Notifications",
+        endpoint: "/notifications/unread-count",
+        data: { unread: 3 },
+        error: null,
+      },
+      { label: "Messages", endpoint: "/messages/unread", data: { count: 2 }, error: null },
+      {
+        label: "Conversations",
+        endpoint: "/conversations/unread",
+        data: { count: 1 },
+        error: null,
+      },
     ])
   })
 
+  it("flags an unread count the poll would skip", async () => {
+    routeFetch({ "/messages/unread": jsonResponse({}) })
+
+    const calls = await adapter.fetchRaw(HOST, CREDENTIALS, "/auth/me")
+
+    expect(calls[3].error).toBe(
+      "Unexpected response from api.v3x.club: missing count in /messages/unread"
+    )
+  })
+
   it("flags a /auth/me body the poll would fail, and still reads gamification", async () => {
-    vi.spyOn(global, "fetch")
-      .mockResolvedValueOnce(jsonResponse({ ...ME, uploaded: undefined }))
-      .mockResolvedValueOnce(jsonResponse(GAME))
+    routeFetch({ "/auth/me": jsonResponse({ ...ME, uploaded: undefined }) })
 
     const calls = await adapter.fetchRaw(HOST, CREDENTIALS, "/auth/me")
 
@@ -200,9 +267,7 @@ describe("V3xAdapter", () => {
   })
 
   it("adds the gamification entry when /auth/me fails", async () => {
-    vi.spyOn(global, "fetch")
-      .mockResolvedValueOnce(statusResponse(500, "Internal Server Error"))
-      .mockResolvedValueOnce(jsonResponse(GAME))
+    routeFetch({ "/auth/me": statusResponse(500, "Internal Server Error") })
 
     const calls = await adapter.fetchRaw(HOST, CREDENTIALS, "/auth/me")
 
