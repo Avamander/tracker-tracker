@@ -7,9 +7,11 @@
 
 // @vitest-environment node
 
+import { and, eq, notInArray } from "drizzle-orm"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { encrypt } from "@/lib/crypto"
 import { db } from "@/lib/db"
+import { prowlarrIndexers } from "@/lib/db/schema"
 import { log } from "@/lib/logger"
 import {
   fetchIndexerStats,
@@ -21,6 +23,14 @@ import { loadTrackerProwlarrStates, pollProwlarrInstance } from "@/lib/prowlarr/
 
 vi.mock("@/lib/db", () => ({
   db: { select: vi.fn(), update: vi.fn(), transaction: vi.fn() },
+}))
+
+// Tagged, so a test can read which rows a write was limited to.
+vi.mock("drizzle-orm", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("drizzle-orm")>()),
+  and: vi.fn((...args: unknown[]) => ({ op: "and", args })),
+  eq: vi.fn((...args: unknown[]) => ({ op: "eq", args })),
+  notInArray: vi.fn((...args: unknown[]) => ({ op: "notInArray", args })),
 }))
 
 vi.mock("@/lib/prowlarr/client", async (importOriginal) => {
@@ -76,11 +86,15 @@ function mockTx() {
     inserts: [] as Record<string, unknown>[],
     conflictSets: [] as Record<string, unknown>[],
     updates: [] as Record<string, unknown>[],
+    deleteWheres: [] as unknown[],
+    // Each update's values, keyed to the condition it was limited to.
+    updateWheres: new Map<Record<string, unknown>, unknown>(),
   }
   const tx = {
     delete: vi.fn(() => ({
-      where: vi.fn(async () => {
+      where: vi.fn(async (condition: unknown) => {
         writes.deletes++
+        writes.deleteWheres.push(condition)
       }),
     })),
     insert: vi.fn(() => ({
@@ -96,7 +110,11 @@ function mockTx() {
     update: vi.fn(() => ({
       set: vi.fn((values: Record<string, unknown>) => {
         writes.updates.push(values)
-        return { where: vi.fn(async () => undefined) }
+        return {
+          where: vi.fn(async (condition: unknown) => {
+            writes.updateWheres.set(values, condition)
+          }),
+        }
       }),
     })),
   }
@@ -285,6 +303,30 @@ describe("pollProwlarrInstance", () => {
     await pollProwlarrInstance(1, KEY)
 
     expect(fetchIndexerStats).not.toHaveBeenCalled()
+  })
+
+  // With several instances, a poll may only touch its own instance's rows.
+  it("deletes only its own instance's indexers that left the list", async () => {
+    mockSelects([instanceRow({ id: 7 })])
+    const writes = mockTx()
+
+    await pollProwlarrInstance(7, KEY)
+
+    expect(writes.deleteWheres).toEqual([
+      and(eq(prowlarrIndexers.instanceId, 7), notInArray(prowlarrIndexers.indexerId, [12, 14])),
+    ])
+  })
+
+  it("clears and sets the status of its own instance's indexers only", async () => {
+    mockSelects([instanceRow({ id: 7, indexersReadAt: new Date(), statsAttemptedAt: new Date() })])
+    const writes = mockTx()
+
+    await pollProwlarrInstance(7, KEY)
+
+    expect(writes.updates.slice(0, 2).map((u) => writes.updateWheres.get(u))).toEqual([
+      eq(prowlarrIndexers.instanceId, 7),
+      and(eq(prowlarrIndexers.instanceId, 7), eq(prowlarrIndexers.indexerId, 12)),
+    ])
   })
 
   it("keeps the stored stats and the status read when a stats request fails", async () => {
