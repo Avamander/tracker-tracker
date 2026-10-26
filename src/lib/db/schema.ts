@@ -575,6 +575,8 @@ export const prowlarrInstances = pgTable("prowlarr_instances", {
   indexersReadAt: timestamp("indexers_read_at"),
   // When the per-indexer 24 hour stats were last read. They are read hourly.
   statsReadAt: timestamp("stats_read_at"),
+  // When the 24 hour stats were last tried, so a failed read waits an hour.
+  statsAttemptedAt: timestamp("stats_attempted_at"),
   // When the 7 day stats were last read, together with the indexer list.
   stats7dReadAt: timestamp("stats_7d_read_at"),
   lastError: text("last_error"),

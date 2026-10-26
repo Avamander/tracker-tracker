@@ -3,7 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { awaitingFirstPoll, ProwlarrSection } from "@/components/settings/ProwlarrSection"
 import type { SafeProwlarrInstance } from "@/types/api"
 
@@ -32,6 +32,10 @@ const fetchMock = vi.fn()
 beforeEach(() => {
   fetchMock.mockReset()
   vi.stubGlobal("fetch", fetchMock)
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
 })
 
 function renderSection() {
@@ -63,7 +67,7 @@ describe("ProwlarrSection", () => {
     expect(screen.getByText("Home Prowlarr")).toBeInTheDocument()
   })
 
-  it("removes an instance once Prowlarr's row is deleted", async () => {
+  it("removes an instance once its row is deleted", async () => {
     const user = userEvent.setup()
     let deleted = false
     fetchMock.mockImplementation(async (_url: string, init?: RequestInit) => {

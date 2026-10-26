@@ -140,8 +140,7 @@ export async function pollProwlarrInstance(
       enabled: prowlarrInstances.enabled,
       lastError: prowlarrInstances.lastError,
       indexersReadAt: prowlarrInstances.indexersReadAt,
-      statsReadAt: prowlarrInstances.statsReadAt,
-      stats7dReadAt: prowlarrInstances.stats7dReadAt,
+      statsAttemptedAt: prowlarrInstances.statsAttemptedAt,
     })
     .from(prowlarrInstances)
     .where(eq(prowlarrInstances.id, instanceId))
@@ -152,10 +151,9 @@ export async function pollProwlarrInstance(
   const readIndexers =
     options.readIndexers === true ||
     isDue(instance.indexersReadAt, now, PROWLARR_INDEXER_REFRESH_MS)
-  const dayStatsDue = readIndexers || isDue(instance.statsReadAt, now, PROWLARR_STATS_REFRESH_MS)
-  // A failed 7 day read is retried at the next list read.
-  const weekStatsDue =
-    readIndexers || isDue(instance.stats7dReadAt, now, PROWLARR_INDEXER_REFRESH_MS)
+  // Due by the last attempt, so a failed read waits for the next hour.
+  const dayStatsDue =
+    readIndexers || isDue(instance.statsAttemptedAt, now, PROWLARR_STATS_REFRESH_MS)
 
   try {
     const conn = decryptInstanceKey(instance, key)
@@ -170,7 +168,8 @@ export async function pollProwlarrInstance(
           )
         : undefined,
       dayStatsDue ? readStats(conn, instanceId, "24h", now) : undefined,
-      weekStatsDue ? readStats(conn, instanceId, "7d", now) : undefined,
+      // Read with the list only, so a failed read waits for the next one.
+      readIndexers ? readStats(conn, instanceId, "7d", now) : undefined,
     ])
     const statusById = new Map(statuses.map((s) => [s.indexerId, s]))
     const failureFields = (indexerId: number) => {
@@ -248,6 +247,7 @@ export async function pollProwlarrInstance(
           lastError: null,
           errorSince: null,
           ...(readIndexers ? { indexersReadAt: now } : {}),
+          ...(dayStatsDue ? { statsAttemptedAt: now } : {}),
           ...(dayStats ? { statsReadAt: now } : {}),
           ...(weekStats ? { stats7dReadAt: now } : {}),
           ...(version !== undefined ? { version: version?.slice(0, 50) ?? null } : {}),

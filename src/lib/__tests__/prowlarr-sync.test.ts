@@ -123,8 +123,7 @@ function instanceRow(overrides: Record<string, unknown> = {}) {
     enabled: true,
     lastError: null,
     indexersReadAt: null,
-    statsReadAt: null,
-    stats7dReadAt: null,
+    statsAttemptedAt: null,
     ...overrides,
   }
 }
@@ -184,6 +183,7 @@ describe("pollProwlarrInstance", () => {
       errorSince: null,
       version: "1.2.3.4567",
       indexersReadAt: expect.any(Date),
+      statsAttemptedAt: expect.any(Date),
       statsReadAt: expect.any(Date),
       stats7dReadAt: expect.any(Date),
     })
@@ -193,8 +193,7 @@ describe("pollProwlarrInstance", () => {
     mockSelects([
       instanceRow({
         indexersReadAt: new Date(Date.now() - HOUR_MS),
-        statsReadAt: new Date(Date.now() - HOUR_MS / 2),
-        stats7dReadAt: new Date(Date.now() - HOUR_MS),
+        statsAttemptedAt: new Date(Date.now() - HOUR_MS / 2),
       }),
     ])
     const writes = mockTx()
@@ -215,6 +214,8 @@ describe("pollProwlarrInstance", () => {
     expect(writes.updates[2]).toMatchObject({ lastError: null })
     expect(writes.updates[2]).not.toHaveProperty("indexersReadAt")
     expect(writes.updates[2]).not.toHaveProperty("version")
+    // Stamping a skipped read would push the next one back forever.
+    expect(writes.updates[2]).not.toHaveProperty("statsAttemptedAt")
   })
 
   it("reads the list again once it is due, or when asked to", async () => {
@@ -234,8 +235,7 @@ describe("pollProwlarrInstance", () => {
     mockSelects([
       instanceRow({
         indexersReadAt: new Date(Date.now() - HOUR_MS),
-        statsReadAt: new Date(Date.now() - 2 * HOUR_MS),
-        stats7dReadAt: new Date(Date.now() - HOUR_MS),
+        statsAttemptedAt: new Date(Date.now() - 2 * HOUR_MS),
       }),
     ])
     const writes = mockTx()
@@ -250,28 +250,41 @@ describe("pollProwlarrInstance", () => {
     expect(writes.updates[0]).toMatchObject({ stats24h: null })
     expect(writes.updates[0]).not.toHaveProperty("stats7d")
     expect(writes.updates[1]).toMatchObject({ stats24h: STATS, disabledTill: expect.any(Date) })
-    expect(writes.updates[2]).toMatchObject({ statsReadAt: expect.any(Date) })
+    expect(writes.updates[2]).toMatchObject({
+      statsAttemptedAt: expect.any(Date),
+      statsReadAt: expect.any(Date),
+    })
     expect(writes.updates[2]).not.toHaveProperty("stats7dReadAt")
   })
 
-  it("reads the 7 day stats again once a failed read is a list interval old", async () => {
-    mockSelects([
-      instanceRow({
-        indexersReadAt: new Date(Date.now() - HOUR_MS),
-        statsReadAt: new Date(Date.now() - HOUR_MS / 2),
-        stats7dReadAt: new Date(Date.now() - 7 * HOUR_MS),
-      }),
-    ])
-    const writes = mockTx()
+  it("does not retry a failed stats read on the next poll", async () => {
+    vi.mocked(fetchIndexerStats).mockRejectedValue(new Error("Prowlarr API error: 500"))
+    mockSelects([instanceRow()])
+    const first = mockTx()
 
     await pollProwlarrInstance(1, KEY)
 
-    expect(fetchIndexers).not.toHaveBeenCalled()
-    expect(fetchIndexerStats).toHaveBeenCalledTimes(1)
-    const [, start, end] = vi.mocked(fetchIndexerStats).mock.calls[0]
-    expect((end.getTime() - start.getTime()) / HOUR_MS).toBe(168)
-    expect(writes.updates[2]).toMatchObject({ stats7dReadAt: expect.any(Date) })
-    expect(writes.updates[2]).not.toHaveProperty("statsReadAt")
+    const written = first.updates.at(-1) ?? {}
+    expect(written).toMatchObject({
+      indexersReadAt: expect.any(Date),
+      statsAttemptedAt: expect.any(Date),
+    })
+    expect(written).not.toHaveProperty("statsReadAt")
+    expect(written).not.toHaveProperty("stats7dReadAt")
+
+    // The next poll sees what the failed one stored.
+    vi.mocked(fetchIndexerStats).mockClear()
+    mockSelects([
+      instanceRow({
+        indexersReadAt: written.indexersReadAt,
+        statsAttemptedAt: written.statsAttemptedAt,
+      }),
+    ])
+    mockTx()
+
+    await pollProwlarrInstance(1, KEY)
+
+    expect(fetchIndexerStats).not.toHaveBeenCalled()
   })
 
   it("keeps the stored stats and the status read when a stats request fails", async () => {

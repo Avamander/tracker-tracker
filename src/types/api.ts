@@ -309,6 +309,7 @@ export type SafeProwlarrInstance = Omit<
   | "lastPolledAt"
   | "indexersReadAt"
   | "statsReadAt"
+  | "statsAttemptedAt"
   | "stats7dReadAt"
   | "errorSince"
   | "createdAt"
