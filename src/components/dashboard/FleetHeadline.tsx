@@ -27,7 +27,7 @@ interface FleetHeadlineProps {
 
 function pctLabel(pct: number | null, versus: string): string | undefined {
   if (pct === null) return undefined
-  return `${formatSignedChange(pct, 1, (v) => formatPercent(v, 1)).text} vs ${versus}`
+  return `${formatPercent(pct, { signed: true })} vs ${versus}`
 }
 
 export function FleetHeadline({ fleet, day = "today" }: FleetHeadlineProps) {

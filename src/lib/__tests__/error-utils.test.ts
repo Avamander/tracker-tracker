@@ -160,6 +160,23 @@ describe("sanitizeNetworkError", () => {
     )
   })
 
+  // Fixed strings in, fixed strings out: no part of the raw message, which the
+  // adapter builds from no tracker text, is passed through.
+  it("maps each Luminance login refusal to its own card, clear of the TorrentLeech rules", () => {
+    expect(sanitizeNetworkError("Luminance login refused: the account is disabled")).toBe(
+      "Account is disabled on the tracker. Log in on the site to see why"
+    )
+    expect(
+      sanitizeNetworkError("Luminance login refused: the password is in a known breach")
+    ).toBe("Tracker refused the password as breached. Change it on the site, then update it here")
+    expect(
+      sanitizeNetworkError("Luminance login refused: the account uses two-factor login")
+    ).toBe(
+      "Two-factor login is on for this account. Add a session cookie from a browser login to the tracker's credentials"
+    )
+    expect(sanitizeNetworkError("Invalid Luminance credentials")).toBe("Invalid credentials")
+  })
+
   it("maps a username/password rejection to a credentials message", () => {
     expect(
       sanitizeNetworkError("Authentication failed. qBittorrent rejected the username and password")

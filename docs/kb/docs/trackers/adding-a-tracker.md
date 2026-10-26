@@ -138,6 +138,12 @@ Click the **+** button next to "Trackers" in the sidebar, or go to `/trackers/ne
     | ------------ | ------------ |
     | TorrentLeech | TL           |
 
+=== "Luminance"
+
+    | Name             | Abbreviation |
+    | ---------------- | ------------ |
+    | Cathode-Ray.Tube | CRT          |
+
 !!! note "Draft entries"
     Some trackers show a dashed border saying "Stats tracking not yet supported." You can pin them as quicklinks, but they won't poll yet.
 
@@ -286,6 +292,23 @@ Location varies by platform:
     !!! warning "Unverified"
         AnimeBytes support hasn't been tested against a live account. If a poll fails or a stat looks wrong, open an issue naming the tracker.
 
+=== "Luminance"
+
+    Luminance has no stats API, so Tracker Tracker logs in with your **username and password** and reads your profile page. The password is encrypted at rest with the same key as every other tracker credential.
+
+    !!! tip "2FA accounts use a session cookie instead"
+        Tracker Tracker cannot log in to an account with 2FA. Fill in your username and the **Session Cookie (2FA accounts)** field, and leave the password empty.
+
+        1. Log in on the site in your browser with **Lock this session to my IP address** unticked, since polls come from the machine running Tracker Tracker. Tick **Stay logged in** so the session lasts.
+        2. Open DevTools (F12 or Cmd+Option+I) and go to the **Network** tab
+        3. Refresh the page and click any request to the site
+        4. **Right-click** the `Cookie` request header and select **Copy Value**
+
+        The value must include the `sid` cookie. The User-Agent gets captured with it, so add or update the tracker from the same browser you logged in with. When polling fails with "Session expired," log in again and paste a fresh cookie.
+
+    !!! warning "Unverified"
+        Luminance support hasn't been tested against a live account. If a poll fails or a stat looks wrong, open an issue naming the tracker.
+
 !!! warning "Keep your token private"
     Your API token works like a password. Tracker Tracker encrypts it before storing it.
 
@@ -310,19 +333,19 @@ Manual polls don't interfere with the global schedule (default: every 60 minutes
 
 Different platforms expose different stats. Here's what you'll get:
 
-| Stat             | UNIT3D | Gazelle | GGn     | AvistaZ | DigitalCore | RetroToon | Notes                                                                        |
-| ---------------- | ------ | ------- | ------- | ------- | ----------- | --------- | ---------------------------------------------------------------------------- |
-| Upload           | Yes    | Yes     | Yes     | Yes     | Yes         | Yes       |                                                                              |
-| Download         | Yes    | Yes     | Yes     | Yes     | Yes         | Yes       |                                                                              |
-| Ratio            | Yes    | Yes     | Yes     | Yes     | Yes         | Yes       | GGn shows extra decimal precision                                            |
-| Buffer           | Yes    | Yes     | Yes     | Yes     | Yes         | Yes       | UNIT3D returns this directly; others calculate it from upload minus download |
-| Seeding count    | Yes    | Partial | Partial | Yes     | Yes         | Yes       | Some Gazelle forks and GGn may return 0 even when you're seeding             |
-| Leeching count   | Yes    | Partial | Partial | Yes     | Yes         | No        | RetroToon publishes no leeching figure anywhere                              |
-| Bonus points     | Yes    | Yes     | Yes     | Yes     | Yes         | Yes       | GGn calls this "gold," DigitalCore calls it "bonuspoang"                     |
-| Hit & Runs       | Yes    | No      | Partial | Yes     | Yes         | Partial   | RetroToon reports 0 reliably; a non-empty list reads as unknown for now      |
-| Required ratio   | No     | Yes     | Yes     | No      | No          | No        | Not in the UNIT3D or DigitalCore API; RetroToon enforces no account ratio    |
-| Warned status    | No     | Partial | Yes     | No      | Yes         | No        | Most Gazelle trackers default to false; RED has extended data                |
-| Freeleech tokens | No     | Partial | No      | No      | No          | Yes       | RetroToon calls them "freeleech slots"                                       |
+| Stat             | UNIT3D | Gazelle | GGn     | AvistaZ | DigitalCore | RetroToon | Luminance | Notes                                                                        |
+| ---------------- | ------ | ------- | ------- | ------- | ----------- | --------- | --------- | ---------------------------------------------------------------------------- |
+| Upload           | Yes    | Yes     | Yes     | Yes     | Yes         | Yes       | Yes       |                                                                              |
+| Download         | Yes    | Yes     | Yes     | Yes     | Yes         | Yes       | Yes       |                                                                              |
+| Ratio            | Yes    | Yes     | Yes     | Yes     | Yes         | Yes       | Yes       | GGn shows extra decimal precision                                            |
+| Buffer           | Yes    | Yes     | Yes     | Yes     | Yes         | Yes       | Yes       | UNIT3D returns this directly; others calculate it from upload minus download |
+| Seeding count    | Yes    | Partial | Partial | Yes     | Yes         | Yes       | Yes       | Some Gazelle forks and GGn may return 0 even when you're seeding             |
+| Leeching count   | Yes    | Partial | Partial | Yes     | Yes         | No        | No        | RetroToon publishes no leeching figure anywhere                              |
+| Bonus points     | Yes    | Yes     | Yes     | Yes     | Yes         | Yes       | Yes       | GGn calls this "gold," DigitalCore "bonuspoang," Luminance "Credits"         |
+| Hit & Runs       | Yes    | No      | Partial | Yes     | Yes         | Partial   | No        | RetroToon reports 0 reliably; a non-empty list reads as unknown for now      |
+| Required ratio   | No     | Yes     | Yes     | No      | No          | No        | Yes       | Not in the UNIT3D or DigitalCore API; RetroToon enforces no account ratio    |
+| Warned status    | No     | Partial | Yes     | No      | Yes         | No        | No        | Most Gazelle trackers default to false; RED has extended data                |
+| Freeleech tokens | No     | Partial | No      | No      | No          | Yes       | Yes       | RetroToon calls them "freeleech slots"                                       |
 
 ### Gazelle: extra data on RED
 

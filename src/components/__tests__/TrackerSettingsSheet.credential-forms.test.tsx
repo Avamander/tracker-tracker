@@ -1,12 +1,14 @@
 // src/components/__tests__/TrackerSettingsSheet.credential-forms.test.tsx
 //
-// The sheet validates cookies through the same table as the dialog; pins the
-// message for a bare cookie name pasted on its own.
+// The sheet reads the same table as the dialog for cookie checks and Join Date
+// visibility; pins the message for a bare cookie name pasted on its own.
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { VALID_PLATFORM_TYPES } from "@/data/platform-types"
+import { CREDENTIAL_FORMS } from "@/lib/credential-forms"
 import { trackerQueryOptions } from "@/lib/query-options"
 import type { TrackerSummary } from "@/types/api"
 
@@ -172,5 +174,28 @@ describe("TrackerSettingsSheet AnimeBytes credentials", () => {
     expect(JSON.parse(String(test.apiToken))).toEqual(blob)
     const patch = credentialRequests().find(([, init]) => init?.method === "PATCH")
     expect(JSON.parse(JSON.parse(String(patch?.[1]?.body)).apiToken)).toEqual(blob)
+  })
+})
+
+describe("TrackerSettingsSheet join date visibility", () => {
+  // Split by the table's flag, so a platform added to the table is covered
+  // here too. Enrichment is per tracker, so that case names its registry entry.
+  const JOIN_DATE = "Join Date"
+  const HIDDEN = VALID_PLATFORM_TYPES.filter((p) => CREDENTIAL_FORMS[p].hidesJoinDate)
+  const SHOWN = VALID_PLATFORM_TYPES.filter((p) => !CREDENTIAL_FORMS[p].hidesJoinDate)
+
+  it.each(HIDDEN)("hides it for %s", (platformType) => {
+    renderSheet({ ...RETROTOON, platformType })
+    expect(screen.queryByLabelText(JOIN_DATE)).not.toBeInTheDocument()
+  })
+
+  it.each(SHOWN)("shows it for %s", (platformType) => {
+    renderSheet({ ...RETROTOON, platformType })
+    expect(screen.getByLabelText(JOIN_DATE)).toBeInTheDocument()
+  })
+
+  it("hides it for a gazelle tracker whose registry entry enriches", () => {
+    renderSheet({ ...RETROTOON, platformType: "gazelle", registrySlug: "orpheus" })
+    expect(screen.queryByLabelText(JOIN_DATE)).not.toBeInTheDocument()
   })
 })
