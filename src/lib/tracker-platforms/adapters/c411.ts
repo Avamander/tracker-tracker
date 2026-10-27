@@ -96,7 +96,9 @@ async function fetchProfile(
     try {
       const body = JSON.parse(await res.text()) as { message?: unknown }
       if (typeof body.message === "string") reason = `: ${body.message.slice(0, 200)}`
-    } catch {}
+    } catch {
+      // security-audit-ignore: an unreadable body leaves the status line as the message
+    }
     throw new Error(`Tracker API error: ${res.status} ${res.statusText}${reason}`)
   }
   return res.json<C411Profile>()

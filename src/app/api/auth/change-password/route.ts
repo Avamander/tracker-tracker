@@ -80,11 +80,12 @@ export async function POST(request: Request) {
 
   // The password check above proves the caller knows the current password. It does
   // not prove the session is carrying the key that actually encrypted the data.
-  // Those diverge whenever a session outlives a password change, which is ordinary
-  // with a second signed-in device. Everything below decrypts with this key and
-  // treats a failure as a corrupt row, so a stale key would look like every secret
-  // in the database being corrupt at once, and the rotation would commit that:
-  // seven settings values nulled and every row orphaned under a key nobody holds.
+  // authenticate() already refuses a session minted before the last change to the
+  // password hash or salt, so this is a backstop. Keep it anyway. Everything below
+  // decrypts with this key and treats a failure as a corrupt row, so a stale key
+  // would look like every secret in the database being corrupt at once, and the
+  // rotation would commit that: seven settings values nulled and every row
+  // orphaned under a key nobody holds.
   //
   // Deriving from the password the caller just proved they know is the same value
   // in the healthy case, so a mismatch means the session is stale rather than the

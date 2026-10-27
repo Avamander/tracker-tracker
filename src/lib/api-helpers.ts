@@ -7,7 +7,7 @@
 //            validateAuthMethod, validateUrlPath, validateClientHost, decodeKey
 
 import { NextResponse } from "next/server"
-import { getSession } from "@/lib/auth"
+import { clearSession, readSession, STALE_SESSION_MESSAGE } from "@/lib/auth"
 // Imported from the module rather than the barrel: the barrel pulls in
 // credentials.ts, which is "server-only".
 import { VALID_AUTH_METHODS } from "@/lib/download-clients/types"
@@ -22,9 +22,14 @@ export type RouteContext<P = { id: string }> = {
 }
 
 export async function authenticate(): Promise<NextResponse | { encryptionKey: string }> {
-  const session = await getSession()
+  const session = await readSession()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  return session
+  if (session.status === "stale") {
+    // Only a route handler can delete a cookie. Pages leave a stale one for the next API call.
+    await clearSession()
+    return NextResponse.json({ error: STALE_SESSION_MESSAGE }, { status: 401 })
+  }
+  return { encryptionKey: session.encryptionKey }
 }
 
 export async function parseRouteId(

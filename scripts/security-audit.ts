@@ -21,7 +21,7 @@
 //   checkClientEnvLeak, checkAdapterCookieInjection, checkAdapterCredentialLogging,
 //   runAudit
 //
-// The recognizers behind checks 17, 37 and 38 live in scripts/security-audit-lib.ts,
+// The recognizers behind checks 12, 17, 29, 37 and 38 live in scripts/security-audit-lib.ts,
 // which has no CLI entry so a test can import them.
 //
 // Usage: npx tsx scripts/security-audit.ts [--changed-only file1 file2 ...]
@@ -34,7 +34,15 @@
 import { execFileSync } from "node:child_process"
 import fs from "node:fs"
 import path from "node:path"
-import { FETCH_RE, fetchWindowEnd, hasInjectionGuard, logsCredential } from "./security-audit-lib"
+import {
+  CATCH_RE,
+  FETCH_RE,
+  fetchWindowEnd,
+  gatesAuthResult,
+  hasInjectionGuard,
+  logsCredential,
+  swallowsError,
+} from "./security-audit-lib"
 
 const ROOT = path.resolve(__dirname, "..")
 const SRC_DIR = path.resolve(ROOT, "src")
@@ -71,7 +79,7 @@ interface AuditOutput {
 
 // Routes that intentionally skip session verification.
 // These are truly public, with no cookie, no JWE, and no auth at all.
-// Routes that do their own auth (i.e logout via getSession) are not listed.
+// Routes that do their own auth (i.e logout via readSession) are not listed.
 // api/changelog calls authenticate() and stays off this list.
 const NO_AUTH_ROUTES = new Set([
   "api/auth/setup",
@@ -83,8 +91,13 @@ const NO_AUTH_ROUTES = new Set([
 
 // Both patterns are valid auth mechanisms:
 // - authenticate() from api-helpers.ts (standard pattern)
-// - getSession() from auth.ts (used by logout)
-const AUTH_PATTERNS = [/\bauthenticate\s*\(/, /\bgetSession\s*\(/, /\brequireAuth\s*\(/]
+// - getSession() or readSession() from auth.ts (readSession is used by logout)
+const AUTH_PATTERNS = [
+  /\bauthenticate\s*\(/,
+  /\bgetSession\s*\(/,
+  /\breadSession\s*\(/,
+  /\brequireAuth\s*\(/,
+]
 
 const REQUIRED_HEADERS = [
   "X-Content-Type-Options",
@@ -369,7 +382,7 @@ function checkAuthEnforcement(): CheckResult {
         findings.push({
           file: relativePath(file),
           line: startLine,
-          detail: `${method} /${routePath} has no auth check in handler body (missing authenticate/getSession/requireAuth)`,
+          detail: `${method} /${routePath} has no auth check in handler body (missing authenticate/getSession/readSession/requireAuth)`,
         })
       }
     }
@@ -803,10 +816,6 @@ function checkBareCatchBlocks(files?: string[]): CheckResult {
     ? files.filter((f) => f.includes("app/api/") || f.includes("src/lib/"))
     : walkFiles(API_DIR, ".ts").concat(walkFiles(path.resolve(SRC_DIR, "lib"), ".ts"))
 
-  const CATCH_RE = /}\s*catch\s*(?:\([^)]*\))?\s*\{/
-  const RECOVERY_RE =
-    /console\.error|console\.warn|log\.error|log\.warn|\bthrow\b|setPollError|setError|return\s+null|return\s+\[\]|return\s+0|return\s+false|NextResponse\.json|Response\.json|return\s+new\s+Response|return\s+NextResponse|status:\s*[45]\d\d|\.push\s*\(|\breturn\b|\berror\b.*message/
-
   for (const file of serverFiles) {
     if (isTestFile(file)) continue
     const content = fs.readFileSync(file, "utf8")
@@ -817,16 +826,7 @@ function checkBareCatchBlocks(files?: string[]): CheckResult {
       if (lineContent.startsWith("//") || lineContent.startsWith("*")) continue
       if (!CATCH_RE.test(lines[i])) continue
 
-      // Check the next 8 lines for any recovery action
-      let hasRecovery = false
-      for (let j = i + 1; j <= i + 8 && j < lines.length; j++) {
-        if (RECOVERY_RE.test(lines[j])) {
-          hasRecovery = true
-          break
-        }
-      }
-
-      if (!hasRecovery) {
+      if (swallowsError(lines, i)) {
         findings.push({
           file: relativePath(file),
           line: i + 1,
@@ -1993,28 +1993,11 @@ function checkAuthResultGating(): CheckResult {
       const hasAuth = AUTH_PATTERNS.some((re) => re.test(body))
       if (!hasAuth) continue
 
-      // Strip comment lines before checking for the gate,
-      // so a commented-out guard doesn't satisfy the check
-      const bodyNoComments = body
-        .split("\n")
-        .filter((l) => {
-          const t = l.trim()
-          return !t.startsWith("//") && !t.startsWith("*")
-        })
-        .join("\n")
-
-      // authenticate() returns NextResponse | { encryptionKey }, so gate with instanceof
-      // getSession() returns { encryptionKey } | null, so gate with !session or === null
-      const hasInstanceofGate =
-        /instanceof\s+NextResponse/.test(bodyNoComments) ||
-        /instanceof\s+Response/.test(bodyNoComments)
-      const hasNullGate = /!\s*session\b|session\s*===?\s*null/.test(bodyNoComments)
-
-      if (!hasInstanceofGate && !hasNullGate) {
+      if (!gatesAuthResult(routePath, body)) {
         findings.push({
           file: relativePath(file),
           line: startLine,
-          detail: `${method} /${routePath} calls auth function but never checks the result (missing instanceof NextResponse or null check)`,
+          detail: `${method} /${routePath} calls an auth function but never checks the result (authenticate() needs instanceof NextResponse, getSession() a null check, readSession() status === "valid")`,
         })
       }
     }

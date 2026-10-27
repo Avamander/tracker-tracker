@@ -16,6 +16,7 @@ import {
   formatPercent,
   formatRatio,
   formatRatioDisplay,
+  formatSignedChange,
   formatSpanInWords,
 } from "@/lib/formatters"
 import type { Snapshot } from "@/types/api"
@@ -348,6 +349,25 @@ describe("formatOrdinal", () => {
   it("returns a dash for a missing value", () => {
     expect(formatOrdinal(null)).toBe("—")
     expect(formatOrdinal(undefined)).toBe("—")
+  })
+})
+
+describe("formatSignedChange", () => {
+  it("signs a change by its direction", () => {
+    expect(formatSignedChange(0.0123, 4)).toEqual({ text: "+0.0123", direction: "up" })
+    expect(formatSignedChange(-0.0123, 4)).toEqual({ text: "-0.0123", direction: "down" })
+  })
+
+  it("shows a change that rounds to zero without a sign", () => {
+    expect(formatSignedChange(0, 4)).toEqual({ text: "0.0000", direction: "flat" })
+    expect(formatSignedChange(0.00004, 4)).toEqual({ text: "0.0000", direction: "flat" })
+    expect(formatSignedChange(-0.04, 1)).toEqual({ text: "0.0", direction: "flat" })
+  })
+
+  it("passes the unsigned, rounded magnitude to the formatter", () => {
+    expect(formatSignedChange(-1234, 0, formatCount).text).toBe("-1,234")
+    expect(formatSignedChange(-0.04, 1, (v) => formatPercent(v)).text).toBe("0.0%")
+    expect(formatSignedChange(12.34, 1, (v) => formatPercent(v)).text).toBe("+12.3%")
   })
 })
 

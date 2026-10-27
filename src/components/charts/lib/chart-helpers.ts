@@ -1,11 +1,12 @@
 // src/components/charts/lib/chart-helpers.ts
 //
-// Functions: fmtNum, formatGiB, yAxisPad, formatDateLabel, yAxisAutoRange,
+// Functions: fmtNum, CHANGE_COLOR, formatGiB, yAxisPad, formatDateLabel, yAxisAutoRange,
 // autoByteScale, DAY_LABELS, HOUR_LABELS, buildBucketedBarOption, buildGlowAreaStyle,
 // buildAxisPointer, buildThemeRiverSingleAxis, floorTimestamp, adaptiveDotSize,
 // buildTimeXAxis, insideZoom, buildDonutShell, buildStackedAreaOption
 
 import type { EChartsOption } from "echarts"
+import type { TrendDirection } from "@/components/ui/StatCard"
 import { hexToRgba } from "@/lib/color-utils"
 import { formatCount, formatPercent } from "@/lib/formatters"
 import type { StackedAreaSeries } from "@/types/charts"
@@ -27,6 +28,13 @@ export function fmtNum(v: number, decimals = 2): string {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   })
+}
+
+/** Tooltip colour for a change, by the direction formatSignedChange reports */
+export const CHANGE_COLOR: Record<TrendDirection, string> = {
+  up: CHART_THEME.positive,
+  down: CHART_THEME.negative,
+  flat: CHART_THEME.neutral,
 }
 
 /** Formats a GiB value with automatic TiB scaling for display in chart tooltips. */

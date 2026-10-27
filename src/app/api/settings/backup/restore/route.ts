@@ -356,7 +356,7 @@ export async function POST(request: Request) {
         decrypt(ciphertext, backupKey)
         recoverable++
       } catch {
-        // Counted as at-risk below; a failure here is the answer, not an error.
+        // security-audit-ignore: counted as at-risk below; a failure here is the answer, not an error.
       }
     }
     return NextResponse.json({
