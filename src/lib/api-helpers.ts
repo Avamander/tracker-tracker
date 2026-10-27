@@ -4,7 +4,8 @@
 //            validateHttpUrl, validateMouseholeUrl, validateMouseholeToken, validateFlareSolverrUrl,
 //            validateHexColor, validatePort, validatePastDate, validateJoinedAt,
 //            validateLastAccessAt, validateIntRange, validateMaxLength,
-//            validateAuthMethod, validateUrlPath, validateClientHost, decodeKey
+//            validateAuthMethod, validateUrlPath, validateClientHost, validatePublicUrl,
+//            readPublicUrl, decodeKey
 
 import { NextResponse } from "next/server"
 import { clearSession, readSession, STALE_SESSION_MESSAGE } from "@/lib/auth"
@@ -14,6 +15,7 @@ import { VALID_AUTH_METHODS } from "@/lib/download-clients/types"
 import { localDateStr } from "@/lib/formatters"
 import { CREDENTIAL_MAX, URL_PATH_MAX } from "@/lib/limits"
 import { isUnsafeNetworkHost } from "@/lib/network"
+import { normalizePublicUrl, publicUrlError } from "@/lib/public-url"
 import { DATE_RE, isValidHex, isValidPort } from "@/lib/validators"
 
 /** Shared route handler context for dynamic [id] segments */
@@ -111,6 +113,29 @@ export function validateFlareSolverrUrl(url: string): NextResponse | null {
     )
   }
   return null
+}
+
+/** A service's browser address. Callers pass a trimmed, non-empty value. */
+export function validatePublicUrl(url: string): NextResponse | null {
+  const error = publicUrlError(url)
+  return error ? NextResponse.json({ error }, { status: 400 }) : null
+}
+
+/**
+ * A body's publicUrl field: undefined when absent, null when blank or null,
+ * else the normalized URL, or a 400 response when it is invalid.
+ */
+export function readPublicUrl(value: unknown): NextResponse | string | null | undefined {
+  if (value === undefined) return undefined
+  if (value !== null && typeof value !== "string") {
+    return NextResponse.json({ error: "publicUrl must be a string" }, { status: 400 })
+  }
+  const url = value === null ? null : normalizePublicUrl(value)
+  if (url) {
+    const error = validatePublicUrl(url)
+    if (error) return error
+  }
+  return url
 }
 
 /**

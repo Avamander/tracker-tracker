@@ -493,6 +493,7 @@ describe("loadTrackerProwlarrStates", () => {
           instanceName: "Home Prowlarr",
           instanceUrl: "http://prowlarr.test:9696",
           affectsHealth: true,
+          instancePublicUrl: null,
           instanceError: null,
           stale: false,
           indexerId: 12,

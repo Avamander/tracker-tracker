@@ -181,6 +181,7 @@ export const clientColumns = {
   // The URL path prefix may carry a proxy API key, so it is reduced to a
   // presence boolean before leaving the server.
   hasUrlPath: sql<boolean>`(${downloadClients.encryptedUrlPath} <> '')`.as("has_url_path"),
+  publicUrl: downloadClients.publicUrl,
   pollIntervalSeconds: downloadClients.pollIntervalSeconds,
   isDefault: downloadClients.isDefault,
   crossSeedTags: downloadClients.crossSeedTags,
@@ -217,6 +218,7 @@ export const prowlarrInstanceColumns = {
   id: prowlarrInstances.id,
   name: prowlarrInstances.name,
   url: prowlarrInstances.url,
+  publicUrl: prowlarrInstances.publicUrl,
   hasApiKey: sql<boolean>`(${prowlarrInstances.encryptedApiKey} IS NOT NULL)`.as("has_api_key"),
   enabled: prowlarrInstances.enabled,
   affectsHealth: prowlarrInstances.affectsHealth,
@@ -335,6 +337,7 @@ export const trackerColumns = {
   color: trackers.color,
   qbtTag: trackers.qbtTag,
   mouseholeUrl: trackers.mouseholeUrl,
+  mouseholePublicUrl: trackers.mouseholePublicUrl,
   hasMouseholeToken: sql<boolean>`(${trackers.encryptedMouseholeToken} IS NOT NULL)`.as(
     "has_mousehole_token"
   ),
