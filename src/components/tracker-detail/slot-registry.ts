@@ -22,7 +22,7 @@
 //                        rutracker-releases, rutracker-role, rutracker-posts
 //   rutracker badge: rutracker-restricted, rutracker-stats-off
 //   funfile stat-card: funfile-next-class, funfile-freeleech
-//   v3x stat-card: v3x-freeleech, v3x-bonus-upload
+//   v3x stat-card: v3x-freeleech
 //   v3x badge: v3x-invites
 
 import type { ComponentType, ReactNode } from "react"
@@ -569,10 +569,10 @@ const globalFreeleechBadgeSlot: SlotDefinition<SlotBadgeProps> = {
   component: SlotBadge,
   priority: 13,
   resolve(ctx) {
-    const meta = metaFor(ctx, "unit3d")
+    const meta = metaFor(ctx, "unit3d") ?? metaFor(ctx, "v3x")
     if (meta?.globalFreeleech !== true) return null
     if (!meta.globalFreeleechEndsAt) {
-      const until = meta.globalFreeleechUntil
+      const until = "globalFreeleechUntil" in meta ? meta.globalFreeleechUntil : undefined
       return {
         variant: "accent",
         label: until ? `Global Freeleech until ${until}` : "Global Freeleech",
@@ -1270,25 +1270,6 @@ const v3xFreeleechSlot: SlotDefinition<StatCardBasicProps> = {
   },
 }
 
-const v3xBonusUploadSlot: SlotDefinition<StatCardBasicProps> = {
-  id: "v3x-bonus-upload",
-  category: "stat-card",
-  component: StatCard as ComponentType<StatCardBasicProps>,
-  priority: 12,
-  resolve(ctx) {
-    const bytes = metaFor(ctx, "v3x")?.bonusUploadedBytes
-    if (!bytes) return null
-    const [value, unit] = formatBytesNum(bytes).split(" ")
-    return {
-      label: "Upload Gifted or Bought",
-      value,
-      unit,
-      accentColor: ctx.accentColor,
-      icon: icon16(UploadArrowIcon),
-    }
-  },
-}
-
 const v3xInvitesBadgeSlot: SlotDefinition<SlotBadgeProps> = {
   id: "v3x-invites",
   category: "badge",
@@ -1382,7 +1363,6 @@ export const SLOT_DEFINITIONS: AnySlotDefinition[] = [
   funfileFreeleechSlot,
   // V3X slots
   v3xFreeleechSlot,
-  v3xBonusUploadSlot,
   v3xInvitesBadgeSlot,
 ]
 
