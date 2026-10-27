@@ -27,6 +27,7 @@ export const aither: TrackerRegistryEntry = {
   // ── External Links ──────────────────────────────────────────────────
   trackerHubSlug: "aither",
   statusPageUrl: "https://status.aither.cc/status/aither",
+  announceHosts: ["aither.cc"],
 
   // ── Community ───────────────────────────────────────────────────────
   userClasses: [

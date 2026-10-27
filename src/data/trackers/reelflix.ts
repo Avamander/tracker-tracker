@@ -27,6 +27,7 @@ export const reelflix: TrackerRegistryEntry = {
   // ── External Links ──────────────────────────────────────────────────
   trackerHubSlug: "",
   statusPageUrl: "",
+  announceHosts: ["reelflix.cc", "reelflix.xyz"],
 
   // ── Community ───────────────────────────────────────────────────────
   userClasses: [

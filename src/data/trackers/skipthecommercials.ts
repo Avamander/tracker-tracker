@@ -27,6 +27,7 @@ export const skipthecommercials: TrackerRegistryEntry = {
   // ── External Links ──────────────────────────────────────────────────
   trackerHubSlug: "",
   statusPageUrl: "",
+  announceHosts: ["skipthecommercials.xyz"],
 
   // ── Community ───────────────────────────────────────────────────────
   userClasses: [

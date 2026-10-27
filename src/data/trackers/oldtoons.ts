@@ -27,6 +27,7 @@ export const oldtoons: TrackerRegistryEntry = {
   // ── External Links ──────────────────────────────────────────────────
   trackerHubSlug: "",
   statusPageUrl: "",
+  announceHosts: ["oldtoons.world"],
 
   // ── Community ───────────────────────────────────────────────────────
   userClasses: [

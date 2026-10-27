@@ -28,6 +28,7 @@ export const blutopia: TrackerRegistryEntry = {
   // ── External Links ──────────────────────────────────────────────────
   trackerHubSlug: "blutopia",
   statusPageUrl: "",
+  announceHosts: ["blutopia.cc"],
 
   // ── Community ───────────────────────────────────────────────────────
   userClasses: [

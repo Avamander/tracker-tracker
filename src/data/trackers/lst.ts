@@ -38,6 +38,7 @@ export const lst: TrackerRegistryEntry = {
   // ── External Links ──────────────────────────────────────────────────
   trackerHubSlug: "",
   statusPageUrl: "",
+  announceHosts: ["lst.gg"],
 
   // ── Community ───────────────────────────────────────────────────────
   userClasses: [

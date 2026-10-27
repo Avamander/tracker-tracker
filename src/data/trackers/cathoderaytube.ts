@@ -27,6 +27,7 @@ export const cathoderaytube: TrackerRegistryEntry = {
   // ── External Links ──────────────────────────────────────────────────
   trackerHubSlug: "",
   statusPageUrl: "",
+  announceHosts: ["cathode-ray.tube"],
   bonusName: "Credits",
 
   // ── Community ───────────────────────────────────────────────────────
