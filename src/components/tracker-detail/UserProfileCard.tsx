@@ -53,6 +53,7 @@ export function UserProfileCard({
               <RankTooltip
                 currentRank={account.group}
                 userClasses={registryEntry.userClasses}
+                classLevel={registryEntry.classLevel}
                 accentColor={tc}
               />
             ) : account.group ? (

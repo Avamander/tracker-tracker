@@ -9,10 +9,11 @@ import { InfoTip } from "@/components/ui/InfoTip"
 import { PillTag } from "@/components/ui/PillTag"
 import { SectionToggle } from "@/components/ui/SectionToggle"
 import { Tooltip } from "@/components/ui/Tooltip"
-import type { TrackerRegistryEntry } from "@/data/tracker-registry"
+import type { TrackerRegistryEntry, TrackerUserClass } from "@/data/tracker-registry"
 import { hexToRgba } from "@/lib/color-utils"
 import { formatCount, formatRatio } from "@/lib/formatters"
-import type { TrackerLatestStats } from "@/types/api"
+import { findClassIndex } from "@/lib/rank-ladder"
+import type { PlatformMeta, TrackerLatestStats } from "@/types/api"
 
 const Markdown = dynamic(
   () =>
@@ -30,11 +31,88 @@ const Markdown = dynamic(
 interface TrackerInfoTabProps {
   registryEntry: TrackerRegistryEntry | undefined
   stats: TrackerLatestStats | null
+  /** The last poll's platform data, which places the member on a second ladder */
+  platformMeta?: PlatformMeta | null
   accentColor: string
 }
 
-export function TrackerInfoTab({ registryEntry, stats, accentColor: tc }: TrackerInfoTabProps) {
+/** A ladder's classes with their requirements and perks, the member's own highlighted. */
+function RankList({
+  title,
+  classes,
+  currentIndex,
+  accentColor: tc,
+}: {
+  title: string
+  classes: TrackerUserClass[]
+  currentIndex: number
+  accentColor: string
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      <H2>{title}</H2>
+      <div className="nm-inset-sm bg-control-bg overflow-hidden rounded-nm-md">
+        {classes.map((uc, i) => {
+          const isCurrent = i === currentIndex
+          return (
+            <div
+              key={uc.name}
+              className={clsx(
+                "flex items-center justify-between px-6 py-3.5",
+                i > 0 ? "border-t border-border" : ""
+              )}
+              style={isCurrent ? { backgroundColor: hexToRgba(tc, 0.08) } : undefined}
+            >
+              <div className="flex items-center gap-3">
+                <span
+                  className={clsx(
+                    "text-sm font-mono min-w-35",
+                    isCurrent ? "font-semibold" : "text-secondary"
+                  )}
+                  style={isCurrent ? { color: tc } : undefined}
+                >
+                  {uc.name}
+                </span>
+                {isCurrent && (
+                  <span className="text-3xs font-mono" style={{ color: tc }}>
+                    ← you
+                  </span>
+                )}
+              </div>
+              {(uc.requirements || (uc.perks && uc.perks.length > 0)) && (
+                <div className="flex flex-col items-end gap-1 max-w-[60%]">
+                  {uc.requirements && (
+                    <span className="text-xs font-mono text-muted text-right">
+                      {uc.requirements}
+                    </span>
+                  )}
+                  {uc.perks && uc.perks.length > 0 && (
+                    <div className="flex flex-wrap justify-end gap-1 mt-1">
+                      {uc.perks.map((perk) => (
+                        <PillTag key={`${perk.type}-${perk.label}`} size="sm" color="muted">
+                          {perk.label}
+                        </PillTag>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+export function TrackerInfoTab({
+  registryEntry,
+  stats,
+  platformMeta,
+  accentColor: tc,
+}: TrackerInfoTabProps) {
   const [bannedOpen, setBannedOpen] = useState(false)
+  const secondary = registryEntry?.secondaryLadder
 
   return (
     <div className="flex flex-col gap-10">
@@ -183,59 +261,30 @@ export function TrackerInfoTab({ registryEntry, stats, accentColor: tc }: Tracke
 
       {/* User Ranks */}
       {registryEntry?.userClasses && registryEntry.userClasses.length > 0 && (
-        <div className="flex flex-col gap-3">
-          <H2>User Ranks</H2>
-          <div className="nm-inset-sm bg-control-bg overflow-hidden rounded-nm-md">
-            {registryEntry.userClasses.map((uc, i) => {
-              const isCurrent = stats?.group?.toLowerCase() === uc.name.toLowerCase()
-              return (
-                <div
-                  key={uc.name}
-                  className={clsx(
-                    "flex items-center justify-between px-6 py-3.5",
-                    i > 0 ? "border-t border-border" : ""
-                  )}
-                  style={isCurrent ? { backgroundColor: hexToRgba(tc, 0.08) } : undefined}
-                >
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={clsx(
-                        "text-sm font-mono min-w-35",
-                        isCurrent ? "font-semibold" : "text-secondary"
-                      )}
-                      style={isCurrent ? { color: tc } : undefined}
-                    >
-                      {uc.name}
-                    </span>
-                    {isCurrent && (
-                      <span className="text-3xs font-mono" style={{ color: tc }}>
-                        ← you
-                      </span>
-                    )}
-                  </div>
-                  {(uc.requirements || (uc.perks && uc.perks.length > 0)) && (
-                    <div className="flex flex-col items-end gap-1 max-w-[60%]">
-                      {uc.requirements && (
-                        <span className="text-xs font-mono text-muted text-right">
-                          {uc.requirements}
-                        </span>
-                      )}
-                      {uc.perks && uc.perks.length > 0 && (
-                        <div className="flex flex-wrap justify-end gap-1 mt-1">
-                          {uc.perks.map((perk) => (
-                            <PillTag key={`${perk.type}-${perk.label}`} size="sm" color="muted">
-                              {perk.label}
-                            </PillTag>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
+        <RankList
+          title="User Ranks"
+          classes={registryEntry.userClasses}
+          currentIndex={findClassIndex(
+            registryEntry.userClasses,
+            stats?.group,
+            registryEntry.classLevel
+          )}
+          accentColor={tc}
+        />
+      )}
+
+      {/* A second ladder, such as C411's account levels and what they unlock */}
+      {secondary && secondary.userClasses.length > 0 && (
+        <RankList
+          title={`User ${secondary.label}s`}
+          classes={secondary.userClasses}
+          currentIndex={findClassIndex(
+            secondary.userClasses,
+            secondary.currentClass(platformMeta ?? null),
+            secondary.classLevel
+          )}
+          accentColor={tc}
+        />
       )}
 
       {/* Release Groups */}

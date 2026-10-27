@@ -7,22 +7,30 @@ import { Badge } from "@/components/ui/Badge"
 import { Tooltip } from "@/components/ui/Tooltip"
 import type { TrackerUserClass } from "@/data/tracker-registry"
 import { hexToRgba } from "@/lib/color-utils"
-import { OUTSIDE_LADDER_NOTE } from "@/lib/rank-ladder"
+import { type ClassLevelParser, findClassIndex, OUTSIDE_LADDER_NOTE } from "@/lib/rank-ladder"
 
 interface RankTooltipProps {
   currentRank: string
   userClasses: TrackerUserClass[]
+  /** Maps a class carrying a level onto its rank, from the registry entry */
+  classLevel?: ClassLevelParser
   accentColor: string
 }
 
-export function RankTooltip({ currentRank, userClasses, accentColor }: RankTooltipProps) {
+export function RankTooltip({
+  currentRank,
+  userClasses,
+  classLevel,
+  accentColor,
+}: RankTooltipProps) {
+  const currentIndex = findClassIndex(userClasses, currentRank, classLevel)
   return (
     <Tooltip
       content={
         <div className="min-w-50">
           <SlotLabel label="Ranks" className="px-3 pb-1.5" />
-          {userClasses.map((uc) => {
-            const isCurrent = uc.name.toLowerCase() === currentRank.toLowerCase()
+          {userClasses.map((uc, i) => {
+            const isCurrent = i === currentIndex
             return (
               <div
                 key={uc.name}

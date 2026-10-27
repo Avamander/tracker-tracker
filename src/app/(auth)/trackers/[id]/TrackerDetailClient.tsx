@@ -403,7 +403,12 @@ export function TrackerDetailClient({
       )}
 
       {activeTab === "info" && (
-        <TrackerInfoTab registryEntry={registryEntry} stats={stats} accentColor={tc} />
+        <TrackerInfoTab
+          registryEntry={registryEntry}
+          stats={stats}
+          platformMeta={tracker.platformMeta}
+          accentColor={tc}
+        />
       )}
 
       {activeTab === "torrents" && (
