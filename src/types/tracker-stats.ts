@@ -392,9 +392,11 @@ export interface FunFilePlatformMeta {
 export interface V3xPlatformMeta {
   /** Real download above the counted figure, which the ratio does not count */
   freeleechDownloadedBytes?: number
-  /** Upload gifted or bought, included in the uploaded total */
-  bonusUploadedBytes?: number
   invites?: number
+  /** Whether a site-wide freeleech is running */
+  globalFreeleech?: boolean
+  /** When it ends, as ISO 8601 */
+  globalFreeleechEndsAt?: string
 }
 
 /** Union of all platform-specific metadata types */
