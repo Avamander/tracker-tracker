@@ -11,6 +11,7 @@ function indexer(overrides: Partial<TrackerProwlarrIndexer> = {}): TrackerProwla
     instanceName: "Home",
     instanceUrl: "http://prowlarr.test:9696",
     affectsHealth: false,
+    instancePublicUrl: null,
     instanceError: null,
     stale: false,
     indexerId: 12,

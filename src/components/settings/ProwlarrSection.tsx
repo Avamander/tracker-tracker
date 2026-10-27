@@ -23,12 +23,13 @@ import { useCrudCard } from "@/hooks/useCrudCard"
 import { DOCS } from "@/lib/constants"
 import { extractApiError } from "@/lib/extract-api-error"
 import { formatTimeAgo } from "@/lib/formatters"
+import { PUBLIC_URL_PLACEHOLDER, PUBLIC_URL_TIP } from "@/lib/public-url"
 import { prowlarrQueryOptions } from "@/lib/query-options"
 import type { SafeProwlarrInstance } from "@/types/api"
 
 const API_KEY_HINT = "Found in Prowlarr under Settings → General → Security."
 
-const DRAFT_KEYS = ["name", "url", "enabled", "affectsHealth"] as const
+const DRAFT_KEYS = ["name", "url", "publicUrl", "enabled", "affectsHealth"] as const
 
 function buildPatch(
   draft: SafeProwlarrInstance,
@@ -165,6 +166,19 @@ function InstanceCard({
         autoComplete="off"
         data-1p-ignore
       />
+      <div className="flex items-center gap-1">
+        <Input
+          type="url"
+          label="Public URL (optional)"
+          value={draft.publicUrl ?? ""}
+          onChange={(e) => updateDraft({ publicUrl: e.target.value || null })}
+          placeholder={PUBLIC_URL_PLACEHOLDER}
+          name="prowlarr-public-url"
+          autoComplete="off"
+          data-1p-ignore
+        />
+        <InfoTip content={PUBLIC_URL_TIP} size="sm" />
+      </div>
 
       <Toggle
         label="Enabled"
@@ -272,6 +286,7 @@ function InstanceCard({
 function AddInstanceForm({ onCreated, onCancel }: { onCreated: () => void; onCancel: () => void }) {
   const [name, setName] = useState("Prowlarr")
   const [url, setUrl] = useState("")
+  const [publicUrl, setPublicUrl] = useState("")
   const [apiKey, setApiKey] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -285,7 +300,12 @@ function AddInstanceForm({ onCreated, onCancel }: { onCreated: () => void; onCan
       const res = await fetch("/api/prowlarr", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), url: url.trim(), apiKey: apiKey.trim() }),
+        body: JSON.stringify({
+          name: name.trim(),
+          url: url.trim(),
+          publicUrl: publicUrl.trim() || undefined,
+          apiKey: apiKey.trim(),
+        }),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
@@ -323,6 +343,19 @@ function AddInstanceForm({ onCreated, onCancel }: { onCreated: () => void; onCan
         autoComplete="off"
         data-1p-ignore
       />
+      <div className="flex items-center gap-1">
+        <Input
+          type="url"
+          label="Public URL (optional)"
+          value={publicUrl}
+          onChange={(e) => setPublicUrl(e.target.value)}
+          placeholder={PUBLIC_URL_PLACEHOLDER}
+          name="prowlarr-public-url"
+          autoComplete="off"
+          data-1p-ignore
+        />
+        <InfoTip content={PUBLIC_URL_TIP} size="sm" />
+      </div>
       <Input
         type="password"
         label="API Key"

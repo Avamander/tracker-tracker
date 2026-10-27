@@ -64,6 +64,7 @@ export interface TrackerSummary {
   color: string
   qbtTag: string | null
   mouseholeUrl: string | null
+  mouseholePublicUrl: string | null
   hasMouseholeToken: boolean
   useProxy: boolean
   /** Optional so rows built before the column existed still type-check */
@@ -101,6 +102,8 @@ export interface TrackerProwlarrIndexer {
   instanceUrl: string
   /** The instance's setting for whether a failing indexer changes tracker health. */
   affectsHealth: boolean
+  /** Where the browser opens the instance. Null when links use instanceUrl. */
+  instancePublicUrl: string | null
   /** The instance's last poll error. While set, the fields below are stale. */
   instanceError: string | null
   /** True when the last reading is too old to show (the poller has stopped). */

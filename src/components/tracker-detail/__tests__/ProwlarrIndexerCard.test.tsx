@@ -11,6 +11,7 @@ function indexer(overrides: Partial<TrackerProwlarrIndexer> = {}): TrackerProwla
     instanceName: "Home",
     instanceUrl: "http://prowlarr.test:9696",
     affectsHealth: false,
+    instancePublicUrl: null,
     instanceError: null,
     stale: false,
     indexerId: 12,
@@ -28,14 +29,14 @@ function indexer(overrides: Partial<TrackerProwlarrIndexer> = {}): TrackerProwla
 }
 
 describe("ProwlarrIndexerCard", () => {
-  it("names the indexer and links its instance to Prowlarr's Indexers page", () => {
+  it("names the indexer and links its instance to Prowlarr", () => {
     render(<ProwlarrIndexerCard indexers={[indexer()]} />)
 
     expect(screen.getByText("OK")).toBeInTheDocument()
     expect(screen.getByText(/Example Indexer/)).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "Home →" })).toHaveAttribute(
       "href",
-      "http://prowlarr.test:9696/indexers"
+      "http://prowlarr.test:9696"
     )
   })
 
