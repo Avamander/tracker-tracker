@@ -20,15 +20,16 @@ Tracker Tracker connects to qBittorrent's web interface to pull live torrent dat
 
 Go to **Settings → Download Clients** and fill in your connection details:
 
-| Field    | Notes                                                                                                                                      |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Name     | A label for this client                                                                                                                    |
-| Host     | Hostname or IP, do **not** include `http://` or `https://`                                                                                 |
-| Port     | Default qBittorrent Web UI port is `8080`                                                                                                  |
-| Username | qBittorrent Web UI username                                                                                                                |
-| Password | qBittorrent Web UI password                                                                                                                |
-| Use SSL  | Enable if your qBittorrent Web UI is served over HTTPS                                                                                     |
-| URL path | Optional. For a reverse proxy, or Qui's client proxy at `<base path>/proxy/<client API key>`. Stored encrypted and shown masked            |
+| Field      | Notes                                                                                                                           |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Name       | A label for this client                                                                                                         |
+| Host       | Hostname or IP, do **not** include `http://` or `https://`                                                                      |
+| Port       | Default qBittorrent Web UI port is `8080`                                                                                       |
+| Username   | qBittorrent Web UI username                                                                                                     |
+| Password   | qBittorrent Web UI password                                                                                                     |
+| Use SSL    | Enable if your qBittorrent Web UI is served over HTTPS                                                                          |
+| URL path   | Optional. For a reverse proxy, or Qui's client proxy at `<base path>/proxy/<client API key>`. Stored encrypted and shown masked |
+| Public URL | Optional. The address your browser opens the client's web UI on. When set, the client status in the sidebar links to it         |
 
 !!! warning "SSL/port mismatch"
     The form will warn you if SSL is on with port 80, or SSL is off with port 443. These combinations are usually misconfigured. You can still save, but double-check your settings.

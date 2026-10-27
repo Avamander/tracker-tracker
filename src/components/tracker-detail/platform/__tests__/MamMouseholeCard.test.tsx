@@ -62,7 +62,9 @@ describe("MamMouseholeCard", () => {
   it("shows a Check Now failure after data has loaded, keeping the last status", async () => {
     fetchMock
       .mockResolvedValueOnce(jsonResponse(STATUS_OK))
-      .mockResolvedValueOnce(jsonResponse({ error: "Mousehole unreachable" }, { ok: false, status: 502 }))
+      .mockResolvedValueOnce(
+        jsonResponse({ error: "Mousehole unreachable" }, { ok: false, status: 502 })
+      )
 
     render(<MamMouseholeCard trackerId={1} mouseholeUrl="http://mousehole-test:5010" />)
 
@@ -78,7 +80,9 @@ describe("MamMouseholeCard", () => {
     vi.useFakeTimers()
     fetchMock
       .mockResolvedValueOnce(jsonResponse(STATUS_OK))
-      .mockResolvedValueOnce(jsonResponse({ error: "Mousehole unreachable" }, { ok: false, status: 502 }))
+      .mockResolvedValueOnce(
+        jsonResponse({ error: "Mousehole unreachable" }, { ok: false, status: 502 })
+      )
       .mockResolvedValue(jsonResponse(STATUS_OK))
 
     render(<MamMouseholeCard trackerId={1} mouseholeUrl="http://mousehole-test:5010" />)
@@ -112,5 +116,21 @@ describe("MamMouseholeCard", () => {
     await screen.findByText("OK")
     const link = screen.getByRole("link", { name: /mousehole/i })
     expect(link).toHaveAttribute("href", "http://mousehole-test:5010")
+  })
+
+  it("links to the public URL when one is set", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(STATUS_OK))
+
+    render(
+      <MamMouseholeCard
+        trackerId={1}
+        mouseholeUrl="http://mousehole-test:5010"
+        mouseholePublicUrl="https://mousehole.example.com/"
+      />
+    )
+
+    await screen.findByText("OK")
+    const link = screen.getByRole("link", { name: /mousehole/i })
+    expect(link).toHaveAttribute("href", "https://mousehole.example.com")
   })
 })

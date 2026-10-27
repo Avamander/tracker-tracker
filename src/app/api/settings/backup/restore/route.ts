@@ -423,6 +423,7 @@ export async function POST(request: Request) {
           .values({
             name: fields.name as string,
             url: fields.url as string,
+            publicUrl: (fields.publicUrl as string | null | undefined) ?? null,
             encryptedApiKey: apiKey,
             // Anything but a boolean true restores the instance disabled.
             enabled: !keyCleared && fields.enabled === true,
@@ -518,6 +519,7 @@ export async function POST(request: Request) {
             remoteUserId: (fields.remoteUserId as number | null) ?? null,
             platformMeta: (fields.platformMeta as string | null) ?? null,
             mouseholeUrl: (fields.mouseholeUrl as string | null) ?? null,
+            mouseholePublicUrl: (fields.mouseholePublicUrl as string | null | undefined) ?? null,
             encryptedMouseholeToken: mouseholeToken,
             avatarData: (fields.avatarData as string | null) ?? null,
             avatarMimeType: (fields.avatarMimeType as string | null) ?? null,
@@ -621,6 +623,7 @@ export async function POST(request: Request) {
             encryptedPassword: encPassword,
             encryptedApiKey: encApiKey,
             encryptedUrlPath: encUrlPath,
+            publicUrl: (fields.publicUrl as string | null | undefined) ?? null,
             pollIntervalSeconds: fields.pollIntervalSeconds as number,
             isDefault: fields.isDefault as boolean,
             crossSeedTags: Array.isArray(fields.crossSeedTags)
