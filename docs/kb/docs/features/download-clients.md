@@ -42,7 +42,7 @@ After saving, use the **Test Connection** button to confirm Tracker Tracker can 
 
 ## Linking Trackers to a Client
 
-Assign each tracker a **qBittorrent tag** that matches the label you use for that tracker's torrents. When polling, Tracker Tracker fetches only torrents with the matching tag for per-tracker stats. Open the tracker's settings and fill in the qBittorrent tag field.
+A torrent with a tracker's **qBittorrent tag** goes to that tracker. A torrent without one is matched by its announce domain, ignoring subdomains, against each tracker's site and any other domains Tracker Tracker knows it announces on. If a torrent's tag and announce domain point to different trackers, the tag wins. Tags are optional for torrent lists and fleet stats, but the per-tag speed and seeding charts and the movers in Today at a Glance count tagged torrents only. To set a tag, open the tracker's settings and fill in the qBittorrent tag field.
 
 ## How Polling Works
 
@@ -54,7 +54,7 @@ Tracker Tracker runs two polling loops:
 
 === "Full torrent data (every 5 minutes)"
 
-    Fetches the full torrent list per tag and aggregates stats: seeding count, leeching count, speeds. Cached as snapshots so the Torrents tab works even if qBittorrent is briefly offline.
+    Fetches the full torrent list and records per-tag seeding and leeching counts and speeds as snapshots. The tracked torrents, tagged or matched by announce domain, are cached too, so the Torrents tab works even if qBittorrent is briefly offline.
 
 Both loops reuse the same session. qBittorrent only re-authenticates on 403 responses.
 
