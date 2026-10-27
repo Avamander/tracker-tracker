@@ -295,6 +295,16 @@ export function TrackerDetailClient({
         userClasses={registryEntry?.userClasses ?? []}
         currentRank={stats?.group ?? null}
         classLevel={registryEntry?.classLevel}
+        secondary={
+          registryEntry?.secondaryLadder
+            ? {
+                label: registryEntry.secondaryLadder.label,
+                userClasses: registryEntry.secondaryLadder.userClasses,
+                currentRank: registryEntry.secondaryLadder.currentClass(tracker.platformMeta),
+                classLevel: registryEntry.secondaryLadder.classLevel,
+              }
+            : undefined
+        }
         snapshots={allTimeSnapshots}
         accentColor={tc}
         joinedAt={tracker.joinedAt}

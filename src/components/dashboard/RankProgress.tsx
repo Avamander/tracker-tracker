@@ -53,6 +53,13 @@ interface RankProgressProps {
   currentRank: string | null
   /** Maps a class carrying a level onto its rank, from the registry entry */
   classLevel?: ClassLevelParser
+  /** A second ladder shown beside the rank, like C411's account level */
+  secondary?: {
+    label: string
+    userClasses: TrackerUserClass[]
+    currentRank: string | null
+    classLevel?: ClassLevelParser
+  }
   snapshots: Snapshot[]
   accentColor: string
   joinedAt?: string | null
@@ -238,6 +245,7 @@ function RankProgress({
   userClasses,
   currentRank,
   classLevel,
+  secondary,
   snapshots,
   accentColor,
   joinedAt,
@@ -280,6 +288,20 @@ function RankProgress({
               classLevel={classLevel}
               accentColor={accentColor}
             />
+          )}
+
+          {secondary?.currentRank && secondary.userClasses.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <span className="text-xs font-sans font-medium text-secondary uppercase tracking-wider">
+                {secondary.label}
+              </span>
+              <RankProgressBar
+                userClasses={secondary.userClasses}
+                currentRank={secondary.currentRank}
+                classLevel={secondary.classLevel}
+                accentColor={accentColor}
+              />
+            </div>
           )}
 
           <RankTimeline events={events} accentColor={accentColor} />

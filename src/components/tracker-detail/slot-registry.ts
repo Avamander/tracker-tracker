@@ -17,6 +17,7 @@
 //   dc badge: dc-download-ban, dc-upload-ban, dc-hnr-warned, dc-parked,
 //             dc-unconnectable, dc-seedbox-donor, dc-invites, dc-hearts
 //   c411 badge: c411-download-disabled
+//   c411 progress: c411-level-progress, c411-grade-progress
 //   hawke badge: hawke-download-disabled
 //   v3x stat-card: v3x-freeleech
 //   v3x progress: v3x-level-progress
@@ -50,6 +51,8 @@ import type { GgnBuffsDisplayProps } from "./platform/GgnBuffsDisplay"
 import { GgnBuffsDisplay } from "./platform/GgnBuffsDisplay"
 import type { GgnShareScoreProgressProps } from "./platform/GgnShareScoreProgress"
 import { GgnShareScoreProgress } from "./platform/GgnShareScoreProgress"
+import type { LevelProgressProps } from "./platform/LevelProgress"
+import { LevelProgress } from "./platform/LevelProgress"
 import type { MamHealthOverviewProps } from "./platform/MamHealthOverview"
 import { MamHealthOverview } from "./platform/MamHealthOverview"
 import type { V3xLevelProgressProps } from "./platform/V3xLevelProgress"
@@ -1060,6 +1063,47 @@ const dcHeartsBadgeSlot: SlotDefinition<SlotBadgeProps> = {
   },
 }
 
+// The account level, which is C411's rank, with C411's own XP figures.
+const c411LevelProgressSlot: SlotDefinition<LevelProgressProps> = {
+  id: "c411-level-progress",
+  category: "progress",
+  component: LevelProgress as ComponentType<LevelProgressProps>,
+  priority: 10,
+  resolve(ctx) {
+    const meta = metaFor(ctx, "c411")
+    if (meta?.level === undefined) return null
+    if (meta.xpIntoLevel === undefined || meta.xpToNextLevel === undefined) return null
+    return {
+      current: `Level ${meta.level}`,
+      next: `Level ${meta.level + 1}`,
+      into: meta.xpIntoLevel,
+      need: meta.xpIntoLevel + meta.xpToNextLevel,
+      unit: "XP",
+      accentColor: ctx.accentColor,
+    }
+  },
+}
+
+// The class-tree grade, a progression of its own beside the level.
+const c411GradeProgressSlot: SlotDefinition<LevelProgressProps> = {
+  id: "c411-grade-progress",
+  category: "progress",
+  component: LevelProgress as ComponentType<LevelProgressProps>,
+  priority: 11,
+  resolve(ctx) {
+    const meta = metaFor(ctx, "c411")
+    if (!meta?.grade || meta.questsCompleted === undefined || !meta.questsTotal) return null
+    return {
+      current: meta.grade,
+      next: null,
+      into: meta.questsCompleted,
+      need: meta.questsTotal,
+      unit: "quests",
+      accentColor: ctx.accentColor,
+    }
+  },
+}
+
 const c411DownloadDisabledBadgeSlot: SlotDefinition<SlotBadgeProps> = {
   id: "c411-download-disabled",
   category: "badge",
@@ -1200,6 +1244,8 @@ export const SLOT_DEFINITIONS: AnySlotDefinition[] = [
   dcHeartsBadgeSlot,
   // C411 slots (badge)
   c411DownloadDisabledBadgeSlot,
+  c411LevelProgressSlot,
+  c411GradeProgressSlot,
   // HAWKE-UNO slots (badge)
   hawkeDownloadDisabledBadgeSlot,
   // V3X slots
