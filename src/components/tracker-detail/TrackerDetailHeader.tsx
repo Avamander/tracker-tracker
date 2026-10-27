@@ -6,6 +6,7 @@ import { H1 } from "@typography"
 import clsx from "clsx"
 import Image from "next/image"
 import { TrackerHubStatus } from "@/components/TrackerHubStatus"
+import { ProwlarrIndexerCard } from "@/components/tracker-detail/ProwlarrIndexerCard"
 import { MamMouseholeCard } from "@/components/tracker-detail/platform/MamMouseholeCard"
 import { SlotRenderer } from "@/components/tracker-detail/SlotRenderer"
 import { UserProfileCard } from "@/components/tracker-detail/UserProfileCard"
@@ -68,6 +69,7 @@ export function TrackerDetailHeader({
   settingsSaves,
 }: TrackerDetailHeaderProps) {
   const health = getTrackerHealth(tracker)
+  const prowlarrIndexers = tracker.prowlarr?.indexers ?? []
 
   return (
     <div className="flex flex-col gap-5">
@@ -172,7 +174,8 @@ export function TrackerDetailHeader({
       </div>
 
       {(registryEntry?.trackerHubSlug ||
-        (tracker.platformType === "mam" && tracker.mouseholeUrl)) && (
+        (tracker.platformType === "mam" && tracker.mouseholeUrl) ||
+        prowlarrIndexers.length > 0) && (
         <div className="flex flex-col gap-3 my-4">
           {registryEntry?.trackerHubSlug && (
             <TrackerHubStatus
@@ -188,6 +191,7 @@ export function TrackerDetailHeader({
               mouseholeUrl={tracker.mouseholeUrl}
             />
           )}
+          {prowlarrIndexers.length > 0 && <ProwlarrIndexerCard indexers={prowlarrIndexers} />}
         </div>
       )}
 

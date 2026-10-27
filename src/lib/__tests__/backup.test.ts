@@ -24,6 +24,8 @@ vi.mock("@/lib/db/schema", () => ({
   trackerSnapshots: {},
   trackerRoles: {},
   downloadClients: {},
+  prowlarrIndexers: {},
+  prowlarrInstances: {},
   tagGroups: {},
   tagGroupMembers: {},
   clientSnapshots: {},
@@ -254,6 +256,27 @@ describe("validateBackupJson", () => {
       },
     ]
     expect(() => validateBackupJson(p)).toThrow("downloadClients[0].port")
+  })
+
+  // The Prowlarr routes refuse these, so a restore must not store them either.
+  it.each([
+    "http://user:secret@prowlarr.test:9696",
+    "http://prowlarr.test:9696/?apikey=secret",
+    "http://prowlarr.test:9696/?",
+    "http://prowlarr.test:9696/#",
+    "ftp://prowlarr.test",
+  ])("rejects a Prowlarr instance with the URL %s", (url) => {
+    const p = validPayload() as unknown as Record<string, unknown>
+    p.prowlarrInstances = [{ id: 1, name: "Home", url, encryptedApiKey: null }]
+    expect(() => validateBackupJson(p)).toThrow("prowlarrInstances[0].url")
+  })
+
+  it("accepts a Prowlarr instance on a private host", () => {
+    const p = validPayload() as unknown as Record<string, unknown>
+    p.prowlarrInstances = [
+      { id: 1, name: "Home", url: "http://192.168.1.10:9696", encryptedApiKey: null },
+    ]
+    expect(() => validateBackupJson(p)).not.toThrow()
   })
 
   it("rejects tagGroupMember without groupId", () => {

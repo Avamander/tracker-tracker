@@ -17,6 +17,7 @@ import {
   formatRatio,
   formatRatioDisplay,
   formatSignedChange,
+  formatSpanInWords,
 } from "@/lib/formatters"
 import type { Snapshot } from "@/types/api"
 
@@ -367,5 +368,25 @@ describe("formatSignedChange", () => {
     expect(formatSignedChange(-1234, 0, formatCount).text).toBe("-1,234")
     expect(formatSignedChange(-0.04, 1, (v) => formatPercent(v)).text).toBe("0.0%")
     expect(formatSignedChange(12.34, 1, (v) => formatPercent(v)).text).toBe("+12.3%")
+  })
+})
+
+const SPAN_MINUTE = 60_000
+const SPAN_HOUR = 60 * SPAN_MINUTE
+const SPAN_DAY = 24 * SPAN_HOUR
+
+describe("formatSpanInWords", () => {
+  it.each([
+    [30_000, "less than a minute"],
+    [SPAN_MINUTE, "1 minute"],
+    [45 * SPAN_MINUTE, "45 minutes"],
+    [SPAN_HOUR, "1 hour"],
+    [3 * SPAN_HOUR + 59 * SPAN_MINUTE, "3 hours"],
+    [SPAN_DAY, "1 day"],
+    [2 * SPAN_DAY + 5 * SPAN_HOUR, "2 days, 5 hours"],
+    [SPAN_DAY + SPAN_HOUR, "1 day, 1 hour"],
+    [-3 * SPAN_HOUR, "3 hours"],
+  ])("formats %d ms as %s", (ms, text) => {
+    expect(formatSpanInWords(ms)).toBe(text)
   })
 })

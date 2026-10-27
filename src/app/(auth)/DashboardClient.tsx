@@ -16,6 +16,7 @@ import { EcosystemStatsSection } from "@/components/dashboard/EcosystemStatsSect
 import { FleetDashboard } from "@/components/dashboard/FleetDashboard"
 import { LoginTimers } from "@/components/dashboard/LoginTimers"
 import { PollAllButton } from "@/components/dashboard/PollAllButton"
+import { ProwlarrFailures } from "@/components/dashboard/ProwlarrFailures"
 import { RankStacks } from "@/components/dashboard/RankStacks"
 import { TagGroupsSection } from "@/components/dashboard/TagGroupsSection"
 import { TodayAtAGlance } from "@/components/dashboard/TodayAtAGlance"
@@ -223,6 +224,9 @@ export function DashboardClient({
           onDismissAll={data.dismissAllAlerts}
         />
       )}
+
+      {/* Failing Prowlarr indexers. Renders nothing while none is failing */}
+      <ProwlarrFailures trackers={data.trackers} />
 
       {/* Login Timers */}
       {dashSettings.settings.showLoginTimers && (

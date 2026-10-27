@@ -92,6 +92,7 @@ Last audited: `2026-03-17`
 | TOTP secret            | `app_settings.totp_secret`              | AES-256-GCM                                                     | TOTP enrollment secret; compromised = account takeover                                               |
 | Proxy password         | `app_settings.encrypted_proxy_password` | AES-256-GCM                                                     | Proxy service credential                                                                             |
 | qBT credentials        | `download_clients.encrypted_*`          | AES-256-GCM                                                     | Download client authentication                                                                       |
+| Prowlarr API keys      | `prowlarr_instances.encrypted_api_key`  | AES-256-GCM                                                     | Full access to Prowlarr; NULL or ciphertext; leaves the server only as an X-Api-Key header           |
 | Backup files           | Filesystem (optional)                   | AES-256-GCM (optional)                                          | Contains all data including encrypted fields as ciphertext                                           |
 
 **Disk seizure note:** If an adversary accesses the raw database files, all unencrypted fields above are readable. Deploy on an encrypted filesystem (LUKS, dm-crypt, or equivalent). See [Known Limitations](#known-limitations).
@@ -135,7 +136,7 @@ Public routes are explicitly limited to: `/login`, `/setup`, `/api/auth/*`, `/ap
 - `encryptedApiToken`, `encryptedCredentials` and `encryptedMouseholeToken` are never included in API responses. `serializeTrackerResponse()` in `src/lib/tracker-serializer.ts` uses an allowlist pattern, so they are structurally unreachable from the response object. The Mousehole token is reduced to `hasMouseholeToken` in SQL by `trackerColumns` in `src/lib/server-data.ts`.
 - All database queries use Drizzle ORM (parameterized queries, no SQL injection surface).
 - No unsafe HTML injection methods anywhere in the codebase.
-- **Emergency lockdown** (`POST /api/settings/lockdown`): Stops scheduler, revokes all API tokens, clears credential vaults and Mousehole API tokens, rotates encryption salt, wipes TOTP/username, and signs out every session, since none of them matches the new salt. Requires active session and three-checkbox UI acknowledgment.
+- **Emergency lockdown** (`POST /api/settings/lockdown`): Stops scheduler, revokes all API tokens, clears credential vaults, Mousehole API tokens and Prowlarr API keys (disabling each Prowlarr instance), rotates encryption salt, wipes TOTP/username, and signs out every session, since none of them matches the new salt. Requires active session and three-checkbox UI acknowledgment.
 - **Scrub & delete** (`POST /api/settings/nuke`): Overwrites sensitive columns with random bytes, then deletes all rows. Requires active session + master password. Disk reclamation handled by PostgreSQL autovacuum.
 - **Backup/restore**: Pure JSON format (no zip/tar). Restore validates all fields before database writes. File deletion uses `path.resolve()` + base directory prefix check. Restore requires master password re-confirmation. Encrypted fields travel as ciphertext. See [Backup Security](#backup-security).
 - External HTTP requests use `AbortSignal.timeout(15_000)`. See `src/lib/tracker-platforms/helpers/adapter-fetch.ts`.
@@ -220,7 +221,7 @@ The test-connection flow (`POST /api/trackers/test`) always returns the real use
 2. **API token in URL parameter**: UNIT3D (`?api_token=TOKEN`) and GGn (`?key=TOKEN`) pass tokens in the query string, which may appear in the tracker's server access logs. Gazelle trackers use `Authorization` headers (not logged by default). Upstream limitation.
 3. **No full CSP**: only `frame-ancestors 'none'` is set; a full Content Security Policy is not yet configured due to ECharts canvas rendering complexity. Basic headers (X-Frame-Options, X-Content-Type-Options) are in place.
 4. **Optional 2FA**: TOTP is available but not required. Backup codes use SHA-256 + random salt (not Argon2, since high-entropy generated codes don't need a memory-hard KDF).
-5. **DNS rebinding not mitigated at fetch time**: SSRF protection validates hostnames when a user-entered address is saved (download clients, proxy, Mousehole URL), not when outbound requests are made; tracker addresses come from the registry. See [Unmitigated Attack Vectors](#6-dns-rebinding) for details.
+5. **DNS rebinding not mitigated at fetch time**: SSRF protection validates hostnames when a user-entered address is saved (download clients, proxy, Mousehole URL, Prowlarr), not when outbound requests are made; tracker addresses come from the registry. See [Unmitigated Attack Vectors](#6-dns-rebinding) for details.
 6. **Scheduler key persisted in DB**: The encryption key is wrapped with an HKDF-derived key from `SESSION_SECRET` and stored in `appSettings` to enable 24/7 polling. An attacker with both database access and `SESSION_SECRET` could unwrap the key and decrypt all API tokens. For Docker Compose deployments, `SESSION_SECRET` is in the same trust boundary as DB credentials. Deploy on an encrypted filesystem for defense against disk seizure. Rotating `SESSION_SECRET` invalidates the stored key, and polling resumes after the next login.
 7. **Client IP in auth logs**: Failed and successful login attempts include the client IP (from `CF-Connecting-IP` or the rightmost `X-Forwarded-For` entry) in server log lines. IPs are never stored in the database. To suppress, configure your reverse proxy to strip these headers before forwarding to the app, or set `LOG_LEVEL=error` to disable info/warn log events entirely.
 
@@ -268,7 +269,7 @@ These vectors are not fully mitigated at the application layer. Apply the recomm
 
 **Risk:** SSRF protection in `src/lib/network.ts` validates hostnames at configuration time, not at request time. An attacker with DNS control could register a domain that resolves to a public IP during validation, then change it to a private IP before the next poll cycle.
 
-**Countermeasure:** Low risk: a single user, tracker addresses come from the registry, and the manually entered addresses are the download client, proxy and Mousehole ones. Deploy on an isolated network segment where the container cannot reach internal services. A future enhancement could add DNS resolution validation at fetch time.
+**Countermeasure:** Low risk: a single user, tracker addresses come from the registry, and the manually entered addresses are the download client, proxy, Mousehole and Prowlarr ones. Private and loopback hosts are allowed for download clients and Prowlarr, since that is where they run. Deploy on an isolated network segment where the container cannot reach internal services. A future enhancement could add DNS resolution validation at fetch time.
 
 ---
 
@@ -278,7 +279,7 @@ The backup/restore system (`src/lib/backup.ts`, `src/app/api/settings/backup/`) 
 
 #### Data Handling
 
-- **Encrypted fields travel as ciphertext**: `encryptedApiToken`, `encryptedCredentials`, `encryptedMouseholeToken`, `totpSecret`, `encryptedProxyPassword`, `encryptedUsername`, `encryptedPassword`, `encryptedUrlPath` are never decrypted during backup generation.
+- **Encrypted fields travel as ciphertext**: `encryptedApiToken`, `encryptedCredentials`, `encryptedMouseholeToken`, `totpSecret`, `encryptedProxyPassword`, `encryptedUsername`, `encryptedPassword`, `encryptedUrlPath`, `prowlarrInstances[].encryptedApiKey` are never decrypted during backup generation.
 - **Password hash excluded**: `app_settings.password_hash` is never included in backup files. The restoring user's current password is preserved.
 - **Encryption salt included**: required to re-derive the encryption key from the master password after restore.
 - **Failed login counter reset**: `failedLoginAttempts` is always set to 0 on restore, regardless of the backup's value.

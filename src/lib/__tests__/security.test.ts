@@ -116,6 +116,8 @@ vi.mock("@/lib/db/schema", () => ({
   trackerSnapshots: {},
   trackerRoles: {},
   downloadClients: {},
+  prowlarrIndexers: {},
+  prowlarrInstances: {},
   tagGroups: {},
   tagGroupMembers: {},
   clientSnapshots: {},
@@ -217,6 +219,10 @@ vi.mock("@/lib/download-clients", () => ({
 vi.mock("@/lib/privacy-db", () => ({
   createPrivacyMask: vi.fn(async () => (v: string | null | undefined) => v ?? null),
   createPrivacyMaskSync: vi.fn().mockReturnValue((v: string | null | undefined) => v ?? null),
+}))
+
+vi.mock("@/lib/prowlarr/sync", () => ({
+  loadTrackerProwlarrStates: vi.fn().mockResolvedValue(new Map()),
 }))
 
 // The create route takes the address, platform and API path from the registry
