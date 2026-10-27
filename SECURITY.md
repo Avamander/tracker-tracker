@@ -93,6 +93,7 @@ Last audited: `2026-03-17`
 | Proxy password         | `app_settings.encrypted_proxy_password` | AES-256-GCM                                                     | Proxy service credential                                                                             |
 | qBT credentials        | `download_clients.encrypted_*`          | AES-256-GCM                                                     | Download client authentication                                                                       |
 | Prowlarr API keys      | `prowlarr_instances.encrypted_api_key`  | AES-256-GCM                                                     | Full access to Prowlarr; NULL or ciphertext; leaves the server only as an X-Api-Key header           |
+| Notification config    | `notification_targets.encrypted_config` | AES-256-GCM                                                     | Webhook URLs and service tokens for alerts                                                           |
 | Backup files           | Filesystem (optional)                   | AES-256-GCM (optional)                                          | Contains all data including encrypted fields as ciphertext                                           |
 
 **Disk seizure note:** If an adversary accesses the raw database files, all unencrypted fields above are readable. Deploy on an encrypted filesystem (LUKS, dm-crypt, or equivalent). See [Known Limitations](#known-limitations).
@@ -279,7 +280,7 @@ The backup/restore system (`src/lib/backup.ts`, `src/app/api/settings/backup/`) 
 
 #### Data Handling
 
-- **Encrypted fields travel as ciphertext**: `encryptedApiToken`, `encryptedCredentials`, `encryptedMouseholeToken`, `totpSecret`, `encryptedProxyPassword`, `encryptedUsername`, `encryptedPassword`, `encryptedUrlPath`, `prowlarrInstances[].encryptedApiKey` are never decrypted during backup generation.
+- **Encrypted fields travel as ciphertext**: `encryptedApiToken`, `encryptedCredentials`, `encryptedMouseholeToken`, `totpSecret`, `encryptedProxyPassword`, `encryptedUsername`, `encryptedPassword`, `encryptedUrlPath`, `downloadClients[].encryptedApiKey`, `prowlarrInstances[].encryptedApiKey`, `encryptedConfig` are never decrypted during backup generation.
 - **Password hash excluded**: `app_settings.password_hash` is never included in backup files. The restoring user's current password is preserved.
 - **Encryption salt included**: required to re-derive the encryption key from the master password after restore.
 - **Failed login counter reset**: `failedLoginAttempts` is always set to 0 on restore, regardless of the backup's value.
@@ -485,7 +486,7 @@ npx tsx scripts/security-audit.ts     # Static security audit (38 checks)
 - [ ] API tokens stored via `encrypt()` from `src/lib/crypto.ts`, never plaintext in the database
 - [ ] `encryptedApiToken` excluded from ALL API response objects (grep for `// SECURITY` comments)
 - [ ] `passwordHash` never included in API responses or backup exports
-- [ ] Encrypted credentials (`encryptedUsername`, `encryptedPassword`, `encryptedProxyPassword`, `encryptedUrlPath`) excluded from responses
+- [ ] Encrypted credentials (`encryptedUsername`, `encryptedPassword`, `encryptedProxyPassword`, `encryptedUrlPath`, `encryptedApiKey`, `encryptedConfig`) excluded from responses
 - [ ] Password change route re-encrypts all secrets with the new derived key
 - [ ] `SESSION_SECRET` is at least 32 characters (checked at startup)
 - [ ] No secrets in `console.log`, `console.error`, or logger calls, hostnames only and never full URLs with tokens

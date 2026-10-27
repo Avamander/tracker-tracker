@@ -21,7 +21,7 @@
 //   checkClientEnvLeak, checkAdapterCookieInjection, checkAdapterCredentialLogging,
 //   runAudit
 //
-// The recognizers behind checks 12, 17, 29, 37 and 38 live in scripts/security-audit-lib.ts,
+// The recognizers behind checks 6, 12, 17, 29, 37 and 38 live in scripts/security-audit-lib.ts,
 // which has no CLI entry so a test can import them.
 //
 // Usage: npx tsx scripts/security-audit.ts [--changed-only file1 file2 ...]
@@ -41,6 +41,7 @@ import {
   gatesAuthResult,
   hasInjectionGuard,
   logsCredential,
+  stripEncryptAssignment,
   swallowsError,
 } from "./security-audit-lib"
 
@@ -119,6 +120,8 @@ const SENSITIVE_FIELDS = [
   "encryptedCredentials",
   "encryptedMouseholeToken",
   "encryptedUrlPath",
+  "encryptedApiKey",
+  "encryptedConfig",
 ]
 
 // Dangerous JS patterns that indicate code injection risk
@@ -591,12 +594,15 @@ function checkSensitiveFieldExposure(): CheckResult {
         // Skip: destructuring exclusion on this line
         if (destructureExclude.test(line)) continue
 
+        // Skip: an assignment that serializes a value to encrypt it for storage
+        const responseText = stripEncryptAssignment(line)
+
         // Flag: field near JSON response without destructuring exclusion
         if (
           !hasExclusion &&
-          (line.includes("NextResponse.json") ||
-            line.includes("JSON.stringify") ||
-            line.includes("json("))
+          (responseText.includes("NextResponse.json") ||
+            responseText.includes("JSON.stringify") ||
+            responseText.includes("json("))
         ) {
           findings.push({
             file: rel,
@@ -1452,6 +1458,8 @@ const ENCRYPTED_COLUMNS = [
   "encryptedCredentials",
   "encryptedMouseholeToken",
   "encryptedUrlPath",
+  "encryptedApiKey",
+  "encryptedConfig",
 ]
 
 function checkEncryptedColumnWrites(): CheckResult {
@@ -1729,33 +1737,53 @@ function checkLockdownFlowIntegrity(): CheckResult {
 
   const content = fs.readFileSync(lockdownPath, "utf8")
   const rel = relativePath(lockdownPath)
+  // A commented-out clear is not a clear, in a // line or a /* */ block
+  const code = content
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .split("\n")
+    .filter((line) => {
+      const trimmed = line.trim()
+      return !trimmed.startsWith("//") && !trimmed.startsWith("*")
+    })
+    .join("\n")
 
-  if (!/\bauthenticate\s*\(/.test(content)) {
+  if (!/\bauthenticate\s*\(/.test(code)) {
     findings.push({ file: rel, detail: "Lockdown must require active session via authenticate()" })
   }
-  if (!/\bstopScheduler\b/.test(content)) {
+  if (!/\bstopScheduler\b/.test(code)) {
     findings.push({
       file: rel,
       detail: "Lockdown must stop the scheduler (key zeroing + poll termination)",
     })
   }
-  if (!/encryptedApiToken/.test(content)) {
+  if (!/encryptedApiToken/.test(code)) {
     findings.push({ file: rel, detail: "Lockdown must revoke all tracker API tokens" })
   }
-  if (!/\bgenerateSalt\b/.test(content) && !/encryptionSalt/.test(content)) {
+  if (!/\bgenerateSalt\b/.test(code) && !/encryptionSalt/.test(code)) {
     findings.push({
       file: rel,
       detail: "Lockdown must rotate encryption salt (orphan existing ciphertext)",
     })
   }
-  if (!/totpSecret\s*:\s*null/.test(content)) {
+  if (!/totpSecret\s*:\s*null/.test(code)) {
     findings.push({ file: rel, detail: "Lockdown must clear TOTP secret" })
   }
-  if (!/encryptedCredentials\s*:\s*null/.test(content)) {
+  if (!/encryptedCredentials\s*:\s*null/.test(code)) {
     findings.push({ file: rel, detail: "Lockdown must clear the tracker credential vaults" })
   }
-  if (!/encryptedMouseholeToken\s*:\s*null/.test(content)) {
+  if (!/encryptedMouseholeToken\s*:\s*null/.test(code)) {
     findings.push({ file: rel, detail: "Lockdown must clear the Mousehole API tokens" })
+  }
+  // Each table's set() is matched on its own: "" for download clients, NULL for Prowlarr
+  const clientKeyCleared =
+    /\.update\(\s*downloadClients\s*\)\s*\.set\(\s*\{[^}]*\bencryptedApiKey\s*:\s*""/
+  const prowlarrKeyCleared =
+    /\.update\(\s*prowlarrInstances\s*\)\s*\.set\(\s*\{[^}]*\bencryptedApiKey\s*:\s*null\b/
+  if (!clientKeyCleared.test(code)) {
+    findings.push({ file: rel, detail: "Lockdown must clear the download client API keys" })
+  }
+  if (!prowlarrKeyCleared.test(code)) {
+    findings.push({ file: rel, detail: "Lockdown must clear the Prowlarr API keys" })
   }
 
   return {

@@ -5,7 +5,7 @@
 // its CLI entry and still runs every check on load.
 //
 // Functions: fetchWindowEnd, catchBodyLines, swallowsError, hasInjectionGuard, logsCredential,
-//            gatesAuthResult
+//            gatesAuthResult, stripEncryptAssignment
 
 export const FETCH_RE = /\bfetch\s*\(/
 
@@ -158,4 +158,15 @@ export function gatesAuthResult(routePath: string, handlerBody: string): boolean
     return VALID_STATUS_GATE_RE.test(code)
   }
   return INSTANCEOF_GATE_RE.test(code) || NULL_GATE_RE.test(code)
+}
+
+// `const x = encrypt(JSON.stringify(...))` and `updates.x = encrypt(JSON.stringify(...))`
+// serialize a value for storage, so check 6 reads the line without that prefix. A property
+// line such as `x: encrypt(JSON.stringify(...))` keeps it, since it can sit inside a
+// multi-line NextResponse.json.
+const ENCRYPT_ASSIGNMENT_RE =
+  /^\s*(?:(?:const|let)\s+\w+|updates\.\w+)\s*=\s*encrypt\(\s*JSON\.stringify\(/
+
+export function stripEncryptAssignment(line: string): string {
+  return line.replace(ENCRYPT_ASSIGNMENT_RE, "")
 }
