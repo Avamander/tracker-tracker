@@ -175,6 +175,7 @@ describe("RankStacks", () => {
     expect(litCount(v)).toBe(2)
     // Level 14 starts at 23 920 XP, Second rôle runs from 11 088 to 100 128 XP.
     expect(rungs(v)[1].dataset.fill).toBe("14")
+    expect(rungs(v)[1].style.background).toContain("linear-gradient(to top")
     expect(rungs(v)[0].dataset.fill).toBeUndefined()
     expect(within(v).getByText("Second rôle N14")).toBeInTheDocument()
   })
