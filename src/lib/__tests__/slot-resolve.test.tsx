@@ -1366,18 +1366,21 @@ describe("V3X context", () => {
     }
   }
 
-  it("shows the freeleech download, bonus upload and invites", () => {
-    const ctx = v3xCtx({ freeleechDownloadedBytes: 0, bonusUploadedBytes: 2 ** 30, invites: 2 })
-    expect(slotIds(ctx, "stat-card")).toEqual(
-      expect.arrayContaining(["v3x-freeleech", "v3x-bonus-upload"])
-    )
+  it("shows the freeleech download and invites", () => {
+    const ctx = v3xCtx({ freeleechDownloadedBytes: 0, invites: 2 })
+    expect(slotIds(ctx, "stat-card")).toContain("v3x-freeleech")
     expect(slotIds(ctx, "badge")).toContain("v3x-invites")
   })
 
-  it("hides the bonus upload and invites at zero, and every slot without the figures", () => {
-    const zero = v3xCtx({ bonusUploadedBytes: 0, invites: 0 })
-    expect(slotIds(zero, "stat-card")).not.toContain("v3x-bonus-upload")
-    expect(slotIds(zero, "badge")).not.toContain("v3x-invites")
+  it("hides the invites at zero, and the freeleech card without the figure", () => {
+    expect(slotIds(v3xCtx({ invites: 0 }), "badge")).not.toContain("v3x-invites")
     expect(slotIds(v3xCtx({}), "stat-card")).not.toContain("v3x-freeleech")
+  })
+
+  it("shows a global freeleech that is running", () => {
+    const endsAt = new Date(Date.now() + 5 * 3_600_000).toISOString()
+    const running = v3xCtx({ globalFreeleech: true, globalFreeleechEndsAt: endsAt })
+    expect(slotIds(running, "badge")).toContain("global-freeleech")
+    expect(slotIds(v3xCtx({ globalFreeleech: false }), "badge")).not.toContain("global-freeleech")
   })
 })

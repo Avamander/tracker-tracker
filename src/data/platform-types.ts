@@ -50,7 +50,7 @@ export const DEFAULT_API_PATHS: Record<string, string> = {
   luminance: "/user.php",
   rutracker: "/forum/index.php",
   funfile: "/userdetails.php",
-  v3x: "/auth/me",
+  v3x: "/api/me",
 }
 
 /**
