@@ -11,6 +11,7 @@
 
 import { describe, expect, it } from "vitest"
 import { buildCoreStatDescriptors } from "@/components/tracker-detail/CoreStatCards"
+import type { TrendDirection } from "@/components/ui/StatCard"
 import type { Snapshot, TrackerLatestStats } from "@/types/api"
 
 const baseStats: TrackerLatestStats = {
@@ -59,7 +60,7 @@ function ratioDescriptor(stats: TrackerLatestStats | null) {
 }
 
 describe("buildCoreStatDescriptors ratio (infinite ratio)", () => {
-  it("renders '∞' with unit 'x' and an 'up' trend for a zero-download account", () => {
+  it("renders '∞' with unit 'x' for a zero-download account", () => {
     const stats: TrackerLatestStats = {
       ...baseStats,
       ratioIsInfinite: true,
@@ -70,7 +71,6 @@ describe("buildCoreStatDescriptors ratio (infinite ratio)", () => {
     const descriptor = ratioDescriptor(stats)
     expect(descriptor.value).toBe("∞")
     expect(descriptor.unit).toBe("x")
-    expect(descriptor.trend).toBe("up")
   })
 
   it("does not flag an infinite ratio as below a required ratio", () => {
@@ -105,7 +105,27 @@ describe("buildCoreStatDescriptors ratio (infinite ratio)", () => {
     const descriptor = ratioDescriptor(stats)
     expect(descriptor.value).toBe("2.50")
     expect(descriptor.unit).toBe("x")
-    expect(descriptor.trend).toBe("up")
+  })
+})
+
+describe("ratio trend", () => {
+  const trendOf = (stats: TrackerLatestStats | null, trend?: TrendDirection) =>
+    buildCoreStatDescriptors(stats, null, undefined, trend).find((d) => d.key === "ratio")?.trend
+
+  it("shows the trend it is given, not a level from the ratio itself", () => {
+    const stats: TrackerLatestStats = { ...baseStats, ratio: 4.48 }
+    expect(trendOf(stats)).toBeUndefined()
+    expect(trendOf(stats, "flat")).toBe("flat")
+    expect(trendOf(stats, "down")).toBe("down")
+  })
+
+  it("shows an infinite ratio's trend", () => {
+    expect(trendOf({ ...baseStats, ratioIsInfinite: true }, "up")).toBe("up")
+  })
+
+  it("shows no trend beside an unknown ratio", () => {
+    expect(trendOf(baseStats, "up")).toBeUndefined()
+    expect(trendOf(null, "up")).toBeUndefined()
   })
 })
 

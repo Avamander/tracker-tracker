@@ -4,8 +4,10 @@
 // formatRatio, formatAccountAge, formatJoinedDate, formatStatValue,
 // formatDuration, formatTimeAgo, splitValueUnit,
 // localDateStr, formatSpeed,
-// formatRatioDisplay, formatCount, formatPercent, formatDateTime
+// formatRatioDisplay, formatCount, formatPercent, formatSignedChange,
+// formatDateTime
 
+import type { TrendDirection } from "@/components/ui/StatCard"
 import type { TrackerLatestStats } from "@/types/api"
 
 /**
@@ -262,6 +264,24 @@ export function formatPercent(
   if (Number(digits) === 0) return `${digits}%`
   const sign = value < 0 ? "-" : signed ? "+" : ""
   return `${sign}${digits}%`
+}
+
+const CHANGE_SIGN: Record<TrendDirection, string> = { up: "+", down: "-", flat: "" }
+
+/**
+ * Formats a change with its sign, taking the sign and direction from the value
+ * rounded to `decimals`, so a change that displays as zero reads "0.0" and not
+ * "+0.0" or "-0.0". `format` receives the unsigned magnitude and must round to
+ * the same `decimals`, or a zero can still print with a sign.
+ */
+export function formatSignedChange(
+  value: number,
+  decimals: number,
+  format: (magnitude: number) => string = (v) => v.toFixed(decimals)
+): { text: string; direction: TrendDirection } {
+  const magnitude = Number(Math.abs(value).toFixed(decimals))
+  const direction = magnitude === 0 ? "flat" : value > 0 ? "up" : "down"
+  return { text: CHANGE_SIGN[direction] + format(magnitude), direction }
 }
 
 /** Formats a Date, ISO string, or timestamp as a locale-pinned datetime string. */
