@@ -38,3 +38,23 @@ describe("RankTooltip rows", () => {
     expect(row("Power User")).not.toHaveAttribute("title")
   })
 })
+
+describe("RankTooltip with a level inside the rank", () => {
+  it("marks the rank the reported class sits in", async () => {
+    const user = userEvent.setup()
+    render(
+      <RankTooltip
+        currentRank="Power User 3"
+        userClasses={classes}
+        classLevel={(name) =>
+          name === "Power User 3" ? { rank: "Power User", level: 3, fraction: 0.5 } : null
+        }
+        accentColor="#00d4ff"
+      />
+    )
+    await user.hover(screen.getByText("Power User 3"))
+
+    const row = within(screen.getByRole("tooltip")).getByText("Power User").closest("div")
+    expect(row).toHaveTextContent("you")
+  })
+})
