@@ -35,6 +35,16 @@ export interface ClassLevel {
   fraction: number
 }
 
+/** A second progression shown beside the rank ladder, like C411's account level. */
+export interface SecondaryLadder {
+  /** What the ladder measures, like "Level" */
+  label: string
+  userClasses: TrackerUserClass[]
+  classLevel?: (className: string) => ClassLevel | null
+  /** The member's place on it, from the last poll's platform data */
+  currentClass: (platformMeta: unknown) => string | null
+}
+
 export interface TrackerUserClass {
   name: string
   requirements?: string
@@ -91,6 +101,8 @@ export interface TrackerRegistryEntry {
    * shown keeps the level. Null for a name it does not recognise.
    */
   classLevel?: (className: string) => ClassLevel | null
+  /** A second ladder shown beside the rank ladder */
+  secondaryLadder?: SecondaryLadder
   releaseGroups: (string | ReleaseGroup)[]
   notableMembers: string[]
   bannedGroups?: string[]
