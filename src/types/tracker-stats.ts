@@ -303,6 +303,14 @@ export interface RetrotoonPlatformMeta {
 export interface C411PlatformMeta {
   /** `download.allowed`: false while the tracker refuses downloads. */
   canDownload?: boolean
+  /** The account level, the rank, with the XP into it and still needed for the next */
+  level?: number
+  xpIntoLevel?: number
+  xpToNextLevel?: number
+  /** The class-tree grade, like "Silver II", and the quests behind it */
+  grade?: string
+  questsCompleted?: number
+  questsTotal?: number
 }
 
 /**
