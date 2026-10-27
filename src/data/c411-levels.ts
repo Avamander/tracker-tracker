@@ -48,8 +48,16 @@ export function c411LevelName(level: unknown): string | null {
   return `Level ${level}`
 }
 
-export const C411_LEVEL_CLASSES: TrackerUserClass[] = RUNGS.map(([level, labels]) => ({
-  name: `Level ${level}`,
+/** A rung's name: the range of levels it covers, like "Level 4–6" or "Level 25+". */
+function rungName(index: number): string {
+  const start = RUNGS[index][0]
+  const next = RUNGS[index + 1]?.[0]
+  if (next === undefined) return `Level ${start}+`
+  return next - 1 === start ? `Level ${start}` : `Level ${start}–${next - 1}`
+}
+
+export const C411_LEVEL_CLASSES: TrackerUserClass[] = RUNGS.map(([level, labels], i) => ({
+  name: rungName(i),
   ...(level === 1 ? { requirements: "Starting level" } : {}),
   ...(labels.length > 0
     ? { perks: labels.map((label): RankPerk => ({ type: "custom", label })) }
@@ -57,9 +65,9 @@ export const C411_LEVEL_CLASSES: TrackerUserClass[] = RUNGS.map(([level, labels]
 }))
 
 /**
- * Reads "Level 12" as part of the Level 10 rung, a fifth of the way to Level
- * 15 by level count, since C411 publishes no XP curve. The last rung has no
- * end, so it is full.
+ * Reads "Level 12" as part of the Level 10–14 rung, two fifths of the way to
+ * Level 15 by level count, since C411 publishes no XP curve. The last rung has
+ * no end, so it is full.
  */
 export function c411LevelStep(className: string): ClassLevel | null {
   const match = /^Level (\d+)$/i.exec(className.trim())
@@ -70,7 +78,7 @@ export function c411LevelStep(className: string): ClassLevel | null {
   const start = RUNGS[index][0]
   const next = RUNGS[index + 1]?.[0]
   return {
-    rank: `Level ${start}`,
+    rank: rungName(index),
     level,
     fraction: next === undefined ? 1 : (level - start) / (next - start),
   }
