@@ -25,6 +25,8 @@ const GLOW_ALPHA = 0.5
 interface StackEntry {
   tracker: TrackerSummary
   ladder: RankLadder
+  /** A second progression beside the rank, like C411's account level */
+  secondary?: { label: string; ladder: RankLadder }
 }
 
 interface RankStacksProps {
@@ -71,50 +73,73 @@ function RungList({ ladder, color }: { ladder: RankLadder; color: string }) {
   )
 }
 
-function RankStack({ tracker, ladder, onOpen }: StackEntry & { onOpen: () => void }) {
-  const { rungs, currentIndex, currentFraction, unknownClass, shownClass, summary } = ladder
+/** One ladder's rungs, lowest first in the DOM, lit up to the current one. */
+function Stack({ ladder, color, label }: { ladder: RankLadder; color: string; label: string }) {
+  const { rungs, currentIndex, currentFraction } = ladder
   const lit = currentIndex + 1
+  return (
+    <div className={STACK_CLASS} data-ladder={label}>
+      {rungs.map((rung, i) => {
+        const isCurrent = i === currentIndex
+        const isLit = i < lit
+        const fill = hexToRgba(color, isLit ? (isCurrent ? 1 : LIT_ALPHA) : GHOST_ALPHA)
+        // A class with a level inside its rank lights its rung from the bottom, only that far up.
+        const partial = isCurrent && currentFraction < 1
+        const percent = Math.round(Math.max(0, currentFraction) * 100)
+        return (
+          <span
+            key={rung.name}
+            data-rung={i}
+            data-lit={isLit ? "true" : "false"}
+            className={RUNG_CLASS}
+            data-fill={partial ? percent : undefined}
+            style={{
+              background: partial
+                ? `linear-gradient(to top, ${fill} ${percent}%, ${hexToRgba(color, GHOST_ALPHA)} ${percent}%)`
+                : fill,
+              boxShadow: isCurrent ? `${GLOW} ${hexToRgba(color, GLOW_ALPHA)}` : undefined,
+            }}
+          />
+        )
+      })}
+    </div>
+  )
+}
+
+function RankStack({ tracker, ladder, secondary, onOpen }: StackEntry & { onOpen: () => void }) {
+  const { unknownClass, shownClass, summary } = ladder
+  const spoken = secondary ? `${summary}; ${secondary.label} ${secondary.ladder.summary}` : summary
 
   return (
-    <Tooltip className="inline-flex" content={<RungList ladder={ladder} color={tracker.color} />}>
+    <Tooltip
+      className="inline-flex"
+      content={
+        <>
+          <RungList ladder={ladder} color={tracker.color} />
+          {secondary && (
+            <span className="block mt-2 pt-2 border-t border-border">
+              <span className="block mb-1 text-muted uppercase tracking-wider">
+                {secondary.label}
+              </span>
+              <RungList ladder={secondary.ladder} color={tracker.color} />
+            </span>
+          )}
+        </>
+      }
+    >
       <button
         type="button"
         onClick={onOpen}
         // aria-label replaces the button's content as its accessible name, so
         // the class has to be repeated here or a screen reader never hears it.
-        aria-label={`${tracker.name}: ${summary}`}
+        aria-label={`${tracker.name}: ${spoken}`}
         className="flex flex-col items-center gap-2 w-28 px-3 py-3 nm-interactive-sm rounded-nm-md cursor-pointer bg-transparent border-none"
       >
-        {/* DOM order is bottom-up, so the lowest class is the first child. */}
-        <div className={STACK_CLASS}>
-          {rungs.map((rung, i) => {
-            const isCurrent = i === currentIndex
-            const isLit = i < lit
-            const color = hexToRgba(
-              tracker.color,
-              isLit ? (isCurrent ? 1 : LIT_ALPHA) : GHOST_ALPHA
-            )
-            // A class with a level inside its rank lights its rung from the bottom, only that far up.
-            const partial = isCurrent && currentFraction < 1
-            const percent = Math.round(Math.max(0, currentFraction) * 100)
-            return (
-              <span
-                key={rung.name}
-                data-rung={i}
-                data-lit={isLit ? "true" : "false"}
-                className={RUNG_CLASS}
-                data-fill={partial ? percent : undefined}
-                style={{
-                  background: partial
-                    ? `linear-gradient(to top, ${color} ${percent}%, ${hexToRgba(tracker.color, GHOST_ALPHA)} ${percent}%)`
-                    : color,
-                  boxShadow: isCurrent
-                    ? `${GLOW} ${hexToRgba(tracker.color, GLOW_ALPHA)}`
-                    : undefined,
-                }}
-              />
-            )
-          })}
+        <div className="flex gap-2">
+          <Stack ladder={ladder} color={tracker.color} label="rank" />
+          {secondary && (
+            <Stack ladder={secondary.ladder} color={tracker.color} label={secondary.label} />
+          )}
         </div>
         <span className="font-sans text-xs font-semibold text-primary truncate w-full text-center">
           {tracker.name}
@@ -128,6 +153,11 @@ function RankStack({ tracker, ladder, onOpen }: StackEntry & { onOpen: () => voi
             unknownClass ? "text-warn" : "text-tertiary"
           )}
         />
+        {secondary?.ladder.shownClass && (
+          <span className="font-mono text-3xs truncate w-full text-center text-tertiary -mt-1.5">
+            {secondary.ladder.shownClass}
+          </span>
+        )}
       </button>
     </Tooltip>
   )
@@ -144,7 +174,23 @@ export function RankStacks({ trackers, expanded, onToggleExpanded }: RankStacksP
       tracker.latestStats?.group ?? tracker.overview?.group,
       entry?.classLevel
     )
-    return ladder ? [{ tracker, ladder }] : []
+    if (!ladder) return []
+    // Drawn only once a poll has reported a place on it.
+    const second = entry?.secondaryLadder
+    const secondClass = second?.currentClass(tracker.platformMeta) ?? null
+    const secondLadder =
+      second && secondClass
+        ? buildRankLadder(second.userClasses, secondClass, second.classLevel)
+        : null
+    return [
+      {
+        tracker,
+        ladder,
+        ...(second && secondLadder
+          ? { secondary: { label: second.label, ladder: secondLadder } }
+          : {}),
+      },
+    ]
   })
 
   if (entries.length === 0) return null
@@ -155,11 +201,12 @@ export function RankStacks({ trackers, expanded, onToggleExpanded }: RankStacksP
 
       {expanded && (
         <div className="flex flex-wrap gap-3">
-          {entries.map(({ tracker, ladder }) => (
+          {entries.map(({ tracker, ladder, secondary }) => (
             <RankStack
               key={tracker.id}
               tracker={tracker}
               ladder={ladder}
+              secondary={secondary}
               onOpen={() => router.push(`/trackers/${tracker.id}`)}
             />
           ))}

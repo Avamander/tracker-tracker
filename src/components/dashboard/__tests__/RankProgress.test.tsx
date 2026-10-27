@@ -198,3 +198,43 @@ describe("RankProgress with levels inside ranks", () => {
     expect(screen.queryByText("Figurant N1")).not.toBeInTheDocument()
   })
 })
+
+describe("RankProgress with a second ladder", () => {
+  it("shows the second ladder under its label, beside the rank", () => {
+    render(
+      <RankProgress
+        userClasses={uploadcx}
+        currentRank="Member"
+        secondary={{
+          label: "Level",
+          userClasses: [{ name: "Level 1" }, { name: "Level 10" }],
+          currentRank: "Level 10",
+        }}
+        snapshots={[]}
+        accentColor="#00d4ff"
+      />
+    )
+
+    expect(screen.getByText("Level")).toBeInTheDocument()
+    expect(screen.getByText("Level 10")).toBeInTheDocument()
+    expect(screen.getByText("Member")).toBeInTheDocument()
+  })
+
+  it("leaves the second ladder out without a reading", () => {
+    render(
+      <RankProgress
+        userClasses={uploadcx}
+        currentRank="Member"
+        secondary={{
+          label: "Level",
+          userClasses: [{ name: "Level 1" }, { name: "Level 10" }],
+          currentRank: null,
+        }}
+        snapshots={[]}
+        accentColor="#00d4ff"
+      />
+    )
+
+    expect(screen.queryByText("Level 10")).not.toBeInTheDocument()
+  })
+})

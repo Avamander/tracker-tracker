@@ -1,6 +1,9 @@
 // src/data/trackers/c411.ts
 
+import { C411_USER_CLASSES, c411ClassLevel } from "@/data/c411-grades"
+import { C411_LEVEL_CLASSES, c411LevelName, c411LevelStep } from "@/data/c411-levels"
 import type { TrackerRegistryEntry } from "@/data/tracker-registry"
+import type { C411PlatformMeta } from "@/types/tracker-stats"
 
 export const c411: TrackerRegistryEntry = {
   // ── Identity ────────────────────────────────────────────────────────
@@ -30,22 +33,17 @@ export const c411: TrackerRegistryEntry = {
   statusPageUrl: "",
 
   // ── Community ───────────────────────────────────────────────────────
-  // The rank is the progression-tree grade. The class (Tanker, Swarm Keeper
-  // and so on) is a yearly choice, not a rank, so it is not shown.
-  userClasses: [
-    { name: "Bronze I", requirements: "Starting grade of a class's tree" },
-    { name: "Bronze II" },
-    { name: "Bronze III", requirements: "20% of the tree" },
-    { name: "Bronze IV" },
-    { name: "Silver I" },
-    { name: "Silver II" },
-    { name: "Silver III", requirements: "60% of the tree" },
-    { name: "Silver IV" },
-    { name: "Gold I" },
-    { name: "Gold II" },
-    { name: "Gold III", requirements: "90% of the tree" },
-    { name: "Gold 411", requirements: "The whole tree" },
-  ],
+  // The rank is the class-tree grade; c411ClassLevel places each grade
+  // ("Bronze II") in its tier. The account level, which unlocks site features,
+  // is a second ladder beside it.
+  userClasses: C411_USER_CLASSES,
+  classLevel: c411ClassLevel,
+  secondaryLadder: {
+    label: "Level",
+    userClasses: C411_LEVEL_CLASSES,
+    classLevel: c411LevelStep,
+    currentClass: (meta) => c411LevelName((meta as C411PlatformMeta | null)?.level),
+  },
   releaseGroups: [],
   bannedGroups: [],
   notableMembers: [],

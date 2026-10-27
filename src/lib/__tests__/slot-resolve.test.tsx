@@ -1056,6 +1056,32 @@ describe("C411 context", () => {
     }
   })
 
+  it("shows the level's XP progress and the class-tree grade's quests", () => {
+    const progress =
+      resolveSlots(
+        c411Ctx({
+          level: 37,
+          xpIntoLevel: 310,
+          xpToNextLevel: 239,
+          grade: "Silver II",
+          questsCompleted: 23,
+          questsTotal: 40,
+        })
+      ).get("progress") ?? []
+    expect(progress.find((s) => s.id === "c411-level-progress")?.props).toMatchObject({
+      current: "Level 37",
+      next: "Level 38",
+      into: 310,
+      need: 549,
+    })
+    expect(progress.find((s) => s.id === "c411-grade-progress")?.props).toMatchObject({
+      current: "Silver II",
+      into: 23,
+      need: 40,
+    })
+    expect(slotIds(c411Ctx({}), "progress")).toEqual([])
+  })
+
   it("does not resolve it for another platform's canDownload", () => {
     const avistaz: SlotContext = {
       ...c411Ctx({ canDownload: false }),

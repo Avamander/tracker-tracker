@@ -1,6 +1,7 @@
 // src/lib/tracker-platforms/__tests__/c411.test.ts
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { c411 } from "@/data/trackers/c411"
+import type { C411PlatformMeta } from "@/types/tracker-stats"
 import { C411Adapter } from "../adapters/c411"
 
 // Invented fixture in the shape GET /api/user/profile returned live on
@@ -17,7 +18,12 @@ const LIVE_RESPONSE = {
     effectiveSlug: "team_resident_mainstream",
     foundation: "seed",
     treeBonusBp: 250,
-    progress: { questsCompleted: 23, questsTotal: 40, stars: 2, grade: { tier: "argent", level: 2 } },
+    progress: {
+      questsCompleted: 23,
+      questsTotal: 40,
+      stars: 2,
+      grade: { tier: "argent", level: 2 },
+    },
   },
   team: { name: "Example Team", slug: "example-team", tag: "EXT", role: "member" },
   zen: { balance: 1840, totalEarned: 12650, totalSpent: 10810 },
@@ -70,10 +76,33 @@ describe("C411Adapter", () => {
     expect(stats.remoteUserId).toBe(123456)
     expect(stats.joinedDate).toBe("2025-03-14T09:12:44.000Z")
     expect(stats.avatarUrl).toBe("https://c411.org/avatars/123456.webp")
-    expect(stats.platformMeta).toEqual({ canDownload: true })
+    expect(stats.platformMeta).toEqual({
+      canDownload: true,
+      level: 37,
+      xpIntoLevel: 310,
+      xpToNextLevel: 239,
+      grade: "Silver II",
+      questsCompleted: 23,
+      questsTotal: 40,
+    })
   })
 
-  it("names every grade as the wiki does, in the registry ladder's order", async () => {
+  it("keeps the account level and its XP for the level ladder", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(
+      okResponse({ ...LIVE_RESPONSE, level: { level: 12, xpIntoLevel: 5, xpToNextLevel: 95 } })
+    )
+    const stats = await adapter.fetchStats("https://c411.org", "fake-key", "/api/user/profile")
+    expect(stats.platformMeta).toMatchObject({ level: 12, xpIntoLevel: 5, xpToNextLevel: 95 })
+    expect(c411.secondaryLadder?.currentClass(stats.platformMeta)).toBe("Level 12")
+
+    for (const level of [null, {}, { level: 0 }]) {
+      vi.spyOn(global, "fetch").mockResolvedValueOnce(okResponse({ ...LIVE_RESPONSE, level }))
+      const none = await adapter.fetchStats("https://c411.org", "fake-key", "/api/user/profile")
+      expect(c411.secondaryLadder?.currentClass(none.platformMeta)).toBeNull()
+    }
+  })
+
+  it("names every grade as the wiki does, each one up the registry ladder", async () => {
     const names: (string | null)[] = []
     for (const tier of ["bronze", "argent", "or"]) {
       for (const level of [1, 2, 3, 4]) {
@@ -84,12 +113,18 @@ describe("C411Adapter", () => {
         names.push(stats.group)
       }
     }
-    expect(names).toEqual(c411.userClasses.map((c) => c.name))
+    // The registry maps each grade onto its tier, in ladder order.
+    expect(names.map((name) => c411.classLevel?.(name ?? "")?.level)).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+    ])
   })
 
   it("shows an unknown tier as sent, and no rank before a class is chosen", async () => {
     vi.spyOn(global, "fetch").mockResolvedValueOnce(
-      okResponse({ ...LIVE_RESPONSE, class: { progress: { grade: { tier: "platine", level: 2 } } } })
+      okResponse({
+        ...LIVE_RESPONSE,
+        class: { progress: { grade: { tier: "platine", level: 2 } } },
+      })
     )
     const unknown = await adapter.fetchStats("https://c411.org", "fake-key", "/api/user/profile")
     expect(unknown.group).toBe("platine II")
@@ -117,13 +152,13 @@ describe("C411Adapter", () => {
       })
     )
     const blocked = await adapter.fetchStats("https://c411.org", "fake-key", "/api/user/profile")
-    expect(blocked.platformMeta).toEqual({ canDownload: false })
+    expect(blocked.platformMeta).toMatchObject({ canDownload: false })
 
     const { download: _dropped, ...body } = LIVE_RESPONSE
     for (const unknownBody of [body, { ...LIVE_RESPONSE, download: { allowed: null } }]) {
       vi.spyOn(global, "fetch").mockResolvedValueOnce(okResponse(unknownBody))
       const unknown = await adapter.fetchStats("https://c411.org", "fake-key", "/api/user/profile")
-      expect(unknown.platformMeta).toEqual({})
+      expect((unknown.platformMeta as C411PlatformMeta).canDownload).toBeUndefined()
     }
   })
 
@@ -292,7 +327,9 @@ describe("C411Adapter - fetchRaw", () => {
 
       const calls = await adapter.fetchRaw("https://c411.org", "key", "/api/user/profile")
 
-      expect(calls[0].error).toBe(`Unexpected response from c411.org: missing transfer.${side}.total`)
+      expect(calls[0].error).toBe(
+        `Unexpected response from c411.org: missing transfer.${side}.total`
+      )
       // The offending body stays in data for the debug view.
       expect(calls[0].data).toEqual(body)
     }

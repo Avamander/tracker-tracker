@@ -1,6 +1,6 @@
 // src/lib/tracker-platforms/adapters/c411.ts
 //
-// Functions: c411Grade, readProfile, absoluteAvatarUrl, fetchProfile, C411Adapter
+// Functions: c411Grade, readProfile, count, absoluteAvatarUrl, fetchProfile, C411Adapter
 
 import { computeBufferBytes, computeRatio } from "@/lib/data-transforms"
 import { validateHeaderToken } from "@/lib/tracker-credentials/header-token"
@@ -25,14 +25,22 @@ interface C411Profile {
   username?: string
   avatarUrl?: string | null
   memberSince?: string
-  class?: { progress?: { grade?: { tier?: string; level?: number } } } | null
+  level?: { level?: number; xpIntoLevel?: number; xpToNextLevel?: number } | null
+  class?: {
+    progress?: {
+      questsCompleted?: number
+      questsTotal?: number
+      grade?: { tier?: string; level?: number }
+    }
+  } | null
   zen?: { balance?: number } | null
   transfer?: { uploaded?: { total?: number }; downloaded?: { total?: number } }
   download?: { allowed?: boolean }
 }
 
-// The grade is C411's rank: four levels in each of bronze, silver (argent) and
-// gold (or), named as its wiki names them. The last one is Gold 411, not Gold IV.
+// The class-tree grade, set by quests completed: four steps in each of bronze,
+// silver (argent) and gold (or), named as its wiki names them. The last one is
+// Gold 411, not Gold IV.
 const TIER_NAMES: Record<string, string> = { bronze: "Bronze", argent: "Silver", or: "Gold" }
 const LEVEL_NUMERALS = ["I", "II", "III", "IV"]
 
@@ -70,6 +78,11 @@ function readProfile(
 }
 
 const PROFILE_PATH = "/api/user/profile"
+
+/** A whole count, or undefined so JSON.stringify drops it. */
+function count(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : undefined
+}
 
 /** The API sends a site-relative path; an unparseable one shows no avatar. */
 function absoluteAvatarUrl(path: unknown, baseUrl: string): string | undefined {
@@ -120,10 +133,11 @@ export class C411Adapter implements TrackerAdapter {
     const data = await fetchProfile(baseUrl, trimmedToken, options)
 
     const { uploadedBytes, downloadedBytes } = readProfile(data, hostname)
+    const progress = data.class?.progress
 
     return {
       username: data.username ?? "",
-      group: c411Grade(data.class?.progress?.grade),
+      group: c411Grade(progress?.grade),
       uploadedBytes,
       downloadedBytes,
       ratio: computeRatio(uploadedBytes, downloadedBytes),
@@ -143,6 +157,12 @@ export class C411Adapter implements TrackerAdapter {
       platformMeta: {
         canDownload:
           typeof data.download?.allowed === "boolean" ? data.download.allowed : undefined,
+        level: count(data.level?.level),
+        xpIntoLevel: count(data.level?.xpIntoLevel),
+        xpToNextLevel: count(data.level?.xpToNextLevel),
+        grade: c411Grade(progress?.grade) ?? undefined,
+        questsCompleted: count(progress?.questsCompleted),
+        questsTotal: count(progress?.questsTotal),
       } satisfies C411PlatformMeta,
     }
   }

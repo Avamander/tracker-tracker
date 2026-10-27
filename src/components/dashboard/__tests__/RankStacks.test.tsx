@@ -35,6 +35,17 @@ vi.mock("@/data/tracker-registry", async () => {
   const levels = await vi.importActual<typeof import("@/data/v3x-levels")>("@/data/v3x-levels")
   return {
     registryEntryFor: ({ registrySlug }: { registrySlug: string | null }) => {
+      if (registrySlug === "levels") {
+        return {
+          userClasses: LADDERS.gamma,
+          secondaryLadder: {
+            label: "Level",
+            userClasses: [{ name: "Level 1" }, { name: "Level 10" }],
+            currentClass: (meta: { level?: number } | null) =>
+              meta?.level ? `Level ${meta.level >= 10 ? 10 : 1}` : null,
+          },
+        } as unknown as TrackerRegistryEntry
+      }
       if (registrySlug === "v3x") {
         return {
           userClasses: levels.v3xUserClasses(),
@@ -178,6 +189,27 @@ describe("RankStacks", () => {
     expect(rungs(v)[1].style.background).toContain("linear-gradient(to top")
     expect(rungs(v)[0].dataset.fill).toBeUndefined()
     expect(within(v).getByText("Second rôle N14")).toBeInTheDocument()
+  })
+
+  // C411 shows its account level as a second ladder beside the rank.
+  it("draws a second ladder beside the rank, with its own class under the rank's", () => {
+    renderStacks([
+      makeTracker(10, "Zeta", "levels", "Elite", {
+        platformMeta: { level: 12 } as unknown as TrackerSummary["platformMeta"],
+      }),
+    ])
+    const z = stackFor("Zeta")
+
+    const stacks = z.querySelectorAll("[data-ladder]")
+    expect(Array.from(stacks).map((s) => s.getAttribute("data-ladder"))).toEqual(["rank", "Level"])
+    expect(within(z).getByText("Elite")).toBeInTheDocument()
+    expect(within(z).getByText("Level 10")).toBeInTheDocument()
+    expect(z).toHaveAccessibleName(/Zeta: Elite, rank 2 of 2; Level Level 10, rank 2 of 2/)
+  })
+
+  it("draws only the rank stack when the second ladder has no reading", () => {
+    renderStacks([makeTracker(11, "Eta", "levels", "Elite")])
+    expect(stackFor("Eta").querySelectorAll("[data-ladder]")).toHaveLength(1)
   })
 
   it("renders a class above the ladder as a full stack under its own name", () => {
