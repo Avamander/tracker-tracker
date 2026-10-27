@@ -94,7 +94,7 @@ function RankStack({ tracker, ladder, onOpen }: StackEntry & { onOpen: () => voi
               tracker.color,
               isLit ? (isCurrent ? 1 : LIT_ALPHA) : GHOST_ALPHA
             )
-            // A class with a level inside its rank lights its rung only that far.
+            // A class with a level inside its rank lights its rung from the bottom, only that far up.
             const partial = isCurrent && currentFraction < 1
             const percent = Math.round(Math.max(0, currentFraction) * 100)
             return (
@@ -106,7 +106,7 @@ function RankStack({ tracker, ladder, onOpen }: StackEntry & { onOpen: () => voi
                 data-fill={partial ? percent : undefined}
                 style={{
                   background: partial
-                    ? `linear-gradient(to right, ${color} ${percent}%, ${hexToRgba(tracker.color, GHOST_ALPHA)} ${percent}%)`
+                    ? `linear-gradient(to top, ${color} ${percent}%, ${hexToRgba(tracker.color, GHOST_ALPHA)} ${percent}%)`
                     : color,
                   boxShadow: isCurrent
                     ? `${GLOW} ${hexToRgba(tracker.color, GLOW_ALPHA)}`
