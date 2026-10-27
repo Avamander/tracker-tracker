@@ -33,8 +33,8 @@ describe("TrackerInfoTab ranks", () => {
 
     expect(screen.getByText("User Levels")).toBeInTheDocument()
     expect(screen.getByText("Comment on torrents")).toBeInTheDocument()
-    expect(rowOf("Level 10")).toHaveTextContent("← you")
-    expect(rowOf("Level 15")).not.toHaveTextContent("← you")
+    expect(rowOf("Level 10–14")).toHaveTextContent("← you")
+    expect(rowOf("Level 15–24")).not.toHaveTextContent("← you")
   })
 
   it("lists the levels without marking one before a poll reports the level", () => {
