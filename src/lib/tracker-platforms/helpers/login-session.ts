@@ -23,6 +23,8 @@ export interface LoginResponse {
   location: () => string
   setCookies: string[]
   text: () => Promise<string>
+  /** The body undecoded, for a site whose pages are not UTF-8 */
+  bytes: () => Promise<Uint8Array>
 }
 
 /**
@@ -58,6 +60,7 @@ export async function loginRequest(
       location: () => res.headers.location ?? "",
       setCookies: res.headers["set-cookie"] ?? [],
       text: () => res.text(),
+      bytes: () => res.buffer(),
     }
   }
 
@@ -79,6 +82,7 @@ export async function loginRequest(
     location: () => res.headers.get("location") ?? "",
     setCookies: res.headers.getSetCookie(),
     text: () => res.text(),
+    bytes: async () => new Uint8Array(await res.arrayBuffer()),
   }
 }
 

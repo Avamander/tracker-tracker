@@ -175,6 +175,9 @@ export const EVENTS_LIMIT_CAP = 1000
 // ─── Time ─────────────────────────────────────────────────────────────────────
 export const MS_PER_DAY = 24 * 60 * 60 * 1000
 export const ADAPTER_FETCH_TIMEOUT_MS = 15_000
+/** A captcha's answer as the user types it, and the largest image fetched for one. */
+export const CAPTCHA_ANSWER_MAX = 32
+export const CAPTCHA_IMAGE_MAX_BYTES = 100 * 1024
 
 /**
  * Upper bound on one scheduled poll cycle. Every adapter call is bounded by
