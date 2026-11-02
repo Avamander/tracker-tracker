@@ -251,6 +251,10 @@ export function sanitizeNetworkError(raw: string, fallback = "Connection failed"
   }
   // Ahead of the ban rule, which would read its "rate limited" as an IP ban.
   if (raw.startsWith(BTN_RATE_LIMITED_CAUSE)) return BTN_RATE_LIMITED_ERROR
+  // FunFile's refused login, a static string like the ones above.
+  if (/FunFile refused the username and password/i.test(raw)) {
+    return "FunFile refused the username and password"
+  }
   // RuTracker shows a captcha after repeated logins. The message is returned
   // unchanged because the tracker page shows the captcha form when it matches.
   if (/Enter the RuTracker captcha/i.test(raw)) {
