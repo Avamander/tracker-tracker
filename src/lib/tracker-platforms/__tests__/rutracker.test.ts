@@ -19,7 +19,10 @@ import { SessionExpiredError } from "../helpers/errors"
 const HOST = "rutracker.org"
 const BASE_URL = `https://${HOST}`
 const TOKEN = "0123456789abcdef0123456789abcdef"
-const CREDS = JSON.stringify({ username: "someone", password: "right-p@ss&<" })
+// Canaries, so a password that reaches a URL, message or debug view shows up in a search.
+const CANARY = "CANARYc8e2f4a6b1d3&p@ss<"
+const WRONG_CANARY = "CANARYwrong9d7b5e3f1a"
+const CREDS = JSON.stringify({ username: "someone", password: CANARY })
 
 const INDEX_HTML = `<!DOCTYPE html><html><head><title>RuTracker.org</title>
 <script>window.BB = { cur_domain: 'rutracker.org', form_token: '${TOKEN}', };</script></head><body>
@@ -263,14 +266,14 @@ function mockSolver(setup: SiteSetup = {}): SolverRequest[] {
         const answered = Object.entries(fields).some(
           ([name, value]) => name.startsWith("cap_code_") && value === setup.captchaAnswer
         )
-        if (answered && fields.login_password === "right-p@ss&<") {
+        if (answered && fields.login_password === CANARY) {
           loggedIn.add(session)
           landed.add(session)
           return solved(`${BASE_URL}/forum/privmsg.php?folder=inbox`, landing, 200, [
             { name: "bb_session", value: "issued", domain: ".rutracker.org" },
           ])
         }
-        if (outcome === "ok" && fields.login_password === "right-p@ss&<") {
+        if (outcome === "ok" && fields.login_password === CANARY) {
           loggedIn.add(session)
           landed.add(session)
           return solved(`${BASE_URL}/forum/privmsg.php?folder=inbox`, landing, 200, [
@@ -369,8 +372,8 @@ function described(sent: SolverRequest[]): string[] {
 describe("parseRutrackerCredentials", () => {
   it("reads the username and password, keeping the password as typed", () => {
     expect(
-      parseRutrackerCredentials(JSON.stringify({ username: " someone ", password: " pw " }))
-    ).toEqual({ username: "someone", password: " pw " })
+      parseRutrackerCredentials(JSON.stringify({ username: " someone ", password: ` ${CANARY} ` }))
+    ).toEqual({ username: "someone", password: ` ${CANARY} ` })
   })
 
   it("rejects a blob without a password", () => {
@@ -649,7 +652,7 @@ describe("RutrackerAdapter", () => {
 
   it("logs in through the browser, then reuses the session cookie on the next poll", async () => {
     const sent = mockSolver()
-    const creds = JSON.stringify({ username: "reuse", password: "right-p@ss&<" })
+    const creds = JSON.stringify({ username: "reuse", password: CANARY })
 
     const result = await poll(creds)
 
@@ -677,7 +680,7 @@ describe("RutrackerAdapter", () => {
     expect(loginForm.fields).toEqual({
       redirect: "privmsg.php?folder=inbox",
       login_username: "reuse",
-      login_password: "right-p@ss&<",
+      login_password: CANARY,
       login: "Вход",
     })
     expect(decodeURIComponent(sent[4].url ?? "")).toContain('accept-charset="windows-1251"')
@@ -738,7 +741,7 @@ describe("RutrackerAdapter", () => {
 
   it("stores a captcha from the login as pending instead of posting the password again", async () => {
     const sent = mockSolver({ login: "captcha", captchaAnswer: "x7k2" })
-    const creds = JSON.stringify({ username: "captcha", password: "right-p@ss&<" })
+    const creds = JSON.stringify({ username: "captcha", password: CANARY })
 
     const err = (await poll(creds).catch((e: unknown) => e)) as Error
 
@@ -778,7 +781,7 @@ describe("RutrackerAdapter", () => {
 
   it("takes a captcha the login page shows before posting anything", async () => {
     const sent = mockSolver({ captchaOnPage: true })
-    const creds = JSON.stringify({ username: "on-page", password: "right-p@ss&<" })
+    const creds = JSON.stringify({ username: "on-page", password: CANARY })
 
     await expect(poll(creds)).rejects.toThrow("Enter the RuTracker captcha")
 
@@ -788,7 +791,7 @@ describe("RutrackerAdapter", () => {
 
   it("closes a captcha's session when it expires unanswered", async () => {
     const sent = mockSolver({ captchaOnPage: true })
-    const creds = JSON.stringify({ username: "expires", password: "right-p@ss&<" })
+    const creds = JSON.stringify({ username: "expires", password: CANARY })
     await poll(creds).catch(() => null)
 
     const later = Date.now() + 10 * 60 * 1000 + 1
@@ -802,29 +805,33 @@ describe("RutrackerAdapter", () => {
     mockSolver()
     await expect(
       settle(
-        adapter().submitCaptcha(BASE_URL, JSON.stringify({ username: "none", password: "x" }), "a")
+        adapter().submitCaptcha(
+          BASE_URL,
+          JSON.stringify({ username: "none", password: CANARY }),
+          "a"
+        )
       )
     ).rejects.toThrow("No RuTracker captcha is pending")
   })
 
   it("reads a failed login as invalid credentials, without the password", async () => {
     mockSolver({ login: "refused" })
-    const err = (await poll(JSON.stringify({ username: "wrong", password: "secret-pw" })).catch(
+    const err = (await poll(JSON.stringify({ username: "wrong", password: WRONG_CANARY })).catch(
       (e: unknown) => e
     )) as Error
     expect(sanitizeNetworkError(err.message)).toBe("Invalid credentials")
-    expect(err.message).not.toContain("secret-pw")
+    expect(err.message).not.toContain(WRONG_CANARY)
   })
 
   it("closes the browser session even when the poll fails", async () => {
     const sent = mockSolver({ login: "refused" })
-    await poll(JSON.stringify({ username: "closes", password: "x" })).catch(() => null)
+    await poll(JSON.stringify({ username: "closes", password: CANARY })).catch(() => null)
     expect(sent.at(-1)?.cmd).toBe("sessions.destroy")
   })
 
   it("lists every request of a poll in the debug view, never the password", async () => {
     mockSolver({ profile: PROFILE_STATS_ON })
-    const creds = JSON.stringify({ username: "debug", password: "right-p@ss&<" })
+    const creds = JSON.stringify({ username: "debug", password: CANARY })
 
     const calls = await settle(adapter().fetchRaw(BASE_URL, creds, "/forum/index.php", OPTIONS))
 
@@ -836,7 +843,7 @@ describe("RutrackerAdapter", () => {
       ["Seeding List", null],
       ["Forum Index", null],
     ])
-    expect(JSON.stringify(calls)).not.toContain("right-p@ss")
+    expect(JSON.stringify(calls)).not.toContain(CANARY)
   })
 
   it("throws on a malformed credential instead of reporting a call", async () => {
